@@ -1,0 +1,32 @@
+# Curated legacy source files needed to develop and validate FP-PINN.
+# Paths are relative to /project/pi_roohie_umass_edu/fokkerplanckDeeponet.
+
+1Couette.py
+40extract.py
+58generalcavity.py
+65trainingCouette5Kn.py
+73CouetteTraining.py
+73TrainTest.py
+76Couette2Kn_pub_full.py
+77CavityUQL2.py
+77Couette2Kn_pub_fast.py
+78Couette2Kn_pub_safe.py
+79Couette2Kn_pub_progress.py
+80Couette2Kn_original_pdf.py
+81Couette_article_kn015_clean.py
+85Couette_parallel_worker_fixed.py
+129/1Couette.py
+129/2train.py
+129/DataGen129.py
+129/extractparameters.py
+129/train.py
+140trainFP.py
+141RunFP.py
+142TrainFP.py
+147CylFP.py
+147CylFP_ESML.py
+profile_77Cavity_runtime.py
+profile_77Cavity_runtime_v2.py
+rebuild_58generalcavity_from_77.py
+run_77Cavity_closure_coeff_error_wrapper_v4_timeavg.py
+run_77Cavity_conservation_stability_wrapper.py

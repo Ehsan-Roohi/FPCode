@@ -20,6 +20,16 @@ DEFAULT_MU0 = 2.0
 DEFAULT_SIGMA0 = 0.5
 
 
+def trapezoidal_integral(
+    values: np.ndarray, coordinates: np.ndarray, axis: int = -1
+) -> np.ndarray:
+    """NumPy 1.26/2.x compatible trapezoidal integration."""
+    implementation = getattr(np, "trapezoid", None)
+    if implementation is None:
+        implementation = np.trapz
+    return implementation(values, coordinates, axis=axis)
+
+
 def gaussian_pdf(v: np.ndarray, mean: float, variance: float) -> np.ndarray:
     """Return a normalized Gaussian density evaluated at ``v``."""
     v = np.asarray(v, dtype=np.float64)
@@ -68,4 +78,3 @@ def exact_second_moment(
     t = np.asarray(t, dtype=np.float64)
     initial_m2 = mu0**2 + sigma0**2
     return 1.0 + (initial_m2 - 1.0) * np.exp(-2.0 * t)
-

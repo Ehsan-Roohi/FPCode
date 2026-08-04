@@ -34,7 +34,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "1")
 import numpy as np
 import tensorflow as tf
 
-from reference import exact_density, exact_second_moment
+from reference import exact_density, exact_second_moment, trapezoidal_integral
 
 
 @dataclass(frozen=True)
@@ -283,8 +283,10 @@ def evaluate(solver: OUPINN, output_dir: pathlib.Path) -> dict[str, float]:
     exact = exact_density(tt, vv)
 
     relative_l2 = float(np.sqrt(np.sum((prediction - exact) ** 2) / np.sum(exact**2)))
-    mass = np.trapz(prediction, velocity, axis=1)
-    second = np.trapz(prediction * velocity[None, :] ** 2, velocity, axis=1)
+    mass = trapezoidal_integral(prediction, velocity, axis=1)
+    second = trapezoidal_integral(
+        prediction * velocity[None, :] ** 2, velocity, axis=1
+    )
     exact_second = exact_second_moment(times)
     metrics = {
         "relative_l2": relative_l2,

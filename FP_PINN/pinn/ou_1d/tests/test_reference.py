@@ -11,7 +11,12 @@ import numpy as np
 MODULE_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE_DIR))
 
-from reference import exact_density, exact_second_moment, initial_density
+from reference import (
+    exact_density,
+    exact_second_moment,
+    initial_density,
+    trapezoidal_integral,
+)
 
 
 class OrnsteinUhlenbeckReferenceTests(unittest.TestCase):
@@ -22,13 +27,13 @@ class OrnsteinUhlenbeckReferenceTests(unittest.TestCase):
     def test_mass_is_one(self) -> None:
         v = np.linspace(-9.0, 9.0, 40001)
         for t in (0.0, 0.1, 0.5, 1.0):
-            mass = np.trapz(exact_density(t, v), v)
+            mass = trapezoidal_integral(exact_density(t, v), v)
             self.assertAlmostEqual(float(mass), 1.0, places=9)
 
     def test_second_moment(self) -> None:
         v = np.linspace(-9.0, 9.0, 40001)
         for t in (0.0, 0.25, 0.75, 1.0):
-            numerical = np.trapz(v**2 * exact_density(t, v), v)
+            numerical = trapezoidal_integral(v**2 * exact_density(t, v), v)
             self.assertAlmostEqual(
                 float(numerical), float(exact_second_moment(t)), places=8
             )

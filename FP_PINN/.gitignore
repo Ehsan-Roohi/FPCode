@@ -1,0 +1,52 @@
+# Jupyter and Python
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+*.so
+
+# Environments and local settings
+.env
+.venv/
+venv/
+conda-env/
+*.local
+
+# Cluster logs
+slurm-*.out
+*.log
+*.err
+*.out
+
+# Large datasets and model artifacts
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.keras
+*.pt
+*.pth
+*.ckpt
+
+# Particle and flow-field outputs
+*.dat
+runs/
+results/
+output/
+outputs/
+checkpoints/
+training_data/
+particle_data/
+flow_fields/
+
+# Generated media and archives
+*.mp4
+*.avi
+*.zip
+*.tar
+*.tar.gz
+
+# OS/editor files
+.DS_Store
+Thumbs.db

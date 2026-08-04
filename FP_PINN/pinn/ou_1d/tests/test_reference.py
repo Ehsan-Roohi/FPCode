@@ -22,13 +22,13 @@ class OrnsteinUhlenbeckReferenceTests(unittest.TestCase):
     def test_mass_is_one(self) -> None:
         v = np.linspace(-9.0, 9.0, 40001)
         for t in (0.0, 0.1, 0.5, 1.0):
-            mass = np.trapezoid(exact_density(t, v), v)
+            mass = np.trapz(exact_density(t, v), v)
             self.assertAlmostEqual(float(mass), 1.0, places=9)
 
     def test_second_moment(self) -> None:
         v = np.linspace(-9.0, 9.0, 40001)
         for t in (0.0, 0.25, 0.75, 1.0):
-            numerical = np.trapezoid(v**2 * exact_density(t, v), v)
+            numerical = np.trapz(v**2 * exact_density(t, v), v)
             self.assertAlmostEqual(
                 float(numerical), float(exact_second_moment(t)), places=8
             )
@@ -53,4 +53,3 @@ class OrnsteinUhlenbeckReferenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

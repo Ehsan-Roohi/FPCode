@@ -14,10 +14,15 @@ set -euo pipefail
 module purge
 module load conda/latest
 
-# A mamba environment name or an absolute environment path can be supplied:
-#   FP_CONDA_ENV=/project/.../envs/fp-pinn sbatch .../run_quick.sbatch
+# Unity's installed Mamba does not support "mamba shell hook".
+# Source its profile script before activating, matching prior successful Unity jobs.
 FP_CONDA_ENV="${FP_CONDA_ENV:-dsmc-gpu}"
-eval "$(mamba shell hook --shell bash)"
+MAMBA_SH="$(mamba info --base)/etc/profile.d/mamba.sh"
+if [[ ! -f "$MAMBA_SH" ]]; then
+    echo "Cannot find Unity Mamba profile script: $MAMBA_SH" >&2
+    exit 2
+fi
+source "$MAMBA_SH"
 mamba activate "$FP_CONDA_ENV"
 
 echo "Activated environment: $CONDA_PREFIX"

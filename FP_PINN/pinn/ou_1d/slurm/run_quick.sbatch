@@ -13,12 +13,18 @@ set -euo pipefail
 
 module purge
 module load conda/latest
-source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# A conda environment name or an absolute environment path can be supplied:
+# A mamba environment name or an absolute environment path can be supplied:
 #   FP_CONDA_ENV=/project/.../envs/fp-pinn sbatch .../run_quick.sbatch
 FP_CONDA_ENV="${FP_CONDA_ENV:-dsmc-gpu}"
-conda activate "$FP_CONDA_ENV"
+eval "$(mamba shell hook --shell bash)"
+mamba activate "$FP_CONDA_ENV"
+
+echo "Activated environment: $CONDA_PREFIX"
+command -v python
+python --version
+nvidia-smi
+mamba list | grep -Ei 'tensorflow|cuda|cudnn|nvidia' || true
 
 REPO_ROOT="${FP_REPO_ROOT:-${SLURM_SUBMIT_DIR}}"
 WORK_DIR="$REPO_ROOT/FP_PINN/pinn/ou_1d"

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=fp-pinn-ou
-#SBATCH --partition=gpu-preempt
+#SBATCH --partition=gpu
 #SBATCH --time=02:00:00
 #SBATCH --gpus=1
 #SBATCH --constraint=2080ti
@@ -39,4 +39,3 @@ PY
 
 OUTPUT_DIR="outputs/quick-${SLURM_JOB_ID}"
 python -u train.py --quick --output-dir "$OUTPUT_DIR" "$@"
-

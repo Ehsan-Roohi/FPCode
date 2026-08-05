@@ -14,10 +14,11 @@ set -euo pipefail
 module purge
 module load conda/latest
 
-# Unity's installed Mamba does not support "mamba shell hook".
-# Source its profile script before activating, matching prior successful Unity jobs.
+# Unity's Mamba 1.5.9 does not support "mamba shell hook", and its
+# "mamba info --base" prints an extra version line. Use Conda's clean base path.
 FP_CONDA_ENV="${FP_CONDA_ENV:-dsmc-gpu}"
-MAMBA_SH="$(mamba info --base)/etc/profile.d/mamba.sh"
+FP_CONDA_BASE="$(conda info --base)"
+MAMBA_SH="$FP_CONDA_BASE/etc/profile.d/mamba.sh"
 if [[ ! -f "$MAMBA_SH" ]]; then
     echo "Cannot find Unity Mamba profile script: $MAMBA_SH" >&2
     exit 2

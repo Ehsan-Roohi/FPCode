@@ -90,7 +90,7 @@ if [[ ! -f "$TRAINER" ]]; then
 fi
 
 cd "$WORK_DIR"
-OUTPUT_DIR="outputs/stage1-${SLURM_JOB_ID}"
+OUTPUT_DIR="${FP_OUTPUT_DIR:-outputs/stage1-${SLURM_JOB_ID}}"
 
 python -u train_stage1.py \
     --output-dir "$OUTPUT_DIR" \

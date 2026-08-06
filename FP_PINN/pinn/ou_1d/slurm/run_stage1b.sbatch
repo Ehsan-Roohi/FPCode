@@ -5,7 +5,7 @@
 #SBATCH --gpus=1
 #SBATCH --constraint=2080ti
 #SBATCH --cpus-per-task=6
-#SBATCH --mem=24G
+#SBATCH --mem=32G
 #SBATCH --output=fp-pinn-stage1b-%j.out
 #SBATCH --error=fp-pinn-stage1b-%j.err
 

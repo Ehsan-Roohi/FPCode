@@ -388,9 +388,16 @@ def restore_stage1_parent_exact(
     restore_status.expect_partial()
 
     restored_epoch = int(parent_checkpoint.epoch.numpy())
-    if restored_epoch != parent_config.epochs:
+    if not 1 <= restored_epoch <= parent_config.epochs:
         raise RuntimeError(
-            f"Parent checkpoint epoch={restored_epoch}, expected {parent_config.epochs}"
+            f"Invalid parent checkpoint epoch={restored_epoch}; "
+            f"expected a value in [1, {parent_config.epochs}]"
+        )
+    if restored_epoch != parent_config.epochs:
+        print(
+            f"Auditing earlier Stage-1 checkpoint at epoch {restored_epoch} "
+            f"(configured final epoch: {parent_config.epochs})",
+            flush=True,
         )
 
     audit_dir = output_dir / "parent_restore_audit"

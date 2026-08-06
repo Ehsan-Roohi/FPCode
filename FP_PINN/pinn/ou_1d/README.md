@@ -169,3 +169,17 @@ FP_STAGE1B_RESUME=1 \
 FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
   sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch --resume
 ```
+
+
+If a refinement job stops after writing checkpoints, evaluate its latest
+checkpoint without performing another training epoch:
+
+```bash
+FP_STAGE1B_RESUME=1 \
+FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch --evaluate-only
+```
+
+RAR scoring is graph-compiled and runs every ten epochs by default, using
+12.5% adaptive points and 4,096 candidates. This bounds host-memory growth
+while retaining adaptive coverage. The Unity runner requests 32 GB host RAM.

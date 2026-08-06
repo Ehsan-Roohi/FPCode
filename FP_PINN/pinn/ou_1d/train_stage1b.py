@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import gc
+import hashlib
 import json
 import os
 import pathlib
@@ -307,6 +308,130 @@ class Stage1BPin(Stage1OUPINN):
         )
 
 
+def _model_probe(solver: Stage1OUPINN) -> np.ndarray:
+    """Return deterministic density values used to verify a weight transfer."""
+    times = np.linspace(0.0, solver.config.tmax, 9, dtype=np.float64)
+    velocity = np.linspace(-solver.config.vmax, solver.config.vmax, 129, dtype=np.float64)
+    tt, vv = np.meshgrid(times, velocity, indexing="ij")
+    values = solver.density(
+        tf.convert_to_tensor(tt.reshape(-1, 1), dtype=solver.dtype),
+        tf.convert_to_tensor(vv.reshape(-1, 1), dtype=solver.dtype),
+    )
+    return np.asarray(values.numpy(), dtype=np.float64).reshape(tt.shape)
+
+
+def restore_stage1_parent_exact(
+    init_path: str,
+    refinement_solver: Stage1BPin,
+    output_dir: pathlib.Path,
+) -> dict[str, object]:
+    """Restore Stage-1 through its original object graph and audit the result.
+
+    Restoring only a nested model object can silently leave unmatched variables
+    when TensorFlow/Keras checkpoint tracking changes.  Recreate the exact
+    Stage-1 solver/checkpoint graph, require all live objects to match, audit
+    that parent independently, and only then copy its network weights.
+    """
+    checkpoint_path = pathlib.Path(init_path).expanduser().resolve()
+    if not pathlib.Path(str(checkpoint_path) + ".index").is_file():
+        raise FileNotFoundError(f"Missing parent checkpoint: {checkpoint_path}.index")
+
+    config_path = checkpoint_path.parent.parent / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(
+            f"Missing Stage-1 config required for safe restore: {config_path}"
+        )
+    with config_path.open("r", encoding="utf-8") as handle:
+        parent_config = Config(**json.load(handle))
+
+    child_config = refinement_solver.config
+    architecture = ("width", "depth", "dtype", "vmax", "tmax")
+    mismatches = {
+        name: (getattr(parent_config, name), getattr(child_config, name))
+        for name in architecture
+        if getattr(parent_config, name) != getattr(child_config, name)
+    }
+    if mismatches:
+        raise ValueError(
+            "Stage-1/Stage-1B architecture mismatch: " + json.dumps(mismatches)
+        )
+
+    parent_solver = Stage1OUPINN(parent_config)
+    parent_checkpoint = tf.train.Checkpoint(
+        epoch=tf.Variable(0, dtype=tf.int64, trainable=False),
+        model=parent_solver.model,
+        optimizer=parent_solver.optimizer,
+    )
+    restore_status = parent_checkpoint.restore(str(checkpoint_path))
+    restore_status.assert_existing_objects_matched()
+    restore_status.expect_partial()
+
+    restored_epoch = int(parent_checkpoint.epoch.numpy())
+    if restored_epoch != parent_config.epochs:
+        raise RuntimeError(
+            f"Parent checkpoint epoch={restored_epoch}, expected {parent_config.epochs}"
+        )
+
+    audit_dir = output_dir / "parent_restore_audit"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    parent_metrics = evaluate(parent_solver, audit_dir)
+    integrity_limits = {
+        "relative_l2": 0.15,
+        "final_time_relative_l2": 0.05,
+        "max_mass_error": 0.02,
+        "max_first_moment": 0.01,
+        "max_second_moment_error": 0.01,
+        "initial_condition_linf": 2.0e-6,
+    }
+    integrity_checks = {
+        name: float(parent_metrics[name]) <= limit
+        for name, limit in integrity_limits.items()
+    }
+    if not all(integrity_checks.values()):
+        failed = {
+            name: {
+                "value": float(parent_metrics[name]),
+                "limit": integrity_limits[name],
+            }
+            for name, passed in integrity_checks.items()
+            if not passed
+        }
+        raise RuntimeError(
+            "Stage-1 checkpoint integrity gate failed before refinement: "
+            + json.dumps(failed, sort_keys=True)
+        )
+
+    parent_probe = _model_probe(parent_solver)
+    refinement_solver.model.set_weights(parent_solver.model.get_weights())
+    child_probe = _model_probe(refinement_solver)
+    transfer_linf = float(np.max(np.abs(parent_probe - child_probe)))
+    if transfer_linf > 1.0e-7:
+        raise RuntimeError(
+            f"Parent-to-refinement weight transfer failed: Linf={transfer_linf:.3e}"
+        )
+
+    fingerprint = hashlib.sha256(
+        np.asarray(parent_probe, dtype=np.float32).tobytes()
+    ).hexdigest()
+    audit: dict[str, object] = {
+        "checkpoint": str(checkpoint_path),
+        "config": str(config_path),
+        "restored_epoch": restored_epoch,
+        "checkpoint_objects_matched": True,
+        "density_fingerprint_sha256": fingerprint,
+        "parent_to_refinement_linf": transfer_linf,
+        "integrity_limits": integrity_limits,
+        "integrity_checks": integrity_checks,
+        "parent_metrics": parent_metrics,
+    }
+    with (output_dir / "parent_restore_audit.json").open(
+        "w", encoding="utf-8"
+    ) as handle:
+        json.dump(audit, handle, indent=2)
+    print("PARENT_RESTORE_AUDIT " + json.dumps(audit, sort_keys=True), flush=True)
+    return audit
+
+
 def main() -> None:
     args = parse_args()
     if not args.resume and not args.init_checkpoint:
@@ -339,24 +464,29 @@ def main() -> None:
         max_to_keep=3,
     )
 
+    parent_audit: dict[str, object] | None = None
     if args.resume:
         if manager.latest_checkpoint is None:
             raise FileNotFoundError(
                 f"No Stage-1B checkpoint exists in {output_dir / 'checkpoints'}"
             )
-        refinement_checkpoint.restore(manager.latest_checkpoint).expect_partial()
+        restore_status = refinement_checkpoint.restore(manager.latest_checkpoint)
+        restore_status.assert_existing_objects_matched()
+        restore_status.expect_partial()
         print(f"Resumed Stage-1B from {manager.latest_checkpoint}", flush=True)
     else:
-        init_path = str(pathlib.Path(args.init_checkpoint).expanduser().resolve())
-        if not pathlib.Path(init_path + ".index").is_file():
-            raise FileNotFoundError(f"Missing parent checkpoint: {init_path}.index")
-        parent = tf.train.Checkpoint(model=solver.model)
-        parent.restore(init_path).expect_partial()
-        print(f"Loaded Stage-1 parent weights from {init_path}", flush=True)
+        parent_audit = restore_stage1_parent_exact(
+            args.init_checkpoint, solver, output_dir
+        )
+        print(
+            f"Safely loaded Stage-1 parent weights from {args.init_checkpoint}",
+            flush=True,
+        )
 
     if args.evaluate_only:
         metrics = evaluate(solver, output_dir)
         metrics["parent_checkpoint"] = args.init_checkpoint
+        metrics["parent_restore_audit"] = parent_audit
         metrics["method"] = "causal_time_slabs+equilibrium_envelope+RAR"
         metrics["evaluated_checkpoint"] = (
             manager.latest_checkpoint if args.resume else args.init_checkpoint
@@ -436,6 +566,7 @@ def main() -> None:
     metrics = evaluate(solver, output_dir)
     metrics["training_seconds"] = float(time.perf_counter() - start)
     metrics["parent_checkpoint"] = args.init_checkpoint
+    metrics["parent_restore_audit"] = parent_audit
     metrics["method"] = "causal_time_slabs+equilibrium_envelope+RAR"
     with (output_dir / "metrics.json").open("w", encoding="utf-8") as handle:
         json.dump(metrics, handle, indent=2)

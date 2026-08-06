@@ -83,3 +83,41 @@ couple a differentiable `9 x 9` moment closure to the residual. That step needs
 the curated legacy Couette source to be present on GitHub so its exact moment
 ordering and coefficient conventions can be reused without guessing.
 
+
+
+## Stage-1 convergence gate
+
+The quick job is only an installation and sign-convention smoke test. A
+scientifically useful next step is the Stage-1 gate:
+
+- the analytic density is not used in the training loss;
+- the hard ansatz imposes positivity and the initial density exactly;
+- the loss combines the strong FP residual with a support-weighted
+  log-density residual;
+- mass conservation and the OU first- and second-moment ODEs are enforced;
+- an exponentially decaying learning rate and gradient clipping stabilize the
+  30,000-epoch optimization;
+- the exact solution is used only after training for independent validation.
+
+Submit it from the repository root:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1.sbatch
+```
+
+The default job uses one RTX 2080 Ti, 30,000 epochs, 8,192 interior points per
+epoch, 513 velocity quadrature points, and a (96\times5) tanh network. Results
+are written under `FP_PINN/pinn/ou_1d/outputs/stage1-JOBID/`.
+
+The terminal log prints either `STAGE1_GATE PASS` or `STAGE1_GATE FAIL`.
+Passing requires global and final-time relative L2 errors below 5%, maximum
+mass and first-moment errors below 1%, maximum second-moment error below 3%,
+an exact initial condition to (10^{-6}), and nonnegative density. The gate
+thresholds and every individual check are also stored in `metrics.json`.
+Failure is retained as a completed computational job so all diagnostics remain
+available; it means the method must be improved before moving to the cubic
+3-D operator.
+
+Useful files are `stage1_validation.png`, `metrics.json`,
+`metrics_by_time.csv`, `loss_history.csv`, `solution_grid.npz`, and the
+TensorFlow checkpoint.

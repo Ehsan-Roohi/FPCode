@@ -362,8 +362,29 @@ def restore_stage1_parent_exact(
         model=parent_solver.model,
         optimizer=parent_solver.optimizer,
     )
+    checkpoint_inventory = [
+        {"name": name, "shape": list(shape)}
+        for name, shape in tf.train.list_variables(str(checkpoint_path))
+    ]
     restore_status = parent_checkpoint.restore(str(checkpoint_path))
-    restore_status.assert_existing_objects_matched()
+    try:
+        restore_status.assert_existing_objects_matched()
+    except AssertionError as exc:
+        failure = {
+            "checkpoint": str(checkpoint_path),
+            "config": str(config_path),
+            "reason": "checkpoint_object_graph_mismatch",
+            "details": str(exc),
+            "checkpoint_inventory": checkpoint_inventory,
+        }
+        with (output_dir / "parent_restore_failure.json").open(
+            "w", encoding="utf-8"
+        ) as handle:
+            json.dump(failure, handle, indent=2)
+        raise RuntimeError(
+            "Stage-1 checkpoint object graph did not match; "
+            f"see {output_dir / 'parent_restore_failure.json'}"
+        ) from exc
     restore_status.expect_partial()
 
     restored_epoch = int(parent_checkpoint.epoch.numpy())
@@ -396,9 +417,21 @@ def restore_stage1_parent_exact(
             for name, passed in integrity_checks.items()
             if not passed
         }
+        failure = {
+            "checkpoint": str(checkpoint_path),
+            "config": str(config_path),
+            "reason": "restored_parent_failed_numerical_integrity_gate",
+            "failed_checks": failed,
+            "parent_metrics": parent_metrics,
+            "checkpoint_inventory": checkpoint_inventory,
+        }
+        with (output_dir / "parent_restore_failure.json").open(
+            "w", encoding="utf-8"
+        ) as handle:
+            json.dump(failure, handle, indent=2)
         raise RuntimeError(
-            "Stage-1 checkpoint integrity gate failed before refinement: "
-            + json.dumps(failed, sort_keys=True)
+            "Stage-1 checkpoint integrity gate failed before refinement; "
+            f"see {output_dir / 'parent_restore_failure.json'}"
         )
 
     parent_probe = _model_probe(parent_solver)

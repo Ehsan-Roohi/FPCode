@@ -121,3 +121,12 @@ available; it means the method must be improved before moving to the cubic
 Useful files are `stage1_validation.png`, `metrics.json`,
 `metrics_by_time.csv`, `loss_history.csv`, `solution_grid.npz`, and the
 TensorFlow checkpoint.
+
+
+The trainer saves a rolling checkpoint every 2,500 epochs. If a Slurm job is
+interrupted, resume into the same result directory instead of starting over:
+
+```bash
+FP_OUTPUT_DIR=outputs/stage1-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1.sbatch --resume
+```

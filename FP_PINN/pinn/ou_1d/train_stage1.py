@@ -38,6 +38,7 @@ class Config:
     lr_decay_steps: int
     lr_decay_rate: float
     gradient_clip_norm: float
+    checkpoint_every: int
     vmax: float
     tmax: float
     strong_weight: float
@@ -65,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-decay-steps", type=int, default=7500)
     parser.add_argument("--lr-decay-rate", type=float, default=0.3)
     parser.add_argument("--gradient-clip-norm", type=float, default=10.0)
+    parser.add_argument("--checkpoint-every", type=int, default=2500)
     parser.add_argument("--vmax", type=float, default=6.0)
     parser.add_argument("--tmax", type=float, default=1.0)
     parser.add_argument("--strong-weight", type=float, default=1.0)
@@ -77,6 +79,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--print-every", type=int, default=500)
     parser.add_argument("--dtype", choices=("float32", "float64"), default="float32")
     parser.add_argument("--output-dir", default="outputs/stage1-ou")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume from the latest checkpoint already in output-dir",
+    )
     return parser.parse_args()
 
 
@@ -93,6 +100,7 @@ def make_config(args: argparse.Namespace) -> Config:
         lr_decay_steps=args.lr_decay_steps,
         lr_decay_rate=args.lr_decay_rate,
         gradient_clip_norm=args.gradient_clip_norm,
+        checkpoint_every=args.checkpoint_every,
         vmax=args.vmax,
         tmax=args.tmax,
         strong_weight=args.strong_weight,
@@ -477,35 +485,39 @@ def main() -> None:
     print(json.dumps(asdict(config), indent=2), flush=True)
 
     solver = Stage1OUPINN(config)
-    history: list[tuple[float, ...]] = []
-    start = time.perf_counter()
-    for epoch in range(1, config.epochs + 1):
-        points = solver.sample_training_points()
-        losses = solver.train_step(*points)
-        values = tuple(float(value.numpy()) for value in losses)
-        learning_rate = current_learning_rate(solver.optimizer)
-        row = (float(epoch), *values, learning_rate)
-        history.append(row)
-
-        if not np.all(np.isfinite(values)):
-            raise FloatingPointError(f"Non-finite loss at epoch {epoch}: {values}")
-
-        if epoch == 1 or epoch % config.print_every == 0 or epoch == config.epochs:
-            elapsed = time.perf_counter() - start
-            total, strong, relative, boundary, mass, first, second, grad_norm = values
-            print(
-                f"epoch={epoch:6d} total={total:.3e} strong={strong:.3e} "
-                f"relative={relative:.3e} flux={boundary:.3e} mass={mass:.3e} "
-                f"m1ode={first:.3e} m2ode={second:.3e} grad={grad_norm:.3e} "
-                f"lr={learning_rate:.3e} elapsed={elapsed:.1f}s",
-                flush=True,
+    checkpoint = tf.train.Checkpoint(
+        epoch=tf.Variable(0, dtype=tf.int64, trainable=False),
+        model=solver.model,
+        optimizer=solver.optimizer,
+    )
+    checkpoint_manager = tf.train.CheckpointManager(
+        checkpoint,
+        str(output_dir / "checkpoints"),
+        max_to_keep=3,
+    )
+    if args.resume:
+        if checkpoint_manager.latest_checkpoint is None:
+            raise FileNotFoundError(
+                f"--resume requested but no checkpoint exists in {output_dir / 'checkpoints'}"
             )
+        checkpoint.restore(checkpoint_manager.latest_checkpoint).expect_partial()
+        print(f"Resumed from {checkpoint_manager.latest_checkpoint}", flush=True)
+    start_epoch = int(checkpoint.epoch.numpy()) + 1
+    if start_epoch > config.epochs:
+        print(
+            f"Checkpoint already reached epoch {int(checkpoint.epoch.numpy())}; "
+            f"requested epochs={config.epochs}.",
+            flush=True,
+        )
 
-    with (output_dir / "loss_history.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as handle:
-        writer = csv.writer(handle)
-        writer.writerow(
+    history_path = output_dir / "loss_history.csv"
+    append_history = args.resume and history_path.exists()
+    history_handle = history_path.open(
+        "a" if append_history else "w", newline="", encoding="utf-8"
+    )
+    history_writer = csv.writer(history_handle)
+    if not append_history:
+        history_writer.writerow(
             (
                 "epoch",
                 "total",
@@ -519,10 +531,47 @@ def main() -> None:
                 "learning_rate",
             )
         )
-        writer.writerows(history)
 
-    checkpoint = tf.train.Checkpoint(model=solver.model, optimizer=solver.optimizer)
-    checkpoint.write(str(output_dir / "checkpoint"))
+    start = time.perf_counter()
+    try:
+        for epoch in range(start_epoch, config.epochs + 1):
+            points = solver.sample_training_points()
+            losses = solver.train_step(*points)
+            values = tuple(float(value.numpy()) for value in losses)
+            learning_rate = current_learning_rate(solver.optimizer)
+            row = (float(epoch), *values, learning_rate)
+            history_writer.writerow(row)
+            checkpoint.epoch.assign(epoch)
+
+            if not np.all(np.isfinite(values)):
+                checkpoint_manager.save(checkpoint_number=epoch)
+                history_handle.flush()
+                raise FloatingPointError(f"Non-finite loss at epoch {epoch}: {values}")
+
+            if epoch % config.checkpoint_every == 0:
+                saved_path = checkpoint_manager.save(checkpoint_number=epoch)
+                history_handle.flush()
+                print(f"Checkpoint: {saved_path}", flush=True)
+
+            if (
+                epoch == start_epoch
+                or epoch % config.print_every == 0
+                or epoch == config.epochs
+            ):
+                elapsed = time.perf_counter() - start
+                total, strong, relative, boundary, mass, first, second, grad_norm = values
+                print(
+                    f"epoch={epoch:6d} total={total:.3e} strong={strong:.3e} "
+                    f"relative={relative:.3e} flux={boundary:.3e} mass={mass:.3e} "
+                    f"m1ode={first:.3e} m2ode={second:.3e} grad={grad_norm:.3e} "
+                    f"lr={learning_rate:.3e} elapsed={elapsed:.1f}s",
+                    flush=True,
+                )
+                history_handle.flush()
+    finally:
+        history_handle.close()
+
+    checkpoint_manager.save(checkpoint_number=int(checkpoint.epoch.numpy()))
     metrics = evaluate(solver, output_dir)
     metrics["training_seconds"] = float(time.perf_counter() - start)
     with (output_dir / "metrics.json").open("w", encoding="utf-8") as handle:

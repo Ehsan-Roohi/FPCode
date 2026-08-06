@@ -413,12 +413,26 @@ def restore_stage1_parent_exact(
     fingerprint = hashlib.sha256(
         np.asarray(parent_probe, dtype=np.float32).tobytes()
     ).hexdigest()
+
+    portable_weights = output_dir / "stage1_parent.weights.h5"
+    parent_solver.model.save_weights(portable_weights)
+    portable_solver = Stage1OUPINN(parent_config)
+    portable_solver.model.load_weights(portable_weights)
+    portable_probe = _model_probe(portable_solver)
+    portable_linf = float(np.max(np.abs(parent_probe - portable_probe)))
+    if portable_linf > 1.0e-7:
+        raise RuntimeError(
+            f"Portable Stage-1 weight round trip failed: Linf={portable_linf:.3e}"
+        )
+
     audit: dict[str, object] = {
         "checkpoint": str(checkpoint_path),
         "config": str(config_path),
         "restored_epoch": restored_epoch,
         "checkpoint_objects_matched": True,
         "density_fingerprint_sha256": fingerprint,
+        "portable_weights": str(portable_weights),
+        "portable_weights_roundtrip_linf": portable_linf,
         "parent_to_refinement_linf": transfer_linf,
         "integrity_limits": integrity_limits,
         "integrity_checks": integrity_checks,

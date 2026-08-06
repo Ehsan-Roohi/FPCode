@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import json
 import os
 import pathlib
@@ -30,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--init-checkpoint", default=None)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--epochs", type=int, default=20000)
     parser.add_argument("--n-interior", type=int, default=8192)
     parser.add_argument("--n-boundary", type=int, default=512)
@@ -48,8 +50,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mass-weight", type=float, default=30.0)
     parser.add_argument("--first-moment-weight", type=float, default=5.0)
     parser.add_argument("--second-moment-weight", type=float, default=5.0)
-    parser.add_argument("--rar-fraction", type=float, default=0.25)
-    parser.add_argument("--rar-candidates", type=int, default=8192)
+    parser.add_argument("--rar-fraction", type=float, default=0.125)
+    parser.add_argument("--rar-candidates", type=int, default=4096)
+    parser.add_argument("--rar-every", type=int, default=10)
     parser.add_argument("--focus-center", type=float, default=0.35)
     parser.add_argument("--focus-width", type=float, default=0.16)
     parser.add_argument("--equilibrium-floor", type=float, default=0.35)
@@ -95,6 +98,7 @@ class Stage1BPin(Stage1OUPINN):
         super().__init__(config)
         self.rar_fraction = args.rar_fraction
         self.rar_candidates = args.rar_candidates
+        self.rar_every = args.rar_every
         self.focus_center = args.focus_center
         self.focus_width = args.focus_width
         self.equilibrium_floor = args.equilibrium_floor
@@ -188,6 +192,7 @@ class Stage1BPin(Stage1OUPINN):
     def draw_points(self, count: int, horizon: float) -> tuple[tf.Tensor, tf.Tensor]:
         return self.sample_times(count, horizon), self.sample_velocities(count)
 
+    @tf.function(reduce_retracing=True)
     def refinement_score(self, t: tf.Tensor, v: tf.Tensor) -> tf.Tensor:
         strong, relative = self.residuals(t, v)
         prediction = tf.stop_gradient(self.density(t, v))
@@ -207,7 +212,8 @@ class Stage1BPin(Stage1OUPINN):
     ) -> tuple[tf.Tensor, ...]:
         cfg = self.config
         horizon = self.causal_horizon(refinement_epoch)
-        n_rar = int(round(cfg.n_interior * self.rar_fraction))
+        use_rar = refinement_epoch % self.rar_every == 0
+        n_rar = int(round(cfg.n_interior * self.rar_fraction)) if use_rar else 0
         n_rar = min(max(n_rar, 0), cfg.n_interior)
         n_base = cfg.n_interior - n_rar
 
@@ -307,6 +313,8 @@ def main() -> None:
         raise SystemExit("Provide --init-checkpoint, or use --resume")
     if not 0.0 <= args.rar_fraction < 1.0:
         raise SystemExit("--rar-fraction must be in [0,1)")
+    if args.rar_every < 1:
+        raise SystemExit("--rar-every must be at least 1")
 
     config = make_config(args)
     output_dir = pathlib.Path(config.output_dir).resolve()
@@ -345,6 +353,24 @@ def main() -> None:
         parent = tf.train.Checkpoint(model=solver.model)
         parent.restore(init_path).expect_partial()
         print(f"Loaded Stage-1 parent weights from {init_path}", flush=True)
+
+    if args.evaluate_only:
+        metrics = evaluate(solver, output_dir)
+        metrics["parent_checkpoint"] = args.init_checkpoint
+        metrics["method"] = "causal_time_slabs+equilibrium_envelope+RAR"
+        metrics["evaluated_checkpoint"] = (
+            manager.latest_checkpoint if args.resume else args.init_checkpoint
+        )
+        with (output_dir / "metrics.json").open("w", encoding="utf-8") as handle:
+            json.dump(metrics, handle, indent=2)
+        old_plot = output_dir / "stage1_validation.png"
+        if old_plot.exists():
+            old_plot.replace(output_dir / "stage1b_validation.png")
+        gate = "PASS" if metrics["gate_passed"] else "FAIL"
+        print("FINAL_METRICS " + json.dumps(metrics, sort_keys=True), flush=True)
+        print(f"STAGE1B_GATE {gate}", flush=True)
+        print(f"Artifacts: {output_dir}", flush=True)
+        return
 
     start_epoch = int(refinement_checkpoint.epoch.numpy()) + 1
     history_path = output_dir / "loss_history.csv"
@@ -389,6 +415,7 @@ def main() -> None:
             if epoch % config.checkpoint_every == 0:
                 saved = manager.save(checkpoint_number=epoch)
                 history_handle.flush()
+                gc.collect()
                 print(f"Checkpoint: {saved}", flush=True)
 
             if epoch == start_epoch or epoch % config.print_every == 0:

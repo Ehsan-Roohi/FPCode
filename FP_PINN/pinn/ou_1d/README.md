@@ -130,3 +130,42 @@ interrupted, resume into the same result directory instead of starting over:
 FP_OUTPUT_DIR=outputs/stage1-OLD_JOBID \
   sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1.sbatch --resume
 ```
+
+
+## Stage-1B causal/RAR refinement
+
+The first Stage-1 result (job 62639364) passed positivity, initial-condition,
+mass, first-moment, second-moment, and final-time accuracy gates, but its global
+relative L2 error was 10.17%. Time-resolved validation localized the maximum
+error (about 16%) to (t=0.275\)--(0.30): the learned density filled the
+central valley between the two initial peaks too slowly.
+
+Stage-1B keeps the analytic density out of the training loss and refines the
+Stage-1 checkpoint using:
+
+- causal time slabs with full-interval replay;
+- extra sampling in (0.15<t<0.60);
+- central, thermal, peak, and uniform velocity samples;
+- a unit-variance equilibrium Maxwellian as a support floor, preventing an
+  underpredicted central density from down-weighting its own PDE residual;
+- residual-adaptive refinement (RAR) for 25% of each interior batch;
+- a fresh Adam schedule, while restoring only the Stage-1 network weights.
+
+Submit from the repository root with the completed Stage-1 checkpoint:
+
+```bash
+FP_INIT_CHECKPOINT="$PWD/FP_PINN/pinn/ou_1d/outputs/stage1-62639364/checkpoints/ckpt-30000" \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch
+```
+
+Results are written to `outputs/stage1b-JOBID/` and the log prints
+`STAGE1B_GATE PASS` or `STAGE1B_GATE FAIL`. The default refinement has
+20,000 epochs and checkpoints every 2,000 epochs.
+
+Resume an interrupted refinement with:
+
+```bash
+FP_STAGE1B_RESUME=1 \
+FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch --resume
+```

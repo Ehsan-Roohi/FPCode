@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import json
 import os
 import pathlib
@@ -52,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--time-focus-amplitude", type=float, default=1.5)
     parser.add_argument("--equilibrium-floor", type=float, default=0.15)
     parser.add_argument("--correction-cap", type=float, default=16.0)
+    parser.add_argument("--relative-huber-delta", type=float, default=25.0)
     parser.add_argument("--seed", type=int, default=20260808)
     parser.add_argument("--print-every", type=int, default=500)
     parser.add_argument("--dtype", choices=("float32", "float64"), default="float32")
@@ -109,6 +111,7 @@ class Stage1CPINN(Stage1OUPINN):
         self.time_focus_amplitude = args.time_focus_amplitude
         self.equilibrium_floor = args.equilibrium_floor
         self.correction_cap = args.correction_cap
+        self.relative_huber_delta = args.relative_huber_delta
 
         schedule = tf.keras.optimizers.schedules.ExponentialDecay(
             config.learning_rate,
@@ -254,7 +257,7 @@ class Stage1CPINN(Stage1OUPINN):
                 tf.cast(self.equilibrium_floor, self.dtype) * equilibrium,
             )
             support_weight = tf.clip_by_value(
-                support / (tf.reduce_mean(support) + 1.0e-12), 0.10, 8.0
+                support / (tf.reduce_mean(support) + 1.0e-12), 0.01, 8.0
             )
             time_distance = (
                 t_interior - tf.cast(self.focus_center, self.dtype)
@@ -265,8 +268,15 @@ class Stage1CPINN(Stage1OUPINN):
 
             flux = self.boundary_flux(t_boundary, v_boundary)
             strong_loss = tf.reduce_mean(time_weight * tf.square(strong))
+            # A quadratic log-density residual lets a handful of vanishing-
+            # density tail points dominate the entire batch.  Pseudo-Huber is
+            # quadratic near zero and linear for extreme tail residuals.
+            delta = tf.cast(self.relative_huber_delta, self.dtype)
+            relative_penalty = 2.0 * tf.square(delta) * (
+                tf.sqrt(1.0 + tf.square(relative / delta)) - 1.0
+            )
             relative_loss = tf.reduce_mean(
-                time_weight * support_weight * tf.square(relative)
+                time_weight * support_weight * relative_penalty
             )
             boundary_loss = tf.reduce_mean(tf.square(flux))
             mass_loss, first_loss, second_loss = self.conservation_losses()
@@ -309,13 +319,13 @@ def model_probe(solver: Stage1CPINN) -> np.ndarray:
 
 def save_and_verify_weights(
     solver: Stage1CPINN,
-    args: argparse.Namespace,
+    verifier: Stage1CPINN,
     path: pathlib.Path,
 ) -> float:
+    """Save and reload with one persistent verifier to keep host RAM bounded."""
     path.parent.mkdir(parents=True, exist_ok=True)
     before = model_probe(solver)
     solver.model.save_weights(str(path))
-    verifier = Stage1CPINN(solver.config, args)
     verifier.model.load_weights(str(path))
     after = model_probe(verifier)
     difference = float(np.max(np.abs(before - after)))
@@ -323,19 +333,19 @@ def save_and_verify_weights(
         raise RuntimeError(
             f"Portable weight round-trip failed for {path}: Linf={difference:.3e}"
         )
+    gc.collect()
     return difference
 
 
 def load_and_verify_weights(
     solver: Stage1CPINN,
-    args: argparse.Namespace,
+    verifier: Stage1CPINN,
     path: pathlib.Path,
 ) -> float:
     if not path.is_file():
         raise FileNotFoundError(f"Missing resume weights: {path}")
     solver.model.load_weights(str(path))
     expected = model_probe(solver)
-    verifier = Stage1CPINN(solver.config, args)
     verifier.model.load_weights(str(path))
     actual = model_probe(verifier)
     difference = float(np.max(np.abs(expected - actual)))
@@ -343,6 +353,7 @@ def load_and_verify_weights(
         raise RuntimeError(
             f"Resume weight verification failed for {path}: Linf={difference:.3e}"
         )
+    gc.collect()
     return difference
 
 
@@ -367,12 +378,19 @@ def main() -> None:
     print(json.dumps({**asdict(config), **vars(args)}, indent=2), flush=True)
 
     solver = Stage1CPINN(config, args)
+    verification_solver = Stage1CPINN(config, args)
     if args.resume_weights:
         resume_path = pathlib.Path(args.resume_weights).expanduser().resolve()
-        resume_linf = load_and_verify_weights(solver, args, resume_path)
+        resume_linf = load_and_verify_weights(
+            solver, verification_solver, resume_path
+        )
+        # Preserve the learning-rate schedule even though the optimizer state is
+        # intentionally restarted from portable model weights.
+        solver.optimizer.iterations.assign(args.start_epoch)
         print(
             f"Resumed portable weights from {resume_path}; "
-            f"reload Linf={resume_linf:.3e}",
+            f"reload Linf={resume_linf:.3e}; "
+            f"optimizer iteration={int(solver.optimizer.iterations.numpy())}",
             flush=True,
         )
 
@@ -408,13 +426,13 @@ def main() -> None:
 
             if not np.all(np.isfinite(values)):
                 emergency = checkpoint_dir / f"nonfinite-{epoch:06d}.weights.h5"
-                save_and_verify_weights(solver, args, emergency)
+                save_and_verify_weights(solver, verification_solver, emergency)
                 history.flush()
                 raise FloatingPointError(f"Non-finite loss at epoch {epoch}: {values}")
 
             if epoch % config.checkpoint_every == 0:
                 saved = checkpoint_dir / f"epoch-{epoch:06d}.weights.h5"
-                reload_linf = save_and_verify_weights(solver, args, saved)
+                reload_linf = save_and_verify_weights(solver, verification_solver, saved)
                 with (output_dir / "latest_portable_checkpoint.json").open(
                     "w", encoding="utf-8"
                 ) as handle:
@@ -449,10 +467,10 @@ def main() -> None:
         history.close()
 
     final_weights = output_dir / "stage1c_final.weights.h5"
-    final_reload_linf = save_and_verify_weights(solver, args, final_weights)
+    final_reload_linf = save_and_verify_weights(solver, verification_solver, final_weights)
     live_metrics = evaluate(solver, output_dir)
 
-    reload_solver = Stage1CPINN(config, args)
+    reload_solver = verification_solver
     reload_solver.model.load_weights(str(final_weights))
     reload_dir = output_dir / "final_reload_audit"
     reload_dir.mkdir(parents=True, exist_ok=True)
@@ -473,7 +491,8 @@ def main() -> None:
     reload_gate = final_reload_linf <= 1.0e-7 and max(metric_differences.values()) <= 1.0e-10
 
     live_metrics["method"] = (
-        "even_v2_features+equilibrium_bridge+paired_collocation+portable_h5"
+        "even_v2_features+equilibrium_bridge+paired_collocation+"
+        "pseudo_huber_relative_residual+portable_h5"
     )
     live_metrics["training_seconds"] = float(time.perf_counter() - start)
     live_metrics["portable_weights"] = str(final_weights)

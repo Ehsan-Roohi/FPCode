@@ -183,3 +183,39 @@ FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
 RAR scoring is graph-compiled and runs every ten epochs by default, using
 12.5% adaptive points and 4,096 candidates. This bounds host-memory growth
 while retaining adaptive coverage. The Unity runner requests 32 GB host RAM.
+
+
+## Stage-1C stable restart
+
+The TensorFlow object checkpoints from the first Stage-1 run did not reproduce
+the in-memory validation result when restored, including checkpoints at epochs
+25,000, 27,500, and 30,000. Stage-1C therefore starts from scratch and treats
+portable Keras H5 weights as the primary restart artifact.
+
+Stage-1C also reduces the intermediate-time optimization difficulty by using
+an exactly even (v^2)-based correction network, paired (+v/-v) collocation,
+and a mass-one bridge between the prescribed initial density and the stationary
+OU Maxwellian. The bridge is not the analytic transient solution; training
+still uses only the FP residual, boundary flux, and moment equations.
+
+Submit from the repository root:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1c.sbatch
+```
+
+The default run uses 40,000 epochs and writes to
+`outputs/stage1c-JOBID/`. Every 2,500 epochs it writes a
+`checkpoints_h5/epoch-XXXXXX.weights.h5` file, immediately loads that file
+into a fresh model, and aborts if the density does not agree to (10^{-7}).
+The final file `stage1c_final.weights.h5` is independently reloaded and
+re-evaluated before the gate can pass.
+
+Resume from an audited portable checkpoint with a fresh optimizer:
+
+```bash
+FP_OUTPUT_DIR=outputs/stage1c-OLD_JOBID \
+FP_STAGE1C_RESUME_WEIGHTS="$PWD/FP_PINN/pinn/ou_1d/outputs/stage1c-OLD_JOBID/checkpoints_h5/epoch-025000.weights.h5" \
+FP_STAGE1C_START_EPOCH=25000 \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1c.sbatch
+```

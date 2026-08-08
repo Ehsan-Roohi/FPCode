@@ -14,10 +14,27 @@ set -euo pipefail
 CASES=(equilibrium stress heat_flux)
 CASE_NAME="${CASES[$SLURM_ARRAY_TASK_ID]}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STAGE2_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$STAGE2_DIR/../../../.." && pwd)"
+# Slurm executes a spool copy of this file, so BASH_SOURCE points into
+# /var/spool/slurm rather than the submitted repository. Resolve the checkout
+# from the submit directory, with explicit overrides for nonstandard launches.
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
+REPO_ROOT="${FP_REPO_ROOT:-$SUBMIT_DIR}"
+STAGE2_DIR="${FP_STAGE2_DIR:-$REPO_ROOT/FP_PINN/pinn/cubic_homogeneous_3d}"
+
+if [[ ! -f "$STAGE2_DIR/train_stage2.py" ]]; then
+    echo "ERROR: Stage-2 checkout not found: $STAGE2_DIR" >&2
+    echo "Submit from the FPCode repository root or export FP_REPO_ROOT=/absolute/path/to/FPCode." >&2
+    exit 2
+fi
+if [[ ! -f "$STAGE2_DIR/tests/__init__.py" ]]; then
+    echo "ERROR: Importable Stage-2 tests are missing: $STAGE2_DIR/tests/__init__.py" >&2
+    exit 2
+fi
+
 cd "$STAGE2_DIR"
+echo "Slurm submit directory: $SUBMIT_DIR"
+echo "Repository root: $REPO_ROOT"
+echo "Stage-2 directory: $STAGE2_DIR"
 
 module load conda/latest
 

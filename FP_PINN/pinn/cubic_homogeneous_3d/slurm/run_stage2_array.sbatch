@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=fp-pinn-s2
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --array=0-2%3
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=12:00:00
+#SBATCH --output=fp-pinn-stage2-%A_%a.out
+#SBATCH --error=fp-pinn-stage2-%A_%a.err
+
+set -euo pipefail
+
+CASES=(equilibrium stress heat_flux)
+CASE_NAME="${CASES[$SLURM_ARRAY_TASK_ID]}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STAGE2_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$STAGE2_DIR/../../../.." && pwd)"
+cd "$STAGE2_DIR"
+
+module load conda/latest
+
+UNITY_CONDA_ENV="${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}"
+CONDA_BASE="$(conda info --base)"
+source "$CONDA_BASE/etc/profile.d/conda.sh"
+conda activate "$UNITY_CONDA_ENV"
+
+# TensorFlow 2.21 installed by pip needs the bundled NVIDIA shared libraries.
+TF_SITE="$(python -c 'import site; print(site.getsitepackages()[0])')"
+for NVIDIA_LIB in "$TF_SITE"/nvidia/*/lib; do
+    if [[ -d "$NVIDIA_LIB" ]]; then
+        export LD_LIBRARY_PATH="$NVIDIA_LIB:${LD_LIBRARY_PATH:-}"
+    fi
+done
+
+echo "Activated environment: $CONDA_PREFIX"
+which python
+python --version
+nvidia-smi
+python - <<'PY'
+import tensorflow as tf
+print("TensorFlow:", tf.__version__)
+print("Visible GPUs:", tf.config.list_physical_devices("GPU"))
+if not tf.config.list_physical_devices("GPU"):
+    raise SystemExit("No TensorFlow GPU is visible inside this Slurm allocation")
+PY
+
+python -m unittest discover -s tests -v
+
+RUN_ROOT="${FP_OUTPUT_ROOT:-outputs/stage2-${SLURM_ARRAY_JOB_ID}}"
+CASE_OUTPUT="$RUN_ROOT/$CASE_NAME"
+REFERENCE_OUTPUT="$CASE_OUTPUT/reference_particle"
+mkdir -p "$REFERENCE_OUTPUT"
+
+python -u reference_particle.py \
+    --case "$CASE_NAME" \
+    --output-dir "$REFERENCE_OUTPUT" \
+    --particles "${FP_REFERENCE_PARTICLES:-250000}" \
+    --dt "${FP_REFERENCE_DT:-0.005}" \
+    --tmax "${FP_TMAX:-1.0}" \
+    --save-every "${FP_REFERENCE_SAVE_EVERY:-10}" \
+    --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
+
+TRAIN_ARGS=(
+    --case "$CASE_NAME"
+    --output-dir "$CASE_OUTPUT"
+    --reference "$REFERENCE_OUTPUT/reference.npz"
+    --epochs "${FP_STAGE2_EPOCHS:-30000}"
+    --n-time-batch "${FP_N_TIME_BATCH:-8}"
+    --n-velocity-per-time "${FP_N_VELOCITY_PER_TIME:-1024}"
+    --width "${FP_STAGE2_WIDTH:-128}"
+    --depth "${FP_STAGE2_DEPTH:-5}"
+    --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
+    --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
+)
+
+if [[ -n "${FP_RESUME_WEIGHTS:-}" ]]; then
+    TRAIN_ARGS+=(--resume-weights "$FP_RESUME_WEIGHTS")
+fi
+if [[ "${FP_EVALUATE_ONLY:-0}" == "1" ]]; then
+    TRAIN_ARGS+=(--evaluate-only)
+fi
+if [[ "${FP_STRICT_GATE:-0}" == "1" ]]; then
+    TRAIN_ARGS+=(--strict-gate)
+fi
+
+python -u train_stage2.py "${TRAIN_ARGS[@]}"
+
+echo "Stage-2 case completed: $CASE_NAME"
+echo "Artifacts: $STAGE2_DIR/$CASE_OUTPUT"

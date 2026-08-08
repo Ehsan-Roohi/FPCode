@@ -327,9 +327,12 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 h_t = first_tape.gradient(log_f, flat_t)
                 grad_h = first_tape.gradient(log_f, flat_c)
                 del first_tape
-            lap_h = tf.add_n(
-                [second_tape.gradient(grad_h[:,axis], flat_c)[:,axis:axis+1]
-                 for axis in range(3)]
+            hessian_h = second_tape.batch_jacobian(
+                grad_h, flat_c, experimental_use_pfor=True
+            )
+            lap_h = tf.linalg.trace(hessian_h)[:, None]
+            tf.debugging.assert_all_finite(
+                lap_h, "Non-finite velocity-space Laplacian of log density"
             )
             del second_tape
             ratio = tf.exp(

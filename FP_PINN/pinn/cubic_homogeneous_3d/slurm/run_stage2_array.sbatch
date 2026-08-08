@@ -46,7 +46,7 @@ if not tf.config.list_physical_devices("GPU"):
     raise SystemExit("No TensorFlow GPU is visible inside this Slurm allocation")
 PY
 
-python -m unittest discover -s tests -v
+python -m unittest discover -s "$STAGE2_DIR/tests" -t "$STAGE2_DIR" -v
 
 RUN_ROOT="${FP_OUTPUT_ROOT:-outputs/stage2-${SLURM_ARRAY_JOB_ID}}"
 CASE_OUTPUT="$RUN_ROOT/$CASE_NAME"

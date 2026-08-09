@@ -359,7 +359,8 @@ def closure_tf(m: dict[str, tf.Tensor], config: Config) -> tuple[tf.Tensor, tf.T
         tf.square(p[:,0]-third)+tf.square(p[:,3]-third)+tf.square(p[:,5]-third)
         +2.0*(tf.square(p[:,1])+tf.square(p[:,2])+tf.square(p[:,4]))
     )
-    lam = -config.nu * dev2 / tf.maximum(d2, 1.0e-12) ** 3.5
+    tiny = tf.cast(1.0e-12, lhs.dtype)
+    lam = -config.nu * dev2 / tf.maximum(d2, tiny) ** 3.5
     rhs0 = -2.0 * lam[:, None] * m4
     rq0 = -lam*(3*m5[:,0]-d2*q[:,0]-2*(p[:,0]*q[:,0]+p[:,1]*q[:,1]+p[:,2]*q[:,2]))
     rq1 = -lam*(3*m5[:,1]-d2*q[:,1]-2*(p[:,1]*q[:,0]+p[:,3]*q[:,1]+p[:,4]*q[:,2]))
@@ -367,12 +368,15 @@ def closure_tf(m: dict[str, tf.Tensor], config: Config) -> tuple[tf.Tensor, tf.T
     # nubol=2*nu, consistent with tau=1/nu=2*mu/p in the legacy solver.
     q_rate = (3.0*config.nu - (4.0/3.0)*config.nu) * q
     rhs = tf.concat([rhs0, tf.stack([rq0,rq1,rq2],axis=1)+q_rate], axis=1)
-    scale = tf.maximum(1.0, tf.linalg.norm(lhs, axis=[1,2]) / 9.0)
+    one = tf.cast(1.0, lhs.dtype)
+    scale = tf.maximum(one, tf.linalg.norm(lhs, axis=[1,2]) / 9.0)
     system = lhs + config.closure_regularization * scale[:,None,None] * tf.eye(
         9, batch_shape=tf.shape(lhs)[:1], dtype=lhs.dtype
     )
     vector = tf.linalg.solve(system, rhs[:,:,None])[:,:,0]
-    vector = tf.clip_by_value(vector, -25.0, 25.0)
+    vector = tf.clip_by_value(
+        vector, tf.cast(-25.0, vector.dtype), tf.cast(25.0, vector.dtype)
+    )
     return vector, lam
 
 

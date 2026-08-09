@@ -15,7 +15,7 @@ if [[ -z "${JULIA_MODULE:-}" ]]; then
     echo "JULIA_MODULE is not set."
     echo "On the Unity login node, run: module spider julia"
     echo "Then submit with, for example:"
-    echo "  sbatch --export=ALL,JULIA_MODULE=julia/1.11.x riemann35_patch/run_unity_stage1.sbatch"
+    echo "  sbatch --export=ALL,JULIA_MODULE=julia/1.10.5 riemann35_patch/run_unity_stage1.sbatch"
     exit 2
 fi
 module load "${JULIA_MODULE}"
@@ -23,7 +23,7 @@ module load "${JULIA_MODULE}"
 echo "Node: $(hostname)"
 echo "Julia module: ${JULIA_MODULE}"
 julia --version
-julia -e 'VERSION.major == 1 && VERSION.minor == 11 || error("Stage 1 expects Julia 1.11, got $VERSION")'
+julia -e 'VERSION.major == 1 && VERSION.minor in (9, 10, 11) || error("Riemann35 supports Julia 1.9, 1.10, or 1.11; got $VERSION")'
 
 submit_dir="${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR is required}"
 patch="${submit_dir}/riemann35_patch/0001-Add-provisional-cubic-FP-collision-source.patch"

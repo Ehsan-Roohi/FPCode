@@ -236,6 +236,17 @@ function main(arguments)
             )
             if step % 10 == 0 || step == controls.steps
                 push!(rows, diagnostics(step, controls.dt, M, stats))
+                @printf(
+                    "adaptive progress: step=%d/%d time=%.8e h/dt=%.8e accepted=%d rejected=%d margin=%.8e\n",
+                    step,
+                    controls.steps,
+                    current_time,
+                    h/controls.dt,
+                    stats.accepted_steps,
+                    stats.rejected_steps,
+                    realizability_margin(M),
+                )
+                flush(stdout)
             end
         end
     catch exception

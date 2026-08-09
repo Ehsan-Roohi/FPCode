@@ -20,28 +20,32 @@ The job writes the following persistent files under
 - `initial_moments.csv`: the common full 35-moment initial condition;
 - `particle_history.csv`: FPCode particle diagnostics;
 - `julia_chyqmom_m6_history.csv`: Julia closure diagnostics;
-- `julia_closure_metrics.csv`: raw failure probes and projection metrics; and
+- `julia_closure_metrics.csv`: legacy-cap probes and adaptive-step metrics; and
 - `summary.json`: scientific status, conservation errors, history-relative L2
   errors, and final M400 difference.
 
-The first Unity attempt (`62745344`) found that the raw CHyQMOM-M6 source leaves
-the M4 realizability cone even when the step is divided into 256 substeps. The
-updated driver separates two questions rather than hiding that result:
+The first Unity attempt (`62745344`) stopped when the original validation
+integrator exhausted its hard cap of 256 equal substeps. The margin probe in the
+second attempt (`62745699`) refined the diagnosis: at macro step 100 (`t=0.025`),
+trial steps through `dt/256` produced a nonpositive directional variance
+(`margin=-Inf`), but `dt/512` and smaller were realizable with strongly positive
+margins. Thus, this evidence identifies an explicit-stiffness/cap problem, not a
+vector field that points out of the moment cone for every positive step.
 
-1. A raw-closure probe records the first failed step and trial margins down to
-   `dt/65536`.
-2. A clearly labelled diagnostic trajectory applies Riemann35's shipped
-   Appendix-B projection, followed by the smallest tested convex blend with a
-   Gaussian having the same M0--M2 moments needed to recover a strict interior
-   margin. Projection frequency and correction magnitude are recorded.
+The current driver therefore uses no projection. It advances the raw analytical
+M5 + CHyQMOM-M6 source with a persistent adaptive microstep:
 
-The operational job fails on non-finite data, time misalignment, failure to
-recover an interior state, mass drift above `1e-12`, or energy drift above
-`1e-10`. Closure accuracy remains diagnostic: the summary reports whether the
-projected trajectory's final M400 difference improves over the earlier
-Gaussian-tail value of 9.702%, but it also marks the raw closure as scientifically
-failed whenever projection was required. A projected result is not represented
-as validation of the unmodified closure.
+1. reject and halve any trial with negative/non-finite realizability margin;
+2. accept realizable trials and retain the stable microstep across macro steps;
+3. attempt to double the microstep only after 16 consecutive acceptances; and
+4. record accepted/rejected counts, minimum `h/dt`, source norm, and margins.
+
+The operational job fails on non-finite data, failure to reach final time, time
+misalignment, mass drift above `1e-12`, or energy drift above `1e-10`. Closure
+accuracy remains diagnostic: the summary reports whether the adaptive raw
+trajectory's final M400 difference improves over the earlier Gaussian-tail
+value of 9.702%. No Appendix-B projection or Gaussian interiorization is used
+in the reported closure trajectory.
 
 Submit from the FPCode branch root on Unity:
 

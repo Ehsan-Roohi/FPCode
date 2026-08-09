@@ -18,6 +18,20 @@ except ModuleNotFoundError:  # The repository's lightweight CPU test environment
 
 @unittest.skipIf(tf is None, "TensorFlow is tested inside the Unity dsmc-gpu environment")
 class TensorFlowPathTests(unittest.TestCase):
+    def test_zero_pde_defect_has_zero_weak_heat_flux_loss(self) -> None:
+        from train_stage2 import weak_heat_flux_loss
+
+        c = tf.constant(
+            [[[1.0, 0.0, 0.0], [-1.0, 0.0, 0.0],
+              [0.0, 1.0, 0.0], [0.0, -1.0, 0.0]]],
+            dtype=tf.float32,
+        )
+        ratio = tf.ones((1, 4, 1), tf.float32)
+        residual = tf.zeros_like(ratio)
+        mean = tf.zeros((1, 3), tf.float32)
+        loss = weak_heat_flux_loss(c, ratio, residual, mean, scale=0.25)
+        self.assertEqual(float(loss.numpy()), 0.0)
+
     def test_tensorflow_closure_matches_numpy(self) -> None:
         from cubic_operator import moments_from_samples, sample_initial, solve_closure
         from train_stage2 import Config, closure_tf
@@ -59,4 +73,3 @@ class TensorFlowPathTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

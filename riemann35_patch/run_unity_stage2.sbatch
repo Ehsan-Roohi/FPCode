@@ -51,11 +51,13 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. "$STAGE2/run_homogeneous_stage2.jl" \
   "$RESULTS/initial_moments.csv" \
   "$RESULTS/julia_chyqmom_m6_history.csv" \
+  "$RESULTS/julia_closure_metrics.csv" \
   200 2.5e-4 1.0 0.6666666666666666 0.05
 
 python3 "$STAGE2/compare_stage2.py" \
   --julia "$RESULTS/julia_chyqmom_m6_history.csv" \
   --particle "$RESULTS/particle_history.csv" \
+  --julia-metrics "$RESULTS/julia_closure_metrics.csv" \
   --summary "$RESULTS/summary.json"
 
 echo "Results: $RESULTS"

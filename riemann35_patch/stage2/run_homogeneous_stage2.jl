@@ -12,9 +12,19 @@ const M001 = IJK_INDEX[(0,0,1)]
 const M200 = IJK_INDEX[(2,0,0)]
 const M020 = IJK_INDEX[(0,2,0)]
 const M002 = IJK_INDEX[(0,0,2)]
-const M110 = IJK_INDEX[(1,1,0)]
-const M101 = IJK_INDEX[(1,0,1)]
-const M011 = IJK_INDEX[(0,1,1)]
+
+mutable struct AdaptiveStats
+    accepted_steps::Int
+    rejected_steps::Int
+    minimum_h::Float64
+    maximum_source_norm::Float64
+    minimum_trial_margin::Float64
+    minimum_accepted_margin::Float64
+end
+
+AdaptiveStats(initial_margin) = AdaptiveStats(
+    0, 0, Inf, 0.0, Float64(initial_margin), Float64(initial_margin),
+)
 
 function parse_cli(arguments)
     length(arguments) == 8 || error(
@@ -41,9 +51,10 @@ function read_initial_moments(path)
     return M
 end
 
-function diagnostics(step, dt, M, projection_count)
+function diagnostics(step, dt, M, stats)
     state = fp_macroscopic35(M)
     energy = M[M200] + M[M020] + M[M002]
+    recorded_minimum_h = isfinite(stats.minimum_h) ? stats.minimum_h : 0.0
     return Float64[
         step,
         step*dt,
@@ -55,7 +66,9 @@ function diagnostics(step, dt, M, projection_count)
         norm(state.stress),
         norm(state.heat_flux),
         realizability_margin(M),
-        projection_count,
+        stats.accepted_steps,
+        stats.rejected_steps,
+        recorded_minimum_h,
     ]
 end
 
@@ -63,14 +76,14 @@ function write_history(path, rows)
     open(path, "w") do stream
         println(
             stream,
-            "step,time,rho,energy_trace,M200,M300,M400,stress_norm,heat_flux_norm,realizability_margin,projection_count",
+            "step,time,rho,energy_trace,M200,M300,M400,stress_norm,heat_flux_norm,realizability_margin,accepted_microsteps,rejected_microsteps,minimum_h",
         )
         for row in rows
             @printf(
                 stream,
-                "%.0f,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.0f\n",
+                "%.0f,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.0f,%.0f,%.17g\n",
                 row[1], row[2], row[3], row[4], row[5], row[6], row[7],
-                row[8], row[9], row[10], row[11],
+                row[8], row[9], row[10], row[11], row[12], row[13],
             )
         end
     end
@@ -85,51 +98,7 @@ function write_metrics(path, metrics)
     end
 end
 
-function gaussian_anchor(M)
-    rho = M[M000]
-    u = (M[M100]/rho, M[M010]/rho, M[M001]/rho)
-    C200 = M[M200]/rho - u[1]^2
-    C020 = M[M020]/rho - u[2]^2
-    C002 = M[M002]/rho - u[3]^2
-    C110 = M[M110]/rho - u[1]*u[2]
-    C101 = M[M101]/rho - u[1]*u[3]
-    C011 = M[M011]/rho - u[2]*u[3]
-    return InitializeM4_35(
-        rho, u[1], u[2], u[3], C200, C110, C101, C020, C011, C002,
-    )
-end
-
-function move_to_interior(M; target_margin=1.0e-10)
-    margin = realizability_margin(M)
-    margin >= target_margin && return Float64.(M), 0.0, margin
-    anchor = gaussian_anchor(M)
-    for weight in (1.0e-12, 1.0e-11, 1.0e-10, 1.0e-9, 1.0e-8,
-                   1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3,
-                   1.0e-2, 1.0e-1, 1.0)
-        candidate = (1.0-weight).*M .+ weight.*anchor
-        candidate_margin = realizability_margin(candidate)
-        if candidate_margin >= target_margin
-            return candidate, weight, candidate_margin
-        end
-    end
-    error("could not move the projected state into the realizability interior")
-end
-
-function projected_source_step(M, dt, tau, Ma; Pr, gamma_scale)
-    source = fp_collision_source35(M, tau; Pr=Pr, gamma_scale=gamma_scale)
-    candidate = M .+ dt.*source
-    trial_margin = realizability_margin(candidate)
-    if trial_margin >= 1.0e-10
-        return candidate, false, 0.0, 0.0, trial_margin, trial_margin
-    end
-
-    projected = realizable_3D_M4(candidate, Ma)
-    projected, interior_weight, final_margin = move_to_interior(projected)
-    relative_correction = norm(projected-candidate) / max(norm(candidate), eps(Float64))
-    return projected, true, relative_correction, interior_weight, trial_margin, final_margin
-end
-
-function raw_realizability_probe(M, controls)
+function legacy_substep_probe(M, controls)
     raw = copy(M)
     for step in 1:controls.steps
         try
@@ -151,7 +120,7 @@ function raw_realizability_probe(M, controls)
             for power in 0:16
                 h = controls.dt / (2.0^power)
                 margin = realizability_margin(raw .+ h.*source)
-                push!(probes, "raw_probe_margin_dt_div_2pow$(power)" => margin)
+                push!(probes, "legacy_probe_margin_dt_div_2pow$(power)" => margin)
             end
             return (
                 failure_step=step,
@@ -169,6 +138,60 @@ function raw_realizability_probe(M, controls)
     )
 end
 
+function advance_to_target(
+    M,
+    current_time,
+    target_time,
+    h,
+    controls,
+    stats;
+    minimum_h=controls.dt/(2.0^24),
+    maximum_trials=2_000_000,
+)
+    success_streak = 0
+    tolerance = 64.0*eps(Float64)*max(1.0, abs(target_time))
+
+    while target_time-current_time > tolerance
+        stats.accepted_steps + stats.rejected_steps < maximum_trials || error(
+            "adaptive FP source exceeded $maximum_trials total trial steps",
+        )
+        trial_h = min(h, target_time-current_time)
+        trial_h >= minimum_h || error(
+            "adaptive FP source requires h=$trial_h below minimum_h=$minimum_h",
+        )
+
+        source = fp_collision_source35(
+            M,
+            controls.tau;
+            Pr=controls.Pr,
+            gamma_scale=controls.gamma_scale,
+        )
+        stats.maximum_source_norm = max(stats.maximum_source_norm, norm(source))
+        candidate = M .+ trial_h.*source
+        margin = realizability_margin(candidate)
+        stats.minimum_trial_margin = min(stats.minimum_trial_margin, margin)
+
+        if margin >= 0.0
+            M = candidate
+            current_time += trial_h
+            stats.accepted_steps += 1
+            stats.minimum_h = min(stats.minimum_h, trial_h)
+            stats.minimum_accepted_margin = min(stats.minimum_accepted_margin, margin)
+            success_streak += 1
+            if success_streak >= 16
+                h = min(2.0*h, controls.dt)
+                success_streak = 0
+            end
+        else
+            stats.rejected_steps += 1
+            h = trial_h/2.0
+            success_streak = 0
+        end
+    end
+
+    return M, target_time, h
+end
+
 function main(arguments)
     controls = parse_cli(arguments)
     controls.steps > 0 || error("steps must be positive")
@@ -178,56 +201,48 @@ function main(arguments)
 
     M = read_initial_moments(controls.initial)
     initial = copy(M)
-    initial_state = fp_macroscopic35(M)
-    Ma = norm(collect(initial_state.velocity)) / sqrt((5.0/3.0)*initial_state.theta)
     initial_margin = realizability_margin(M)
 
-    raw_probe = raw_realizability_probe(M, controls)
+    legacy_probe = legacy_substep_probe(M, controls)
     @printf("Raw CHyQMOM-M6 initial margin: %.8e\n", initial_margin)
-    if raw_probe.failure_step == 0
-        println("Raw CHyQMOM-M6 trajectory reached final time without a realizability failure.")
+    if legacy_probe.failure_step == 0
+        println("Legacy max_substeps=256 trajectory reached final time.")
     else
         @printf(
-            "Raw CHyQMOM-M6 first realizability failure: step %d, time %.8e\n",
-            raw_probe.failure_step,
-            raw_probe.failure_step*controls.dt,
+            "Legacy max_substeps=256 first failure: step %d, time %.8e\n",
+            legacy_probe.failure_step,
+            legacy_probe.failure_step*controls.dt,
         )
-        @printf("Raw state margin before failed step: %.8e\n", raw_probe.state_margin)
-        println("Raw failure: ", raw_probe.exception)
-        for (key, value) in raw_probe.probes
+        @printf("State margin before capped step: %.8e\n", legacy_probe.state_margin)
+        println("Legacy cap failure: ", legacy_probe.exception)
+        for (key, value) in legacy_probe.probes
             @printf("%s: %.8e\n", key, value)
         end
     end
 
-    sample_every = 10
+    stats = AdaptiveStats(initial_margin)
     rows = Vector{Vector{Float64}}()
-    projection_count = 0
-    maximum_relative_projection = 0.0
-    maximum_interior_weight = 0.0
-    minimum_trial_margin = initial_margin
-    minimum_accepted_margin = initial_margin
-    push!(rows, diagnostics(0, controls.dt, M, projection_count))
+    push!(rows, diagnostics(0, controls.dt, M, stats))
+    current_time = 0.0
+    h = controls.dt
+    adaptive_reached_final_time = true
+    adaptive_failure_step = 0
+    adaptive_exception = "none"
 
-    for step in 1:controls.steps
-        M, projected, correction, interior_weight, trial_margin, accepted_margin =
-            projected_source_step(
-                M,
-                controls.dt,
-                controls.tau,
-                Ma;
-                Pr=controls.Pr,
-                gamma_scale=controls.gamma_scale,
+    try
+        for step in 1:controls.steps
+            M, current_time, h = advance_to_target(
+                M, current_time, step*controls.dt, h, controls, stats,
             )
-        if projected
-            projection_count += 1
-            maximum_relative_projection = max(maximum_relative_projection, correction)
-            maximum_interior_weight = max(maximum_interior_weight, interior_weight)
+            if step % 10 == 0 || step == controls.steps
+                push!(rows, diagnostics(step, controls.dt, M, stats))
+            end
         end
-        minimum_trial_margin = min(minimum_trial_margin, trial_margin)
-        minimum_accepted_margin = min(minimum_accepted_margin, accepted_margin)
-        if step % sample_every == 0 || step == controls.steps
-            push!(rows, diagnostics(step, controls.dt, M, projection_count))
-        end
+    catch exception
+        adaptive_reached_final_time = false
+        adaptive_failure_step = floor(Int, current_time/controls.dt) + 1
+        adaptive_exception = replace(sprint(showerror, exception), ',' => ';')
+        println("Adaptive integration failure: ", adaptive_exception)
     end
 
     write_history(controls.history, rows)
@@ -240,39 +255,46 @@ function main(arguments)
     final_margin = realizability_margin(M)
 
     metrics = Pair{String,Any}[
-        "raw_failure_step" => raw_probe.failure_step,
-        "raw_reached_final_time" => (raw_probe.failure_step == 0),
-        "raw_failure_state_margin" => raw_probe.state_margin,
+        "legacy_cap_failure_step" => legacy_probe.failure_step,
+        "legacy_failure_state_margin" => legacy_probe.state_margin,
+        "adaptive_reached_final_time" => adaptive_reached_final_time,
+        "adaptive_failure_step" => adaptive_failure_step,
+        "adaptive_exception" => adaptive_exception,
+        "adaptive_accepted_microsteps" => stats.accepted_steps,
+        "adaptive_rejected_microsteps" => stats.rejected_steps,
+        "adaptive_minimum_h" => stats.minimum_h,
+        "adaptive_minimum_h_over_dt" => stats.minimum_h/controls.dt,
+        "adaptive_maximum_source_norm" => stats.maximum_source_norm,
+        "minimum_trial_margin" => stats.minimum_trial_margin,
+        "minimum_accepted_margin" => stats.minimum_accepted_margin,
         "initial_margin" => initial_margin,
-        "projection_count" => projection_count,
-        "projection_fraction" => projection_count/controls.steps,
-        "maximum_relative_projection" => maximum_relative_projection,
-        "maximum_interior_weight" => maximum_interior_weight,
-        "minimum_trial_margin" => minimum_trial_margin,
-        "minimum_accepted_margin" => minimum_accepted_margin,
         "final_margin" => final_margin,
         "julia_mass_drift" => mass_drift,
         "julia_momentum_drift" => momentum_drift,
         "julia_energy_drift" => energy_drift,
     ]
-    for (key, value) in raw_probe.probes
+    for (key, value) in legacy_probe.probes
         push!(metrics, key => value)
     end
     write_metrics(controls.metrics, metrics)
 
-    @printf("Projected Julia samples written:          %d\n", length(rows))
-    @printf("Projection count / fraction:             %d / %.3f\n", projection_count, projection_count/controls.steps)
-    @printf("Maximum relative projection correction:  %.3e\n", maximum_relative_projection)
-    @printf("Maximum Gaussian interiorization weight: %.3e\n", maximum_interior_weight)
-    @printf("Minimum accepted margin:                 %.3e\n", minimum_accepted_margin)
-    @printf("Julia mass drift:                        %.3e\n", mass_drift)
-    @printf("Julia momentum drift:                    %.3e\n", momentum_drift)
-    @printf("Julia energy drift:                      %.3e\n", energy_drift)
+    @printf("Adaptive raw Julia samples written:   %d\n", length(rows))
+    @printf("Adaptive reached final time:          %s\n", string(adaptive_reached_final_time))
+    @printf("Accepted / rejected microsteps:       %d / %d\n", stats.accepted_steps, stats.rejected_steps)
+    @printf("Minimum h / dt:                       %.8e\n", stats.minimum_h/controls.dt)
+    @printf("Maximum source norm:                  %.8e\n", stats.maximum_source_norm)
+    @printf("Minimum accepted margin:              %.8e\n", stats.minimum_accepted_margin)
+    @printf("Julia mass drift:                     %.3e\n", mass_drift)
+    @printf("Julia momentum drift:                 %.3e\n", momentum_drift)
+    @printf("Julia energy drift:                   %.3e\n", energy_drift)
 
+    adaptive_reached_final_time || error(
+        "raw adaptive closure failed at macro step $adaptive_failure_step: $adaptive_exception",
+    )
     mass_drift <= 1.0e-12 || error("mass conservation gate failed")
     momentum_drift <= 1.0e-12 || error("momentum conservation gate failed")
     energy_drift <= 1.0e-10 || error("energy conservation gate failed")
-    final_margin >= 1.0e-10 || error("final state failed interior realizability gate")
+    final_margin >= 0.0 || error("final state failed realizability gate")
 end
 
 main(ARGS)

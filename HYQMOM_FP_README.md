@@ -2,16 +2,18 @@
 
 This directory contains the first executable bridge between:
 
-- the public [`comp-physics/HyQMOM.jl`](https://github.com/comp-physics/HyQMOM.jl)
-  fourth-order, 35-moment kinetic solver; and
+- the public [`comp-physics/Riemann35.jl`](https://github.com/comp-physics/Riemann35.jl)
+  realizability-preserving fourth-order, 35-moment kinetic solver; and
 - FPCode's cubic Fokker–Planck collision model.
 
 It is a homogeneous collision prototype, not yet a replacement for
-`HyQMOM.jl/src/numerics/collision35.jl` and not yet an MFC integration.
+`Riemann35.jl/src/numerics/collision35.jl` and not yet an MFC integration.
+[`RIEMANN35_FP_INTEGRATION.md`](RIEMANN35_FP_INTEGRATION.md) maps the verified
+CPU/GPU interfaces and the proposed non-neural integration sequence.
 
 ## What is implemented
 
-1. The exact 35-moment array ordering used by HyQMOM.jl.
+1. The exact 35-moment array ordering used by Riemann35.jl.
 2. Conversion of those raw moments to density, velocity, temperature, stress,
    and heat flux using FPCode conventions.
 3. Projection of the continuous-time FP velocity-space generator onto every
@@ -21,6 +23,9 @@ It is a homogeneous collision prototype, not yet a replacement for
 5. Exact collision-invariant projection for mass, momentum, and total energy.
 6. A reproducible homogeneous relaxation comparison against a 35-moment BGK
    source.
+7. A deterministic NumPy particle reference that mirrors FPCode's analytical
+   coefficient map, peculiar-speed limiter, exact OU factor, stochastic
+   update, and finite-step energy correction.
 
 The projected drift is
 
@@ -46,9 +51,9 @@ alone is not sufficient for the complete hybrid collision model.
 For this first runnable milestone, retained moments through M4 are used exactly
 and only the missing M5/M6 tail is reconstructed by a local Gaussian with the
 same mean and full covariance. The closure is isolated behind
-`GaussianTailClosure`; it can be replaced by a Grad-HyQMOM, quadrature,
-maximum-entropy, neural, or tabulated closure without changing the projection
-code.
+`GaussianTailClosure`. The planned Riemann35 CPU replacement uses its
+analytical `Moments5_3D` result for M5 and its non-negative CHyQMOM quadrature
+only for M6; this keeps the primary closure analytical rather than neural.
 
 ## Run
 
@@ -62,18 +67,39 @@ python examples/run_hyqmom_fp_relaxation.py \
   --dt 2.5e-4 \
   --tau 1.0 \
   --output results/hyqmom_fp_relaxation.csv
+
+python examples/validate_hyqmom_fp_particles.py \
+  --particles 100000 \
+  --steps 200 \
+  --dt 2.5e-4 \
+  --tau 1.0 \
+  --sample-every 10 \
+  --output results/hyqmom_fp_particle_validation.csv
 ```
 
 Only NumPy is required for this Stage-0 prototype.
 
+## First particle-validation result
+
+For the command above (100,000 particles, seed 42, final time 0.05), the
+closed and particle models both conserved mass and energy to roundoff. The
+history relative L2 differences were 0.485% for `M200`, 1.915% for the stress
+norm, and 5.700% for `M400`; the final `M400` difference was 9.702%.
+
+A fixed-particle-count timestep check at 50,000 particles changed the final
+`M400` difference from 9.988% (`dt=2.5e-4`) to 9.801% (`dt=1.25e-4`) at the
+same final time. Thus, the fourth-moment discrepancy is not primarily the
+explicit timestep error. It is a closure/modeling diagnostic, not an accuracy
+claim, and makes the Riemann35 M5/M6 replacement the next acceptance gate.
+
 ## Next integration milestones
 
-1. Validate the projected source directly against FPCode particle ensembles
-   in a spatially homogeneous relaxation problem.
-2. Replace the Gaussian M5/M6 tail with a structure-preserving high-order
-   reconstruction and quantify sensitivity to that choice.
-3. Port the validated source to Julia behind a collision-model selector in
-   `HyQMOM.jl`.
+1. Use the included homogeneous particle comparison to quantify closure and
+   finite-step error over particle count, timestep, and seed sweeps.
+2. Replace the Gaussian tail with Riemann35's analytical M5 plus CHyQMOM M6
+   construction and quantify sensitivity to the M6 choice.
+3. Port the validated CPU source to Julia behind a collision-model selector in
+   `Riemann35.jl`, leaving the default BGK/ES-BGK path unchanged.
 4. Reproduce the crossing-jet example with BGK and projected FP collisions.
 5. Compare against DSMC/SPARTA over Mach and Knudsen sweeps before proposing
    integration into MFC.

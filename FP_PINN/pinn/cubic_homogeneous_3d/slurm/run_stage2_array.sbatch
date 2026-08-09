@@ -88,6 +88,13 @@ TRAIN_ARGS=(
     --n-velocity-per-time "${FP_N_VELOCITY_PER_TIME:-1024}"
     --width "${FP_STAGE2_WIDTH:-128}"
     --depth "${FP_STAGE2_DEPTH:-5}"
+    --learning-rate "${FP_STAGE2_LEARNING_RATE:-5.0e-4}"
+    --lr-decay-steps "${FP_STAGE2_LR_DECAY_STEPS:-10000}"
+    --lr-decay-rate "${FP_STAGE2_LR_DECAY_RATE:-0.3}"
+    --heat-flux-weight "${FP_HEAT_FLUX_WEIGHT:-10.0}"
+    --heat-flux-scale "${FP_HEAT_FLUX_SCALE:-0.25}"
+    --tail-fraction "${FP_TAIL_FRACTION:-0.20}"
+    --tail-variance "${FP_TAIL_VARIANCE:-4.0}"
     --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
     --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
 )
@@ -100,6 +107,12 @@ if [[ "${FP_EVALUATE_ONLY:-0}" == "1" ]]; then
 fi
 if [[ "${FP_STRICT_GATE:-0}" == "1" ]]; then
     TRAIN_ARGS+=(--strict-gate)
+fi
+if [[ "${FP_FIXED_VELOCITY_QUADRATURE:-0}" == "1" ]]; then
+    TRAIN_ARGS+=(--fixed-velocity-quadrature)
+fi
+if [[ "${FP_STOP_GRADIENT_CLOSURE:-0}" == "1" ]]; then
+    TRAIN_ARGS+=(--stop-gradient-closure)
 fi
 
 python -u train_stage2.py "${TRAIN_ARGS[@]}"

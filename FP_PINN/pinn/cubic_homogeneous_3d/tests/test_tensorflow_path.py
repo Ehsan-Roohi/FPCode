@@ -41,19 +41,27 @@ class TensorFlowPathTests(unittest.TestCase):
             values = sample_initial(case, 200_000, rng)
             m = moments_from_samples(values)
             config = Config(case=case, output_dir="unused", reference="unused")
-            tensors = {
-                "pij": tf.constant(m.pij[None, :], tf.float32),
-                "q": tf.constant(m.q[None, :], tf.float32),
-                "m3": tf.constant(m.m3[None, :], tf.float32),
-                "m4": tf.constant(m.m4[None, :], tf.float32),
-                "m5": tf.constant(m.m5[None, :], tf.float32),
-                "dm2": tf.constant([m.dm2], tf.float32),
-                "dm4": tf.constant([m.dm4], tf.float32),
-            }
-            vector_tf, lambda_tf = closure_tf(tensors, config)
             closure_np = solve_closure(m, regularization=config.closure_regularization)
-            np.testing.assert_allclose(vector_tf.numpy()[0], closure_np.vector, rtol=2e-4, atol=2e-5)
-            self.assertAlmostEqual(float(lambda_tf.numpy()[0]), closure_np.cubic_lambda, places=6)
+            for dtype in (tf.float32, tf.float64):
+                with self.subTest(case=case, dtype=dtype.name):
+                    tensors = {
+                        "pij": tf.constant(m.pij[None, :], dtype),
+                        "q": tf.constant(m.q[None, :], dtype),
+                        "m3": tf.constant(m.m3[None, :], dtype),
+                        "m4": tf.constant(m.m4[None, :], dtype),
+                        "m5": tf.constant(m.m5[None, :], dtype),
+                        "dm2": tf.constant([m.dm2], dtype),
+                        "dm4": tf.constant([m.dm4], dtype),
+                    }
+                    vector_tf, lambda_tf = closure_tf(tensors, config)
+                    np.testing.assert_allclose(
+                        vector_tf.numpy()[0], closure_np.vector,
+                        rtol=2e-4, atol=2e-5,
+                    )
+                    self.assertAlmostEqual(
+                        float(lambda_tf.numpy()[0]), closure_np.cubic_lambda,
+                        places=6,
+                    )
 
     def test_one_training_step_is_finite(self) -> None:
         from train_stage2 import Config, DensityModel, make_train_step

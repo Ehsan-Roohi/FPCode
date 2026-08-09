@@ -58,6 +58,12 @@ class Config:
     mass_weight: float = 30.0
     momentum_weight: float = 20.0
     energy_weight: float = 20.0
+    heat_flux_weight: float = 10.0
+    heat_flux_scale: float = 0.25
+    tail_fraction: float = 0.20
+    tail_variance: float = 4.0
+    fixed_velocity_quadrature: bool = False
+    stop_gradient_closure: bool = False
     closure_regularization: float = 1.0e-7
     nu: float = 1.0
     tmax: float = 1.0
@@ -91,6 +97,27 @@ def parse_args() -> Config:
     parser.add_argument("--mass-weight", type=float, default=30.0)
     parser.add_argument("--momentum-weight", type=float, default=20.0)
     parser.add_argument("--energy-weight", type=float, default=20.0)
+    parser.add_argument(
+        "--heat-flux-weight", type=float, default=10.0,
+        help="Weight of the particle-free weak third-moment residual",
+    )
+    parser.add_argument(
+        "--heat-flux-scale", type=float, default=0.25,
+        help="Reference scale used to nondimensionalize the weak heat-flux residual",
+    )
+    parser.add_argument(
+        "--tail-fraction", type=float, default=0.20,
+        help="Fraction of training velocities drawn from the broad tail proposal",
+    )
+    parser.add_argument("--tail-variance", type=float, default=4.0)
+    parser.add_argument(
+        "--fixed-velocity-quadrature", action="store_true",
+        help="Reuse one deterministic velocity cloud to reduce closure noise",
+    )
+    parser.add_argument(
+        "--stop-gradient-closure", action="store_true",
+        help="Use the old Picard-style closure instead of differentiating the 9x9 solve",
+    )
     parser.add_argument("--closure-regularization", type=float, default=1.0e-7)
     parser.add_argument("--nu", type=float, default=1.0)
     parser.add_argument("--tmax", type=float, default=1.0)
@@ -105,7 +132,14 @@ def parse_args() -> Config:
         "--strict-gate", action="store_true",
         help="Return exit status 2 when a numerical validation gate fails",
     )
-    return Config(**vars(parser.parse_args()))
+    config = Config(**vars(parser.parse_args()))
+    if not 0.0 < config.tail_fraction < 1.0:
+        parser.error("--tail-fraction must lie strictly between zero and one")
+    if config.tail_variance <= 1.0:
+        parser.error("--tail-variance must be greater than one")
+    if config.heat_flux_scale <= 0.0:
+        parser.error("--heat-flux-scale must be positive")
+    return config
 
 
 def _tf_normal_logpdf(x: tf.Tensor, mean: float, variance: float) -> tf.Tensor:
@@ -145,10 +179,28 @@ def tf_initial_logpdf(case: str, c: tf.Tensor) -> tf.Tensor:
     )
 
 
-def tf_proposal_logpdf(case: str, c: tf.Tensor) -> tf.Tensor:
+def tf_training_proposal_logpdf(config: Config, c: tf.Tensor) -> tf.Tensor:
+    """Tail-enriched proposal used only for PINN quadrature.
+
+    The independent particle solution is not used here.  Exact mixture
+    reweighting keeps all moment estimates unbiased.
+    """
+    dtype = c.dtype
+    tail_fraction = tf.cast(config.tail_fraction, dtype)
+    core_fraction = 0.5 * (1.0 - tail_fraction)
+    tail_variance = tf.cast(config.tail_variance, dtype)
+    tail_logpdf = (
+        -1.5 * tf.math.log(tf.cast(2.0 * np.pi, dtype) * tail_variance)
+        - 0.5 * tf.reduce_sum(tf.square(c), axis=1, keepdims=True) / tail_variance
+    )
     terms = tf.concat(
-        [tf_initial_logpdf(case, c), tf_equilibrium_logpdf(c)], axis=1
-    ) + tf.math.log(tf.cast(0.5, c.dtype))
+        [
+            tf_initial_logpdf(config.case, c) + tf.math.log(core_fraction),
+            tf_equilibrium_logpdf(c) + tf.math.log(core_fraction),
+            tail_logpdf + tf.math.log(tail_fraction),
+        ],
+        axis=1,
+    )
     return tf.reduce_logsumexp(terms, axis=1, keepdims=True)
 
 
@@ -190,7 +242,11 @@ class DensityModel(tf.keras.Model):
         return tf.math.log(tf.maximum(density_base, tf.constant(1.0e-38))) + correction
 
 
-def sample_tf_proposal(config: Config) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
+def sample_tf_proposal(
+    config: Config,
+    velocity_grid: tf.Tensor | None = None,
+    velocity_log_q: tf.Tensor | None = None,
+) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
     nt, nv = config.n_time_batch, config.n_velocity_per_time
     total = nt * nv
     # Half uniform and half early-time-focused samples reduce the initial layer error.
@@ -201,26 +257,42 @@ def sample_tf_proposal(config: Config) -> tuple[tf.Tensor, tf.Tensor, tf.Tensor]
         axis=0,
     )
     times = tf.sort(times, axis=0)
-    choose_initial = tf.random.uniform((total, 1)) < 0.5
-    equilibrium = tf.random.normal((total, 3))
-    if config.case == "equilibrium":
-        initial = tf.random.normal((total, 3))
-    elif config.case == "stress":
-        initial = tf.random.normal((total, 3)) * tf.sqrt(
-            tf.constant([1.6, 0.9, 0.5], dtype=tf.float32)
+    if velocity_grid is None:
+        selector = tf.random.uniform((total, 1))
+        core_fraction = 0.5 * (1.0 - config.tail_fraction)
+        choose_initial = selector < core_fraction
+        choose_equilibrium = tf.logical_and(
+            selector >= core_fraction, selector < 2.0 * core_fraction
+        )
+        equilibrium = tf.random.normal((total, 3))
+        tail = tf.sqrt(tf.cast(config.tail_variance, tf.float32)) * tf.random.normal(
+            (total, 3)
+        )
+        if config.case == "equilibrium":
+            initial = tf.random.normal((total, 3))
+        elif config.case == "stress":
+            initial = tf.random.normal((total, 3)) * tf.sqrt(
+                tf.constant([1.6, 0.9, 0.5], dtype=tf.float32)
+            )
+        else:
+            choose_a = tf.random.uniform((total, 1)) < (1.0 / 3.0)
+            x_mean = tf.where(choose_a, 1.0, -0.5)
+            initial = tf.concat(
+                [x_mean + tf.sqrt(0.5) * tf.random.normal((total, 1)),
+                 tf.random.normal((total, 2))], axis=1,
+            )
+        c = tf.where(choose_initial, initial, tf.where(choose_equilibrium, equilibrium, tail))
+        c = tf.reshape(c, (nt, nv, 3))
+        flat_c = tf.reshape(c, (-1, 3))
+        log_q = tf.reshape(
+            tf_training_proposal_logpdf(config, flat_c), (nt, nv, 1)
         )
     else:
-        choose_a = tf.random.uniform((total, 1)) < (1.0 / 3.0)
-        x_mean = tf.where(choose_a, 1.0, -0.5)
-        initial = tf.concat(
-            [x_mean + tf.sqrt(0.5) * tf.random.normal((total, 1)),
-             tf.random.normal((total, 2))], axis=1,
-        )
-    c = tf.where(choose_initial, initial, equilibrium)
-    c = tf.reshape(c, (nt, nv, 3))
+        c = velocity_grid
+        if velocity_log_q is None:
+            raise ValueError("velocity_log_q is required with velocity_grid")
+        log_q = velocity_log_q
     t = tf.repeat(times[:, None, :], repeats=nv, axis=1)
-    flat_c = tf.reshape(c, (-1, 3))
-    log_q = tf.reshape(tf_proposal_logpdf(config.case, flat_c), (nt, nv, 1))
     return t, c, log_q
 
 
@@ -312,10 +384,46 @@ def _matrix_from_vector(vector: tf.Tensor) -> tf.Tensor:
     )
 
 
+def weak_heat_flux_loss(
+    c: tf.Tensor,
+    ratio: tf.Tensor,
+    relative_residual: tf.Tensor,
+    mean: tf.Tensor,
+    scale: float,
+) -> tf.Tensor:
+    """Squared weak FP defect for the third central moment Q=<v |v|^2>.
+
+    This is a projection of the PDE residual itself, not a fit to the particle
+    history.  Per-time normalization prevents late-time small-Q samples from
+    being hidden by the bulk density residual.
+    """
+    normalized = ratio / tf.maximum(
+        tf.reduce_sum(ratio, axis=1, keepdims=True),
+        tf.cast(1.0e-30, ratio.dtype),
+    )
+    peculiar = c - mean[:, None, :]
+    r2 = tf.reduce_sum(tf.square(peculiar), axis=2, keepdims=True)
+    heat_basis = peculiar * r2
+    defect = tf.reduce_sum(
+        normalized * heat_basis * relative_residual, axis=1
+    )
+    return tf.reduce_mean(
+        tf.reduce_sum(tf.square(defect / tf.cast(scale, defect.dtype)), axis=1)
+    )
+
+
 def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimizer, config: Config):
+    fixed_c: tf.Tensor | None = None
+    fixed_log_q: tf.Tensor | None = None
+    if config.fixed_velocity_quadrature:
+        # Common random numbers remove optimizer-to-optimizer closure jitter.
+        _, fixed_c, fixed_log_q = sample_tf_proposal(config)
+        fixed_c = tf.stop_gradient(fixed_c)
+        fixed_log_q = tf.stop_gradient(fixed_log_q)
+
     @tf.function(reduce_retracing=True)
     def train_step() -> dict[str, tf.Tensor]:
-        t_grid, c_grid, log_q = sample_tf_proposal(config)
+        t_grid, c_grid, log_q = sample_tf_proposal(config, fixed_c, fixed_log_q)
         flat_t = tf.reshape(t_grid, (-1,1))
         flat_c = tf.reshape(c_grid, (-1,3))
         with tf.GradientTape() as parameter_tape:
@@ -338,26 +446,38 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
             ratio = tf.exp(
                 tf.clip_by_value(tf.reshape(log_f, tf.shape(log_q)) - log_q, -40.0, 40.0)
             )
-            moments = moment_tensors(c_grid, ratio)
-            coefficients, lam = closure_tf(moments, config)
-            # A Picard stop-gradient avoids differentiating through a matrix solve
-            # and through global moments while the conservation losses still train them.
-            coefficients_sg = tf.stop_gradient(coefficients)
-            lam_sg = tf.stop_gradient(lam)
-            matrix = _matrix_from_vector(coefficients_sg)
-            gamma = coefficients_sg[:,6:9]
+            # Fifth-order moments and the small 9x9 solve are accumulated in
+            # float64; the network and pointwise derivatives remain float32.
+            moments64 = moment_tensors(
+                tf.cast(c_grid, tf.float64), tf.cast(ratio, tf.float64)
+            )
+            coefficients64, lam64 = closure_tf(moments64, config)
+            moments = {
+                name: tf.cast(value, tf.float32)
+                for name, value in moments64.items()
+            }
+            coefficients = tf.cast(coefficients64, tf.float32)
+            lam = tf.cast(lam64, tf.float32)
+            if config.stop_gradient_closure:
+                coefficients_used = tf.stop_gradient(coefficients)
+                lam_used = tf.stop_gradient(lam)
+            else:
+                coefficients_used = coefficients
+                lam_used = lam
+            matrix = _matrix_from_vector(coefficients_used)
+            gamma = coefficients_used[:,6:9]
             peculiar = c_grid - moments["mean"][:,None,:]
             r2 = tf.reduce_sum(tf.square(peculiar), axis=2)
             linear = tf.einsum("tij,tvj->tvi", matrix, peculiar)
             nonlinear = (
                 linear + gamma[:,None,:]*(r2-moments["dm2"][:,None])[:,:,None]
-                + lam_sg[:,None,None]*(peculiar*r2[:,:,None]-moments["q"][:,None,:])
+                + lam_used[:,None,None]*(peculiar*r2[:,:,None]-moments["q"][:,None,:])
             )
             drift = -config.nu*peculiar + nonlinear
             divergence = (
                 -3.0*config.nu + tf.linalg.trace(matrix)[:,None]
                 +2.0*tf.reduce_sum(gamma[:,None,:]*peculiar,axis=2)
-                +5.0*lam_sg[:,None]*r2
+                +5.0*lam_used[:,None]*r2
             )
             flat_drift = tf.reshape(drift, (-1,3))
             diffusion = tf.repeat(
@@ -376,12 +496,20 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 importance * tf.square(delta) *
                 (tf.sqrt(1.0+tf.square(relative_residual/delta))-1.0)
             )
+            if config.case == "heat_flux":
+                heat_loss = weak_heat_flux_loss(
+                    c_grid, ratio, relative_residual, moments["mean"],
+                    config.heat_flux_scale,
+                )
+            else:
+                heat_loss = tf.constant(0.0, tf.float32)
             mass_loss = tf.reduce_mean(tf.square(moments["mass"]-1.0))
             momentum_loss = tf.reduce_mean(tf.square(moments["mean"]))
             energy_loss = tf.reduce_mean(tf.square(moments["dm2"]-3.0))
             total = (
                 config.pde_weight*pde_loss + config.mass_weight*mass_loss
                 +config.momentum_weight*momentum_loss+config.energy_weight*energy_loss
+                +config.heat_flux_weight*heat_loss
             )
         gradients = parameter_tape.gradient(total, model.trainable_variables)
         finite_gradients = [tf.where(tf.math.is_finite(g),g,tf.zeros_like(g)) for g in gradients]
@@ -391,7 +519,7 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
         optimizer.apply_gradients(zip(finite_gradients, model.trainable_variables))
         return {
             "total": total, "pde": pde_loss, "mass": mass_loss,
-            "momentum": momentum_loss, "energy": energy_loss,
+            "momentum": momentum_loss, "energy": energy_loss, "heat_flux": heat_loss,
             "grad_norm": grad_norm, "max_coefficient": tf.reduce_max(tf.abs(coefficients)),
             "max_abs_lambda": tf.reduce_max(tf.abs(lam)),
         }
@@ -591,6 +719,7 @@ def main() -> None:
                     [f"case={config.case}",f"epoch={epoch:6d}",f"total={result['total']:.3e}",
                      f"pde={result['pde']:.3e}",f"mass={result['mass']:.3e}",
                      f"mom={result['momentum']:.3e}",f"energy={result['energy']:.3e}",
+                     f"qweak={result['heat_flux']:.3e}",
                      f"grad={result['grad_norm']:.3e}",f"elapsed={time.perf_counter()-started:.1f}s"]),flush=True)
             if epoch%config.checkpoint_every==0 or epoch==config.epochs:
                 model.save_weights(checkpoints/f"epoch-{epoch:06d}.weights.h5")

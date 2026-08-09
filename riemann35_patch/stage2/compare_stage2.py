@@ -17,6 +17,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--julia", type=Path, required=True)
     parser.add_argument("--particle", type=Path, required=True)
+    parser.add_argument("--julia-metrics", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--baseline-final-m400", type=float, default=0.09702)
     return parser.parse_args()
@@ -35,6 +36,15 @@ def read_rows(path: Path) -> list[dict[str, float]]:
     return rows
 
 
+def read_metrics(path: Path) -> dict[str, str]:
+    with path.open(newline="", encoding="utf-8") as stream:
+        return {row["key"]: row["value"] for row in csv.DictReader(stream)}
+
+
+def metric_bool(metrics: dict[str, str], key: str) -> bool:
+    return metrics[key].strip().lower() == "true"
+
+
 def history_l2(julia_rows, particle_rows, quantity: str) -> float:
     squared_error = sum(
         (julia[quantity] - particle[quantity]) ** 2
@@ -48,6 +58,7 @@ def main() -> None:
     args = parse_arguments()
     julia_rows = read_rows(args.julia)
     particle_rows = read_rows(args.particle)
+    julia_metrics = read_metrics(args.julia_metrics)
     if len(julia_rows) != len(particle_rows):
         raise SystemExit("Julia and particle histories have different sample counts")
     for julia, particle in zip(julia_rows, particle_rows):
@@ -62,8 +73,16 @@ def main() -> None:
     final_m400_relative = abs(final_julia["M400"] - final_particle["M400"]) / max(
         abs(final_particle["M400"]), 1.0e-14
     )
+    raw_reached_final_time = metric_bool(julia_metrics, "raw_reached_final_time")
+    projection_count = int(float(julia_metrics["projection_count"]))
+    scientific_status = (
+        "RAW_CLOSURE_REACHED_FINAL_TIME"
+        if raw_reached_final_time
+        else "RAW_CLOSURE_FAILED_REALIZABILITY_PROJECTED_DIAGNOSTIC_ONLY"
+    )
     summary = {
-        "schema": "riemann35-fp-stage2-v1",
+        "schema": "riemann35-fp-stage2-v2",
+        "scientific_status": scientific_status,
         "samples": len(julia_rows),
         "final_time": final_julia["time"],
         "julia_mass_drift": abs(final_julia["rho"] - initial_julia["rho"]),
@@ -75,6 +94,30 @@ def main() -> None:
         "m400_improved_over_gaussian_tail_baseline": (
             final_m400_relative < args.baseline_final_m400
         ),
+        "raw_closure": {
+            "reached_final_time": raw_reached_final_time,
+            "failure_step": int(float(julia_metrics["raw_failure_step"])),
+            "failure_state_margin": float(
+                julia_metrics["raw_failure_state_margin"]
+            ),
+        },
+        "realizability_correction": {
+            "projection_count": projection_count,
+            "projection_fraction": float(julia_metrics["projection_fraction"]),
+            "maximum_relative_projection": float(
+                julia_metrics["maximum_relative_projection"]
+            ),
+            "maximum_interior_weight": float(
+                julia_metrics["maximum_interior_weight"]
+            ),
+            "minimum_trial_margin": float(
+                julia_metrics["minimum_trial_margin"]
+            ),
+            "minimum_accepted_margin": float(
+                julia_metrics["minimum_accepted_margin"]
+            ),
+            "final_margin": float(julia_metrics["final_margin"]),
+        },
         "history_relative_l2": {
             quantity: history_l2(julia_rows, particle_rows, quantity)
             for quantity in QUANTITIES
@@ -84,6 +127,16 @@ def main() -> None:
     args.summary.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
     print("Stage-2 Julia CHyQMOM-M6 vs particle comparison")
+    print(f"scientific status:     {scientific_status}")
+    print(
+        "raw failure step:      "
+        f"{summary['raw_closure']['failure_step']} "
+        f"(reached_final={raw_reached_final_time})"
+    )
+    print(
+        "projection count:      "
+        f"{projection_count} ({summary['realizability_correction']['projection_fraction']:.1%})"
+    )
     print(f"samples / final time: {summary['samples']} / {summary['final_time']:.6g}")
     print(f"Julia mass drift:     {summary['julia_mass_drift']:.3e}")
     print(f"Julia energy drift:   {summary['julia_energy_drift']:.3e}")
@@ -99,7 +152,12 @@ def main() -> None:
         raise SystemExit("FAIL: Julia mass conservation gate")
     if summary["julia_energy_drift"] > 1.0e-10:
         raise SystemExit("FAIL: Julia energy conservation gate")
-    print("PASS: Stage-2 operational gates completed; closure accuracy is diagnostic.")
+    print("PASS: Stage-2 operational gates completed.")
+    if not raw_reached_final_time:
+        print(
+            "SCIENTIFIC DIAGNOSTIC: the raw M5/M6 closure is not realizability-"
+            "preserving; particle-error metrics use the explicitly projected path."
+        )
 
 
 if __name__ == "__main__":

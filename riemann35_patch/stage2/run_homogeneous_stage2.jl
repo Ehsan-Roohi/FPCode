@@ -27,9 +27,11 @@ AdaptiveStats(initial_margin) = AdaptiveStats(
 )
 
 function parse_cli(arguments)
-    length(arguments) == 8 || error(
-        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE",
+    length(arguments) in (8, 9) || error(
+        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE [raw|bounded]",
     )
+    source_mode = length(arguments) == 9 ? Symbol(arguments[9]) : :raw
+    source_mode in (:raw, :bounded) || error("source mode must be raw or bounded")
     return (
         initial=arguments[1],
         history=arguments[2],
@@ -39,6 +41,8 @@ function parse_cli(arguments)
         tau=parse(Float64, arguments[6]),
         Pr=parse(Float64, arguments[7]),
         gamma_scale=parse(Float64, arguments[8]),
+        source_mode=source_mode,
+        speed_cap=25.0,
     )
 end
 
@@ -138,6 +142,24 @@ function legacy_substep_probe(M, controls)
     )
 end
 
+function evaluate_source(M, controls)
+    if controls.source_mode == :raw
+        return fp_collision_source35(
+            M,
+            controls.tau;
+            Pr=controls.Pr,
+            gamma_scale=controls.gamma_scale,
+        )
+    end
+    return fp_collision_source35_bounded(
+        M,
+        controls.tau;
+        Pr=controls.Pr,
+        gamma_scale=controls.gamma_scale,
+        speed_cap=controls.speed_cap,
+    )
+end
+
 function advance_to_target(
     M,
     current_time,
@@ -160,12 +182,7 @@ function advance_to_target(
             "adaptive FP source requires h=$trial_h below minimum_h=$minimum_h",
         )
 
-        source = fp_collision_source35(
-            M,
-            controls.tau;
-            Pr=controls.Pr,
-            gamma_scale=controls.gamma_scale,
-        )
+        source = evaluate_source(M, controls)
         stats.maximum_source_norm = max(stats.maximum_source_norm, norm(source))
         candidate = M .+ trial_h.*source
         margin = realizability_margin(candidate)
@@ -204,7 +221,8 @@ function main(arguments)
     initial_margin = realizability_margin(M)
 
     legacy_probe = legacy_substep_probe(M, controls)
-    @printf("Raw CHyQMOM-M6 initial margin: %.8e\n", initial_margin)
+    @printf("Selected source mode: %s\n", string(controls.source_mode))
+    @printf("CHyQMOM initial margin: %.8e\n", initial_margin)
     if legacy_probe.failure_step == 0
         println("Legacy max_substeps=256 trajectory reached final time.")
     else
@@ -266,6 +284,8 @@ function main(arguments)
     final_margin = realizability_margin(M)
 
     metrics = Pair{String,Any}[
+        "source_mode" => string(controls.source_mode),
+        "bounded_speed_cap" => controls.speed_cap,
         "legacy_cap_failure_step" => legacy_probe.failure_step,
         "legacy_failure_state_margin" => legacy_probe.state_margin,
         "adaptive_reached_final_time" => adaptive_reached_final_time,
@@ -289,7 +309,7 @@ function main(arguments)
     end
     write_metrics(controls.metrics, metrics)
 
-    @printf("Adaptive raw Julia samples written:   %d\n", length(rows))
+    @printf("Adaptive Julia samples written:       %d\n", length(rows))
     @printf("Adaptive reached final time:          %s\n", string(adaptive_reached_final_time))
     @printf("Accepted / rejected microsteps:       %d / %d\n", stats.accepted_steps, stats.rejected_steps)
     @printf("Minimum h / dt:                       %.8e\n", stats.minimum_h/controls.dt)
@@ -300,7 +320,7 @@ function main(arguments)
     @printf("Julia energy drift:                   %.3e\n", energy_drift)
 
     adaptive_reached_final_time || error(
-        "raw adaptive closure failed at macro step $adaptive_failure_step: $adaptive_exception",
+        "$(controls.source_mode) adaptive closure failed at macro step $adaptive_failure_step: $adaptive_exception",
     )
     mass_drift <= 1.0e-12 || error("mass conservation gate failed")
     momentum_drift <= 1.0e-12 || error("momentum conservation gate failed")

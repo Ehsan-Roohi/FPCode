@@ -7,9 +7,11 @@ import unittest
 import numpy as np
 
 from hyqmom_fp import (
+    ActivationHysteresis,
     CubicFPCoefficients,
     GaussianTailClosure,
     WeightedNodeTailClosure,
+    adaptive_tail_memory_fp_step,
     HYQMOM_35_INDICES,
     HYQMOM_35_NAMES,
     coefficients_from_moments,
@@ -24,6 +26,8 @@ from hyqmom_fp import (
     HermiteGalerkinTailClosure,
     first_35_from_hermite_state,
     initialize_hermite_moment_state,
+    initialize_adaptive_tail_memory,
+    kinetic_activation_sensor,
     macroscopic_state,
     maximum_entropy_fp_step,
     maxwellian_moments_35,
@@ -31,6 +35,8 @@ from hyqmom_fp import (
     moments_35_from_particles,
     particle_cubic_fp_step,
     particle_macroscopic_state,
+    positive_microstate_from_components,
+    positive_microstate_moments,
     projected_fp_collision_source,
     qmc_cubic_fp_step,
     realizability_margin_35,
@@ -602,6 +608,137 @@ class HyQMOMFPCollisionTests(unittest.TestCase):
         np.testing.assert_allclose(after.velocity, before.velocity, atol=2.0e-14)
         self.assertAlmostEqual(after.theta, before.theta, places=13)
         self.assertGreater(diagnostics.realizability_margin, 0.0)
+
+    @staticmethod
+    def _rare_beam_components():
+        beam_weight = 0.08
+        beam_mean = np.asarray([1.0, 0.35, -0.15])
+        background_mean = -(beam_weight / (1.0 - beam_weight)) * beam_mean
+        covariance = 2.5e-3 * np.eye(3)
+        return [
+            (beam_weight, beam_mean, covariance),
+            (1.0 - beam_weight, background_mean, covariance),
+        ]
+
+    def test_positive_micro_projection_matches_all_35_moments(self) -> None:
+        microstate, target, diagnostics = positive_microstate_from_components(
+            self._rare_beam_components(),
+            points_per_component=64,
+            seed=17,
+        )
+        self.assertTrue(np.all(microstate.weights > 0.0))
+        np.testing.assert_allclose(
+            positive_microstate_moments(microstate),
+            target,
+            rtol=2.0e-10,
+            atol=2.0e-10,
+        )
+        self.assertLess(diagnostics.relative_moment_residual, 2.0e-10)
+
+    def test_disagreement_sensor_selects_the_rare_beam(self) -> None:
+        rare_beam = mixture_of_gaussians_moments_35(
+            self._rare_beam_components()
+        )
+        correlated = self.nonequilibrium
+        policy = ActivationHysteresis()
+        self.assertTrue(
+            policy.requests_activation(kinetic_activation_sensor(rare_beam))
+        )
+        self.assertFalse(
+            policy.requests_activation(kinetic_activation_sensor(correlated))
+        )
+
+    def test_adaptive_micro_step_is_positive_conservative_and_realizable(self) -> None:
+        microstate, target, _ = positive_microstate_from_components(
+            self._rare_beam_components(),
+            points_per_component=64,
+            seed=19,
+        )
+        adaptive = initialize_adaptive_tail_memory(
+            target,
+            candidate_microstate=microstate,
+            noise_seed=23,
+        )
+        self.assertEqual(adaptive.mode, "micro")
+        updated, diagnostics = adaptive_tail_memory_fp_step(
+            adaptive,
+            2.5e-3,
+            1.0,
+            sensor_interval_steps=100,
+        )
+        before = macroscopic_state(target)
+        after = macroscopic_state(updated.moments)
+        self.assertTrue(diagnostics.used_micro_step)
+        self.assertIsNotNone(updated.microstate)
+        self.assertTrue(np.all(updated.microstate.weights > 0.0))
+        self.assertAlmostEqual(after.rho, before.rho, places=14)
+        np.testing.assert_allclose(after.velocity, before.velocity, atol=2.0e-14)
+        self.assertAlmostEqual(after.theta, before.theta, places=13)
+        self.assertGreater(diagnostics.realizability_margin, -5.0e-13)
+
+    def test_activation_without_a_causal_microstate_is_marked_ambiguous(self) -> None:
+        moments = mixture_of_gaussians_moments_35(
+            self._rare_beam_components()
+        )
+        adaptive = initialize_adaptive_tail_memory(
+            moments,
+            candidate_microstate=None,
+        )
+        self.assertEqual(adaptive.mode, "macro")
+        self.assertTrue(adaptive.tail_ambiguous)
+        updated, diagnostics = adaptive_tail_memory_fp_step(
+            adaptive,
+            2.5e-3,
+            1.0,
+            sensor_interval_steps=100,
+        )
+        self.assertTrue(diagnostics.activation_requested)
+        self.assertTrue(diagnostics.activation_blocked)
+        self.assertEqual(updated.mode, "macro")
+        self.assertIsNone(updated.microstate)
+
+    def test_safe_causal_microstate_deactivates_through_hysteresis(self) -> None:
+        covariance = np.asarray(
+            [
+                [0.72, 0.04, 0.01],
+                [0.04, 0.48, -0.02],
+                [0.01, -0.02, 0.39],
+            ]
+        )
+        components = [
+            (0.55, (-0.35, 0.08, 0.02), covariance),
+            (0.45, (0.55, -0.04, -0.01), covariance),
+        ]
+        microstate, target, _ = positive_microstate_from_components(
+            components,
+            points_per_component=64,
+            seed=31,
+        )
+        policy = ActivationHysteresis(
+            release_hold_steps=2,
+            minimum_active_steps=2,
+        )
+        adaptive = initialize_adaptive_tail_memory(
+            target,
+            candidate_microstate=microstate,
+            hysteresis=policy,
+            force_causal_birth=True,
+            noise_seed=37,
+        )
+        self.assertEqual(adaptive.mode, "micro")
+        transitions = []
+        for _ in range(2):
+            adaptive, diagnostics = adaptive_tail_memory_fp_step(
+                adaptive,
+                2.5e-3,
+                1.0,
+                hysteresis=policy,
+                sensor_interval_steps=1,
+            )
+            transitions.append(diagnostics.transition)
+        self.assertEqual(transitions, ["micro->micro", "micro->macro"])
+        self.assertEqual(adaptive.mode, "macro")
+        self.assertIsNone(adaptive.microstate)
 
 
 if __name__ == "__main__":

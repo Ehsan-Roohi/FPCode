@@ -1,0 +1,128 @@
+{
+  "schema": "riemann35-stage14-positive-qmc-reference-v1",
+  "controls": {
+    "base_dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "positive_measure": true,
+    "initial_and_noise_rule": "scrambled Sobol with exact affine mean/covariance correction",
+    "alignment": "paired QMC change shifted to analytic initial moments"
+  },
+  "cases": {
+    "rare_beam_ma20": {
+      "configurations": {
+        "qmc_8k_dt": {
+          "case": "rare_beam_ma20",
+          "label": "qmc_8k_dt",
+          "points_per_component": 8192,
+          "total_positive_nodes": 16384,
+          "minimum_weight": 9.765625e-06,
+          "dt_over_tau": 0.0025,
+          "steps": 400,
+          "elapsed_seconds": 7.166479977000563,
+          "minimum_raw_realizability_margin": 0.0006225776929981408,
+          "minimum_alpha": 1.0000003133517739,
+          "maximum_energy_drift": 4.618527782440651e-14,
+          "maximum_momentum_drift": 5.5743140044720396e-15,
+          "M400_error_vs_stage11_particle": 0.0053527816876203565,
+          "M400_difference_vs_finest_qmc": 0.015351401562340272,
+          "degree4_rmse_vs_finest_qmc": 0.18946191270804316,
+          "final_M400_particle_z_score": -1.1425159800752627
+        },
+        "qmc_32k_dt": {
+          "case": "rare_beam_ma20",
+          "label": "qmc_32k_dt",
+          "points_per_component": 32768,
+          "total_positive_nodes": 65536,
+          "minimum_weight": 2.44140625e-06,
+          "dt_over_tau": 0.0025,
+          "steps": 400,
+          "elapsed_seconds": 32.31948193899734,
+          "minimum_raw_realizability_margin": 0.0006240955606568954,
+          "minimum_alpha": 1.0000002963752028,
+          "maximum_energy_drift": 1.1057821325266559e-13,
+          "maximum_momentum_drift": 9.13262018719812e-15,
+          "M400_error_vs_stage11_particle": 0.012206887523020819,
+          "M400_difference_vs_finest_qmc": 0.005881747540454035,
+          "degree4_rmse_vs_finest_qmc": 0.07437469102095412,
+          "final_M400_particle_z_score": 0.649388413941046
+        },
+        "qmc_32k_half_dt": {
+          "case": "rare_beam_ma20",
+          "label": "qmc_32k_half_dt",
+          "points_per_component": 32768,
+          "total_positive_nodes": 65536,
+          "minimum_weight": 2.44140625e-06,
+          "dt_over_tau": 0.00125,
+          "steps": 800,
+          "elapsed_seconds": 56.77644644900283,
+          "minimum_raw_realizability_margin": 0.0006240955606568954,
+          "minimum_alpha": 1.0000000756542466,
+          "maximum_energy_drift": 9.903189379656396e-14,
+          "maximum_momentum_drift": 1.3300423655815511e-14,
+          "M400_error_vs_stage11_particle": 0.013174516214422605,
+          "M400_difference_vs_finest_qmc": 0.0,
+          "degree4_rmse_vs_finest_qmc": 0.0,
+          "final_M400_particle_z_score": 4.370071839659876
+        }
+      }
+    },
+    "rare_hot_anisotropic_w0.02_r25": {
+      "configurations": {
+        "qmc_8k_dt": {
+          "case": "rare_hot_anisotropic_w0.02_r25",
+          "label": "qmc_8k_dt",
+          "points_per_component": 8192,
+          "total_positive_nodes": 16384,
+          "minimum_weight": 2.44140625e-06,
+          "dt_over_tau": 0.0025,
+          "steps": 400,
+          "elapsed_seconds": 12.869574944998021,
+          "minimum_raw_realizability_margin": 0.10156799389492484,
+          "minimum_alpha": 1.0000000000808775,
+          "maximum_energy_drift": 2.7533531010703882e-14,
+          "maximum_momentum_drift": 9.363635048083888e-17,
+          "M400_error_vs_stage11_particle": 0.029221006779675315,
+          "M400_difference_vs_finest_qmc": 0.013823820695590199,
+          "degree4_rmse_vs_finest_qmc": 0.07503090962997351,
+          "final_M400_particle_z_score": 1.2886044210837115
+        },
+        "qmc_32k_dt": {
+          "case": "rare_hot_anisotropic_w0.02_r25",
+          "label": "qmc_32k_dt",
+          "points_per_component": 32768,
+          "total_positive_nodes": 65536,
+          "minimum_weight": 6.103515625e-07,
+          "dt_over_tau": 0.0025,
+          "steps": 400,
+          "elapsed_seconds": 29.575212640003883,
+          "minimum_raw_realizability_margin": 0.10133248835642449,
+          "minimum_alpha": 1.0000000000125626,
+          "maximum_energy_drift": 6.439293542825908e-14,
+          "maximum_momentum_drift": 1.6252214516194948e-16,
+          "M400_error_vs_stage11_particle": 0.03553762015579358,
+          "M400_difference_vs_finest_qmc": 0.00559357032891799,
+          "degree4_rmse_vs_finest_qmc": 0.02694992185125148,
+          "final_M400_particle_z_score": 0.9455157517210766
+        },
+        "qmc_32k_half_dt": {
+          "case": "rare_hot_anisotropic_w0.02_r25",
+          "label": "qmc_32k_half_dt",
+          "points_per_component": 32768,
+          "total_positive_nodes": 65536,
+          "minimum_weight": 6.103515625e-07,
+          "dt_over_tau": 0.00125,
+          "steps": 800,
+          "elapsed_seconds": 59.697274475001905,
+          "minimum_raw_realizability_margin": 0.10133248835642449,
+          "minimum_alpha": 1.0000000000074432,
+          "maximum_energy_drift": 6.350475700855895e-14,
+          "maximum_momentum_drift": 1.0091876977362443e-16,
+          "M400_error_vs_stage11_particle": 0.03724494666991527,
+          "M400_difference_vs_finest_qmc": 0.0,
+          "degree4_rmse_vs_finest_qmc": 0.0,
+          "final_M400_particle_z_score": 0.9790544994194517
+        }
+      }
+    }
+  }
+}

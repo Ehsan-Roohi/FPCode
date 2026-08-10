@@ -1,0 +1,58 @@
+{
+  "schema": "riemann35-fp-stage7-v1",
+  "case": "asymmetric",
+  "status": "PASS",
+  "controls": {
+    "seeds": 16,
+    "particles_per_seed": 100000,
+    "first_seed": 42,
+    "steps": 200,
+    "dt": 0.00025,
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "gamma_scale": 0.05,
+    "criterion": 0.03
+  },
+  "mixture_history_relative_l2": {
+    "M200": 0.00018346461997589835,
+    "M400": 0.0015718163367497897,
+    "stress_norm": 0.0008945009725761533,
+    "M300": 0.004328491250581607,
+    "qx": 0.009865902886341498
+  },
+  "single_gaussian_history_relative_l2": {
+    "M200": 0.006816536114060471,
+    "M400": 0.05899101724849513,
+    "stress_norm": 0.02708771465717383,
+    "M300": 0.0017836348977395438,
+    "qx": 0.005671619503910027
+  },
+  "mixture_diagnostics": {
+    "mass_drift": 0.0,
+    "momentum_drift": 0.0,
+    "energy_drift": 4.440892098500626e-16,
+    "minimum_realizability_margin": 0.28381707679835316,
+    "minimum_alpha": 1.0001178953099072,
+    "maximum_alpha": 1.0001247818272359,
+    "maximum_reconstruction_relative_residual": 0.014510561584152122,
+    "maximum_quadrature_nodes": 128
+  },
+  "mixture_algorithm": "finite-width principal-axis Gaussian-mixture FP map with moment-increment reconstruction-residual cancellation",
+  "single_gaussian_diagnostics": {
+    "algorithm": "continuous projected source with single-Gaussian M5/M6 tail",
+    "mass_drift": 0.0,
+    "momentum_drift": 0.0,
+    "energy_drift": 4.440892098500626e-16,
+    "minimum_realizability_margin": 0.28381707679835316,
+    "maximum_source_norm": 3.4233126782258703
+  },
+  "particle_diagnostics": {
+    "maximum_energy_drift": 4.04121180963557e-14,
+    "maximum_momentum_drift": 3.830783043525596e-15,
+    "minimum_alpha": 1.0001169604116493
+  },
+  "outputs": {
+    "history": "stage7_asymmetric_history.csv",
+    "figure": "stage7_asymmetric.png"
+  }
+}

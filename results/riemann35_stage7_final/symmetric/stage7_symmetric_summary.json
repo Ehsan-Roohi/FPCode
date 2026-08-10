@@ -1,0 +1,54 @@
+{
+  "schema": "riemann35-fp-stage7-v1",
+  "case": "symmetric",
+  "status": "PASS",
+  "controls": {
+    "seeds": 16,
+    "particles_per_seed": 100000,
+    "first_seed": 42,
+    "steps": 200,
+    "dt": 0.00025,
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "gamma_scale": 0.05,
+    "criterion": 0.03
+  },
+  "mixture_history_relative_l2": {
+    "M200": 0.0002517408911779927,
+    "M400": 0.0011849569012918138,
+    "stress_norm": 0.0016271987138501143
+  },
+  "single_gaussian_history_relative_l2": {
+    "M200": 0.005453541847508449,
+    "M400": 0.05800192439580183,
+    "stress_norm": 0.021246980653150272
+  },
+  "mixture_diagnostics": {
+    "mass_drift": 0.0,
+    "momentum_drift": 0.0,
+    "energy_drift": 2.220446049250313e-16,
+    "minimum_realizability_margin": 0.3233271561879729,
+    "minimum_alpha": 1.0000951573992567,
+    "maximum_alpha": 1.000101871030412,
+    "maximum_reconstruction_relative_residual": 0.014218779366513893,
+    "maximum_quadrature_nodes": 128
+  },
+  "mixture_algorithm": "finite-width principal-axis Gaussian-mixture FP map with moment-increment reconstruction-residual cancellation",
+  "single_gaussian_diagnostics": {
+    "algorithm": "continuous projected source with single-Gaussian M5/M6 tail",
+    "mass_drift": 0.0,
+    "momentum_drift": 0.0,
+    "energy_drift": 2.220446049250313e-16,
+    "minimum_realizability_margin": 0.3233271561879729,
+    "maximum_source_norm": 4.159221572330629
+  },
+  "particle_diagnostics": {
+    "maximum_energy_drift": 4.1744385725905886e-14,
+    "maximum_momentum_drift": 1.5568086139391078e-16,
+    "minimum_alpha": 1.000094324019779
+  },
+  "outputs": {
+    "history": "stage7_symmetric_history.csv",
+    "figure": "stage7_symmetric.png"
+  }
+}

@@ -13,7 +13,7 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
-from .collision import CubicFPCoefficients
+from .collision import CubicFPCoefficients, coefficients_from_weighted_nodes
 from .moments import HYQMOM_35_INDICES
 
 
@@ -133,31 +133,20 @@ def coefficients_from_particles(
     weights: Sequence[float] | None = None,
     rho: float = 1.0,
 ) -> CubicFPCoefficients:
-    """Evaluate FPCode's analytical ``C``, ``Gamma``, and ``Beta`` map."""
+    """Solve FPCode's physical 9-by-9 coefficient system from particles."""
 
     if tau <= 0.0:
         raise ValueError("tau must be positive")
     if not 0.0 < prandtl <= 1.0:
         raise ValueError("prandtl must lie in (0, 1]")
-    state = particle_macroscopic_state(velocities, weights=weights, rho=rho)
-    inverse_tau = 1.0 / tau
-    prandtl_factor = (1.0 - prandtl) / prandtl
-    C = inverse_tau * state.stress / state.pressure
-    beta = inverse_tau * prandtl_factor / (10.0 * state.theta**2)
-    q_scale = state.rho * state.theta * np.sqrt(state.theta)
-    gamma = (
-        gamma_scale
-        * inverse_tau
-        * prandtl_factor
-        * (state.heat_flux / q_scale)
-        / state.theta
-    )
-    return CubicFPCoefficients(
+    del gamma_scale
+    nodes = np.asarray(velocities, dtype=float)
+    particle_weights = _normalized_weights(nodes, weights, rho)
+    return coefficients_from_weighted_nodes(
+        nodes,
+        particle_weights,
         tau=tau,
-        C=C,
-        gamma=gamma,
-        beta=beta,
-        theta=state.theta,
+        prandtl=prandtl,
     )
 
 
@@ -239,7 +228,7 @@ def particle_cubic_fp_step(
     m2 = np.einsum("ni,ni->n", peculiar, peculiar)
     m2_used = np.minimum(m2, 25.0 * before.theta) if limit_peculiar_speed else m2
     nonlinear = peculiar @ coefficients.C.T
-    nonlinear += (m2_used - 5.0 * before.theta)[:, None] * coefficients.gamma
+    nonlinear += (m2_used - 3.0 * before.theta)[:, None] * coefficients.gamma
     nonlinear += coefficients.beta * (
         m2_used[:, None] * peculiar
         - 2.0 * before.heat_flux[None, :] / before.rho

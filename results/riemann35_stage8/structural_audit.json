@@ -1,0 +1,135 @@
+{
+  "schema": "riemann35-cubic-fp-stage8-structural-audit-v1",
+  "continuity_audit": [
+    {
+      "kappa3": 0.1,
+      "equal_variance_branch": "equal-variance-eqmom",
+      "equal_variance_M6": 374.94000118465584,
+      "equal_variance_M4_residual": 1.8155595163071407e-13,
+      "equal_variance_status": "FINITE",
+      "location_scale_branch": "location-scale",
+      "location_scale_M6": 37.50000017557954,
+      "location_scale_M4_residual": 0.0,
+      "location_scale_status": "FINITE"
+    },
+    {
+      "kappa3": 0.01,
+      "equal_variance_branch": "equal-variance-eqmom",
+      "equal_variance_M6": 33787.49960277307,
+      "equal_variance_M4_residual": 9.771808020997647e-10,
+      "equal_variance_status": "FINITE",
+      "location_scale_branch": "location-scale",
+      "location_scale_M6": 37.50000000000019,
+      "location_scale_M4_residual": 2.4084062232959786e-17,
+      "location_scale_status": "FINITE"
+    },
+    {
+      "kappa3": 0.001,
+      "equal_variance_status": "FAILED",
+      "equal_variance_message": "ValueError: degenerate Gaussian-mixture weight",
+      "location_scale_branch": "location-scale",
+      "location_scale_M6": 37.50000000000001,
+      "location_scale_M4_residual": 0.0,
+      "location_scale_status": "FINITE"
+    },
+    {
+      "kappa3": 0.0001,
+      "equal_variance_status": "FAILED",
+      "equal_variance_message": "ValueError: degenerate Gaussian-mixture weight",
+      "location_scale_branch": "location-scale",
+      "location_scale_M6": 37.50000000000004,
+      "location_scale_M4_residual": 1.9267295118729398e-16,
+      "location_scale_status": "FINITE"
+    },
+    {
+      "kappa3": 1e-06,
+      "equal_variance_status": "FAILED",
+      "equal_variance_message": "ValueError: degenerate Gaussian-mixture weight",
+      "location_scale_branch": "location-scale",
+      "location_scale_M6": 37.5,
+      "location_scale_M4_residual": 1.926729512101942e-16,
+      "location_scale_status": "FINITE"
+    },
+    {
+      "kappa3": 0.0,
+      "equal_variance_branch": "gaussian-fallback",
+      "equal_variance_M6": 15.000000000000023,
+      "equal_variance_M4_residual": 0.3333333333333333,
+      "equal_variance_status": "FINITE",
+      "location_scale_branch": "symmetric-location-scale",
+      "location_scale_M6": 37.50000000000001,
+      "location_scale_M4_residual": 0.0,
+      "location_scale_status": "FINITE"
+    }
+  ],
+  "long_time_audit": {
+    "symmetric": {
+      "initial_margin": 0.3233271561879729,
+      "requested_final_time": 3.0,
+      "dt": 0.0025,
+      "status": "LEFT_REALIZABILITY_CONE",
+      "failure_step": 1054,
+      "failure_time": 2.6350000000000002,
+      "failure_margin": -5.4865628484944396e-05,
+      "maximum_reconstruction_relative_residual": 0.4387443692065287
+    },
+    "asymmetric": {
+      "initial_margin": 0.28381707679835316,
+      "requested_final_time": 3.0,
+      "dt": 0.0025,
+      "status": "LEFT_REALIZABILITY_CONE",
+      "failure_step": 950,
+      "failure_time": 2.375,
+      "failure_margin": -3.380325073553525e-05,
+      "maximum_reconstruction_relative_residual": 0.45776682298346205
+    },
+    "correlated": {
+      "initial_margin": 0.2105961711326594,
+      "requested_final_time": 3.0,
+      "dt": 0.0025,
+      "status": "RECONSTRUCTION_FAILURE",
+      "failure_step": 359,
+      "failure_time": 0.8975,
+      "failure_message": "ValueError: location-scale fit requires a negative component variance",
+      "maximum_reconstruction_relative_residual": 0.2810948036981894
+    },
+    "leptokurtic": {
+      "initial_margin": 0.2083869307949576,
+      "requested_final_time": 3.0,
+      "dt": 0.0025,
+      "status": "LEFT_REALIZABILITY_CONE",
+      "failure_step": 1001,
+      "failure_time": 2.5025,
+      "failure_margin": -0.0008024359255253646,
+      "maximum_reconstruction_relative_residual": 0.42336933974453245
+    }
+  },
+  "nonseparable_multivariate_audit": {
+    "known_M0_to_M4_relative_residual": 0.16062026300329887,
+    "M5_M6_relative_residual": 0.3220211425760166,
+    "quadrature_nodes": 512,
+    "marginal_branches": [
+      "location-scale",
+      "location-scale",
+      "equal-variance-eqmom"
+    ],
+    "initial_realizability_margin": 0.2188022679613958,
+    "status": "FAILS_TENSOR_PRODUCT_GATE"
+  },
+  "cost_audit": {
+    "mixture_seconds_per_cell_source_step": 0.004766367814991099,
+    "single_gaussian_seconds_per_cell_source_step": 0.01045016988999123,
+    "bgk_seconds_per_cell_source_step": 0.00060622806999163,
+    "mixture_to_single_gaussian_ratio": 0.45610433755303276,
+    "mixture_to_bgk_ratio": 7.862334409980236,
+    "timing_repeats": 200,
+    "note": "Python prototype timing; not a Julia production benchmark"
+  },
+  "deployment_status": "NOT_READY_FOR_SPATIAL",
+  "failed_long_time_cases": [
+    "symmetric",
+    "asymmetric",
+    "correlated",
+    "leptokurtic"
+  ]
+}

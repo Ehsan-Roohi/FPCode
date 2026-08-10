@@ -1,0 +1,86 @@
+{
+  "schema": "riemann35-stage19-predictive-sensor-calibration-v1",
+  "state_count": 292,
+  "accuracy_label": "unsafe only when both Stage-9 and Grad exceed the fourth-order source error gate",
+  "accuracy_gate": 0.03,
+  "sensor_inputs_available_online": [
+    "Stage-9/Grad fourth-order source disagreement",
+    "Stage-9/Grad scaled M5/M6 tail disagreement",
+    "reconstruction failure"
+  ],
+  "offline_label_only": "exact tail of the generating Gaussian mixture",
+  "calibration": {
+    "unsafe_state_count": 263,
+    "safe_state_count": 29,
+    "source_disagreement_rule": {
+      "source_disagreement_threshold": 0.09802777970646287,
+      "true_positive": 250,
+      "false_positive": 6,
+      "true_negative": 23,
+      "false_negative": 13,
+      "recall": 0.9505703422053232,
+      "precision": 0.9765625,
+      "false_positive_rate": 0.20689655172413793,
+      "active_fraction": 0.8767123287671232
+    },
+    "source_or_tail_disagreement_rule": {
+      "source_disagreement_threshold": 0.10123901029526977,
+      "tail_disagreement_threshold": 0.4100511052690988,
+      "true_positive": 250,
+      "false_positive": 5,
+      "true_negative": 24,
+      "false_negative": 13,
+      "recall": 0.9505703422053232,
+      "precision": 0.9803921568627451,
+      "false_positive_rate": 0.1724137931034483,
+      "active_fraction": 0.8732876712328768
+    },
+    "calibration_scope": "in-sample on Gaussian-mixture-generated Stage-10 states; thresholds require confirmation on held-out kinetic/DVM states"
+  },
+  "families": {
+    "near_delta_counterstream": {
+      "states": 5,
+      "unsafe": 0,
+      "source_sensor_active": 1,
+      "combined_sensor_active": 1,
+      "median_best_algebraic_error": 8.152982908433389e-16
+    },
+    "near_delta_crossing": {
+      "states": 5,
+      "unsafe": 0,
+      "source_sensor_active": 0,
+      "combined_sensor_active": 0,
+      "median_best_algebraic_error": 9.032376864649454e-16
+    },
+    "near_delta_rare_beam": {
+      "states": 5,
+      "unsafe": 2,
+      "source_sensor_active": 4,
+      "combined_sensor_active": 4,
+      "median_best_algebraic_error": 7.193847000719719e-13
+    },
+    "random_multivariate_mixture": {
+      "states": 256,
+      "unsafe": 251,
+      "source_sensor_active": 245,
+      "combined_sensor_active": 244,
+      "median_best_algebraic_error": 0.4350079703353975
+    },
+    "rare_hot_anisotropic": {
+      "states": 16,
+      "unsafe": 10,
+      "source_sensor_active": 6,
+      "combined_sensor_active": 6,
+      "median_best_algebraic_error": 0.03552123245791008
+    },
+    "stage9_regression": {
+      "states": 5,
+      "unsafe": 0,
+      "source_sensor_active": 0,
+      "combined_sensor_active": 0,
+      "median_best_algebraic_error": 1.976049145363702e-35
+    }
+  },
+  "stage17_relation": "Stage 17 proves non-identifiability and supplies a compact-support source-span anchor. This Stage-19 calibration measures whether closure disagreement is a useful online surrogate; it does not turn the generating mixture into a unique truth.",
+  "microstate_initialization_rule": "A newly active microstate must be inherited from an active neighbor or an incoming kinetic boundary, or initialized while a physically known decomposition is still available. It must not be synthesized from the same 35 moments after tail information has already been lost."
+}

@@ -27,6 +27,14 @@ aligned histories, adaptive-step metrics, and `summary.json` under
 and mass/momentum/energy conservation are hard gates; moment-history accuracy
 against the particle reference remains a reported diagnostic.
 
+Unity job `62746158` passed all 36 focused Julia tests but rejected the
+continuous bounded trajectory during the first macro interval. The equivalent
+source norm was `1.38e5`; eight microsteps were accepted, 25 rejected, and the
+next required `h/dt` fell below `2^-24`. The accepted margin remained positive
+and all invariants were exact. Thus the bounded continuous function is retained
+as a negative control, while Stage 4 tests FPCode's actual finite-step map
+rather than forcing that map into an explicit-Euler source interpretation.
+
 Submit from the FPCode branch root on Unity:
 
 ```bash

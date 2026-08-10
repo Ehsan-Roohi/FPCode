@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare adaptive Julia CHyQMOM-M6 relaxation with FPCode particles."""
+"""Compare an adaptive Julia CHyQMOM source with FPCode particles."""
 
 from __future__ import annotations
 
@@ -79,13 +79,18 @@ def main() -> None:
         abs(final_particle["M400"]), 1.0e-14
     )
     adaptive_reached = metric_bool(julia_metrics, "adaptive_reached_final_time")
-    scientific_status = (
-        "RAW_CLOSURE_REACHED_FINAL_TIME_WITH_ADAPTIVE_MICROSTEPS"
-        if adaptive_reached
-        else "RAW_CLOSURE_ADAPTIVE_INTEGRATION_FAILED"
-    )
+    source_mode = julia_metrics.get("source_mode", "raw")
+    if source_mode not in {"raw", "bounded"}:
+        raise SystemExit(f"unknown Julia source mode: {source_mode}")
+    mode_label = source_mode.upper()
+    scientific_status = f"{mode_label}_CLOSURE_{'REACHED_FINAL_TIME' if adaptive_reached else 'ADAPTIVE_INTEGRATION_FAILED'}"
     summary = {
-        "schema": "riemann35-fp-stage2-v3",
+        "schema": (
+            "riemann35-fp-stage3-v1"
+            if source_mode == "bounded"
+            else "riemann35-fp-stage2-v4"
+        ),
+        "source_mode": source_mode,
         "scientific_status": scientific_status,
         "samples": len(julia_rows),
         "final_time": final_julia["time"],
@@ -93,6 +98,7 @@ def main() -> None:
         "julia_energy_drift": abs(
             final_julia["energy_trace"] - initial_julia["energy_trace"]
         ),
+        "julia_momentum_drift": float(julia_metrics["julia_momentum_drift"]),
         "final_m400_relative_difference": final_m400_relative,
         "gaussian_tail_baseline_final_m400_difference": args.baseline_final_m400,
         "m400_improved_over_gaussian_tail_baseline": (
@@ -140,7 +146,8 @@ def main() -> None:
     )
 
     adaptive = summary["adaptive_integrator"]
-    print("Stage-2 adaptive raw Julia CHyQMOM-M6 vs particle comparison")
+    stage = "Stage-3" if source_mode == "bounded" else "Stage-2"
+    print(f"{stage} adaptive {source_mode} Julia CHyQMOM vs particle comparison")
     print(f"scientific status:       {scientific_status}")
     print(f"legacy cap failure step: {summary['legacy_integrator']['failure_step']}")
     print(
@@ -150,6 +157,7 @@ def main() -> None:
     print(f"minimum h/dt:           {adaptive['minimum_h_over_dt']:.8e}")
     print(f"samples / final time:   {summary['samples']} / {summary['final_time']:.6g}")
     print(f"Julia mass drift:       {summary['julia_mass_drift']:.3e}")
+    print(f"Julia momentum drift:   {summary['julia_momentum_drift']:.3e}")
     print(f"Julia energy drift:     {summary['julia_energy_drift']:.3e}")
     print(f"final M400 relative:    {final_m400_relative:.3%}")
     print(
@@ -161,12 +169,14 @@ def main() -> None:
         print(f"history L2 {quantity:>14}: {value:.3%}")
 
     if not adaptive_reached:
-        raise SystemExit("FAIL: adaptive raw closure did not reach final time")
+        raise SystemExit(f"FAIL: adaptive {source_mode} closure did not reach final time")
     if summary["julia_mass_drift"] > 1.0e-12:
         raise SystemExit("FAIL: Julia mass conservation gate")
+    if summary["julia_momentum_drift"] > 1.0e-12:
+        raise SystemExit("FAIL: Julia momentum conservation gate")
     if summary["julia_energy_drift"] > 1.0e-10:
         raise SystemExit("FAIL: Julia energy conservation gate")
-    print("PASS: Stage-2 adaptive raw-closure comparison completed without projection.")
+    print(f"PASS: adaptive {source_mode}-closure comparison completed.")
 
 
 if __name__ == "__main__":

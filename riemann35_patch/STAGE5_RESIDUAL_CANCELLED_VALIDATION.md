@@ -34,3 +34,17 @@ Submit from a checkout of the latest GitHub branch:
 sbatch --export=ALL,JULIA_MODULE=julia/1.10.5 \
   riemann35_patch/run_unity_stage5.sbatch
 ```
+
+## Unity result
+
+Job `62748157` passed all 52 focused Julia tests but failed at the first
+homogeneous macro step.  The residual-cancelled finite candidate for
+`dt=2.5e-4` left the realizability cone before any step could be accepted.
+The failure is therefore a finite-timestep admissibility failure, not a unit
+test, package, scheduler, memory, or conservation failure.  The Stage-5 log
+values `alpha=Inf`, zero increment, and zero source norm are only uninitialized
+post-failure summaries; the map failed before those diagnostics were recorded.
+
+Stage 6 keeps the residual-cancelled map and retries each complete macro
+interval with powers-of-two subcycling.  This tests whether Stage 5 is a
+recoverable timestep problem before replacing the moment closure.

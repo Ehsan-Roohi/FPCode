@@ -20,8 +20,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--julia-metrics", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--baseline-final-m400", type=float, default=0.09702)
-    parser.add_argument("--stage", type=int, choices=(2, 3, 4, 5), default=None)
+    parser.add_argument("--stage", type=int, choices=(2, 3, 4, 5, 6), default=None)
     parser.add_argument("--require-m400-improvement", action="store_true")
+    parser.add_argument("--max-history-m200", type=float, default=None)
+    parser.add_argument("--max-history-stress", type=float, default=None)
     return parser.parse_args()
 
 
@@ -82,25 +84,31 @@ def main() -> None:
     )
     adaptive_reached = metric_bool(julia_metrics, "adaptive_reached_final_time")
     source_mode = julia_metrics.get("source_mode", "raw")
-    if source_mode not in {"raw", "bounded", "finite"}:
+    if source_mode not in {"raw", "bounded", "finite", "finite_subcycled"}:
         raise SystemExit(f"unknown Julia source mode: {source_mode}")
     mode_label = source_mode.upper()
     scientific_status = f"{mode_label}_CLOSURE_{'REACHED_FINAL_TIME' if adaptive_reached else 'ADAPTIVE_INTEGRATION_FAILED'}"
     inferred_stage = (
-        4 if source_mode == "finite" else (3 if source_mode == "bounded" else 2)
+        6
+        if source_mode == "finite_subcycled"
+        else (4 if source_mode == "finite" else (3 if source_mode == "bounded" else 2))
     )
     stage_number = args.stage if args.stage is not None else inferred_stage
     summary = {
         "schema": (
-            "riemann35-fp-stage5-v1"
-            if stage_number == 5
+            "riemann35-fp-stage6-v1"
+            if stage_number == 6
             else (
-                "riemann35-fp-stage4-v1"
-                if source_mode == "finite"
+                "riemann35-fp-stage5-v1"
+                if stage_number == 5
                 else (
-                    "riemann35-fp-stage3-v1"
-                    if source_mode == "bounded"
-                    else "riemann35-fp-stage2-v4"
+                    "riemann35-fp-stage4-v1"
+                    if source_mode == "finite"
+                    else (
+                        "riemann35-fp-stage3-v1"
+                        if source_mode == "bounded"
+                        else "riemann35-fp-stage2-v4"
+                    )
                 )
             )
         ),
@@ -163,7 +171,54 @@ def main() -> None:
                     julia_metrics, "finite_maximum_collision_increment_norm"
                 ),
             }
-            if source_mode == "finite"
+            if source_mode in {"finite", "finite_subcycled"}
+            else None
+        ),
+        "finite_subcycling": (
+            {
+                "max_substeps_limit": int(
+                    float(julia_metrics["finite_max_substeps_limit"])
+                ),
+                "maximum_substeps_per_macro": int(
+                    float(julia_metrics["finite_maximum_substeps_per_macro"])
+                ),
+                "retried_macrosteps": int(
+                    float(julia_metrics["finite_retried_macrosteps"])
+                ),
+                "total_restarts": int(
+                    float(julia_metrics["finite_total_restarts"])
+                ),
+                "first_step_ladder": [
+                    {
+                        "substeps": int(key.split("_")[4]),
+                        "success": metric_bool(julia_metrics, key),
+                        "attempted_substeps": int(
+                            float(julia_metrics[key.replace("_success", "_attempted")])
+                        ),
+                        "failure_substep": int(
+                            float(
+                                julia_metrics[
+                                    key.replace("_success", "_failure_substep")
+                                ]
+                            )
+                        ),
+                        "minimum_margin": finite_metric_or_none(
+                            julia_metrics,
+                            key.replace("_success", "_minimum_margin"),
+                        ),
+                    }
+                    for key in sorted(
+                        (
+                            name
+                            for name in julia_metrics
+                            if name.startswith("finite_first_step_nsub_")
+                            and name.endswith("_success")
+                        ),
+                        key=lambda name: int(name.split("_")[4]),
+                    )
+                ],
+            }
+            if source_mode == "finite_subcycled"
             else None
         ),
         "history_relative_l2": {
@@ -186,7 +241,7 @@ def main() -> None:
         f"{adaptive['accepted_microsteps']} / {adaptive['rejected_microsteps']}"
     )
     print(f"minimum h/dt:           {adaptive['minimum_h_over_dt']:.8e}")
-    if source_mode == "finite":
+    if source_mode in {"finite", "finite_subcycled"}:
         finite_map = summary["finite_map"]
         print(
             "finite alpha min/max:  "
@@ -206,6 +261,17 @@ def main() -> None:
                 "maximum collision increment: "
                 f"{finite_map['maximum_collision_increment_norm']:.8e}"
             )
+    if source_mode == "finite_subcycled":
+        subcycling = summary["finite_subcycling"]
+        print(
+            "subcycling max nsub:   "
+            f"{subcycling['maximum_substeps_per_macro']} "
+            f"(limit={subcycling['max_substeps_limit']})"
+        )
+        print(
+            "retried macros/restarts: "
+            f"{subcycling['retried_macrosteps']} / {subcycling['total_restarts']}"
+        )
     print(f"samples / final time:   {summary['samples']} / {summary['final_time']:.6g}")
     print(f"Julia mass drift:       {summary['julia_mass_drift']:.3e}")
     print(f"Julia momentum drift:   {summary['julia_momentum_drift']:.3e}")
@@ -231,6 +297,20 @@ def main() -> None:
         "m400_improved_over_gaussian_tail_baseline"
     ]:
         raise SystemExit("FAIL: final M400 did not improve over Gaussian-tail baseline")
+    history = summary["history_relative_l2"]
+    if args.max_history_m200 is not None and history["M200"] > args.max_history_m200:
+        raise SystemExit(
+            "FAIL: M200 history error "
+            f"{history['M200']:.3%} exceeds {args.max_history_m200:.3%}"
+        )
+    if (
+        args.max_history_stress is not None
+        and history["stress_norm"] > args.max_history_stress
+    ):
+        raise SystemExit(
+            "FAIL: stress history error "
+            f"{history['stress_norm']:.3%} exceeds {args.max_history_stress:.3%}"
+        )
     print(f"PASS: adaptive {source_mode}-closure comparison completed.")
 
 

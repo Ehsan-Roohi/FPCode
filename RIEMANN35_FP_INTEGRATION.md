@@ -52,6 +52,13 @@ creates an order-one jump as `dt -> 0`. The residual-cancelled finite map uses
 `M_new = M + (Q_mapped - Q_unmapped)`, preserving the exact retained state
 while using CHyQMOM only for the collision increment.
 
+The first residual-cancelled full step still left the realizability cone in
+Stage 5. Stage 6 therefore retries each complete macro interval using
+powers-of-two finite-map subcycling, always restarting a failed trial from the
+last committed state. This cleanly distinguishes a timestep admissibility
+problem from a structural closure error: success must include both cone
+preservation and improvement over the particle-reference accuracy baseline.
+
 ## Implementation sequence
 
 1. Add a CPU function `fp_collision_source35(M, tau; Pr=2/3)` beside

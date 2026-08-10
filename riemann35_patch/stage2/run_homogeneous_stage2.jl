@@ -28,11 +28,11 @@ AdaptiveStats(initial_margin) = AdaptiveStats(
 
 function parse_cli(arguments)
     length(arguments) in (8, 9) || error(
-        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE [raw|bounded|finite]",
+        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE [raw|bounded|finite|finite_subcycled]",
     )
     source_mode = length(arguments) == 9 ? Symbol(arguments[9]) : :raw
-    source_mode in (:raw, :bounded, :finite) || error(
-        "source mode must be raw, bounded, or finite",
+    source_mode in (:raw, :bounded, :finite, :finite_subcycled) || error(
+        "source mode must be raw, bounded, finite, or finite_subcycled",
     )
     return (
         initial=arguments[1],
@@ -45,6 +45,7 @@ function parse_cli(arguments)
         gamma_scale=parse(Float64, arguments[8]),
         source_mode=source_mode,
         speed_cap=25.0,
+        finite_max_substeps=parse(Int, get(ENV, "FINITE_MAX_SUBSTEPS", "256")),
     )
 end
 
@@ -211,12 +212,161 @@ function advance_to_target(
     return M, target_time, h
 end
 
+function try_finite_substeps(M, substeps, controls)
+    trial = copy(M)
+    h = controls.dt/substeps
+    attempted_substeps = 0
+    minimum_margin = realizability_margin(trial)
+    minimum_alpha = Inf
+    maximum_alpha = 0.0
+    maximum_node_c2_over_theta = 0.0
+    maximum_quadrature_residual_norm = 0.0
+    maximum_collision_increment_norm = 0.0
+    maximum_source_norm = 0.0
+
+    for substep in 1:substeps
+        previous = trial
+        candidate = nothing
+        map_diagnostics = nothing
+        attempted_substeps += 1
+        try
+            candidate, map_diagnostics = fp_collision_step35_bounded(
+                previous,
+                h,
+                controls.tau;
+                Pr=controls.Pr,
+                gamma_scale=controls.gamma_scale,
+                speed_cap=controls.speed_cap,
+                with_diagnostics=true,
+            )
+        catch exception
+            return (
+                success=false,
+                state=M,
+                attempted_substeps=attempted_substeps,
+                failure_substep=substep,
+                minimum_margin=-Inf,
+                exception=replace(sprint(showerror, exception), ',' => ';'),
+            )
+        end
+
+        margin = realizability_margin(candidate)
+        safe_margin = isfinite(margin) ? margin : -Inf
+        minimum_margin = min(minimum_margin, safe_margin)
+        if safe_margin < 0.0
+            return (
+                success=false,
+                state=M,
+                attempted_substeps=attempted_substeps,
+                failure_substep=substep,
+                minimum_margin=minimum_margin,
+                exception="finite FP map left the realizability cone",
+            )
+        end
+
+        trial = candidate
+        minimum_alpha = min(minimum_alpha, map_diagnostics.alpha)
+        maximum_alpha = max(maximum_alpha, map_diagnostics.alpha)
+        maximum_node_c2_over_theta = max(
+            maximum_node_c2_over_theta,
+            map_diagnostics.maximum_c2_over_theta,
+        )
+        if hasproperty(map_diagnostics, :quadrature_residual_norm)
+            maximum_quadrature_residual_norm = max(
+                maximum_quadrature_residual_norm,
+                map_diagnostics.quadrature_residual_norm,
+            )
+            maximum_collision_increment_norm = max(
+                maximum_collision_increment_norm,
+                map_diagnostics.collision_increment_norm,
+            )
+        end
+        maximum_source_norm = max(
+            maximum_source_norm,
+            norm(candidate-previous)/h,
+        )
+    end
+
+    return (
+        success=true,
+        state=trial,
+        attempted_substeps=attempted_substeps,
+        failure_substep=0,
+        minimum_margin=minimum_margin,
+        exception="none",
+        h=h,
+        minimum_alpha=minimum_alpha,
+        maximum_alpha=maximum_alpha,
+        maximum_node_c2_over_theta=maximum_node_c2_over_theta,
+        maximum_quadrature_residual_norm=maximum_quadrature_residual_norm,
+        maximum_collision_increment_norm=maximum_collision_increment_norm,
+        maximum_source_norm=maximum_source_norm,
+    )
+end
+
+function advance_finite_subcycled(M, controls)
+    attempts = NamedTuple[]
+    rejected_microsteps = 0
+    restarts = 0
+    substeps = 1
+
+    while substeps <= controls.finite_max_substeps
+        result = try_finite_substeps(M, substeps, controls)
+        push!(attempts, (
+            substeps=substeps,
+            success=result.success,
+            attempted_substeps=result.attempted_substeps,
+            failure_substep=result.failure_substep,
+            minimum_margin=result.minimum_margin,
+            exception=result.exception,
+        ))
+        if result.success
+            return (
+                success=true,
+                state=result.state,
+                substeps=substeps,
+                rejected_microsteps=rejected_microsteps,
+                restarts=restarts,
+                attempts=attempts,
+                h=result.h,
+                minimum_margin=result.minimum_margin,
+                minimum_alpha=result.minimum_alpha,
+                maximum_alpha=result.maximum_alpha,
+                maximum_node_c2_over_theta=result.maximum_node_c2_over_theta,
+                maximum_quadrature_residual_norm=result.maximum_quadrature_residual_norm,
+                maximum_collision_increment_norm=result.maximum_collision_increment_norm,
+                maximum_source_norm=result.maximum_source_norm,
+                exception="none",
+            )
+        end
+        rejected_microsteps += result.attempted_substeps
+        restarts += 1
+        substeps *= 2
+    end
+
+    last_attempt = attempts[end]
+    return (
+        success=false,
+        state=M,
+        substeps=0,
+        rejected_microsteps=rejected_microsteps,
+        restarts=restarts,
+        attempts=attempts,
+        exception=(
+            "finite FP subcycling exceeded max_substeps=$(controls.finite_max_substeps); " *
+            "last failure at nsub=$(last_attempt.substeps) substep=$(last_attempt.failure_substep): " *
+            last_attempt.exception
+        ),
+    )
+end
+
 function main(arguments)
     controls = parse_cli(arguments)
     controls.steps > 0 || error("steps must be positive")
     controls.dt > 0.0 || error("dt must be positive")
     controls.tau > 0.0 || error("tau must be positive")
     0.0 < controls.Pr <= 1.0 || error("Pr must lie in (0,1]")
+    controls.finite_max_substeps > 0 || error("FINITE_MAX_SUBSTEPS must be positive")
 
     M = read_initial_moments(controls.initial)
     initial = copy(M)
@@ -253,6 +403,10 @@ function main(arguments)
     maximum_node_c2_over_theta = 0.0
     maximum_quadrature_residual_norm = 0.0
     maximum_collision_increment_norm = 0.0
+    finite_maximum_substeps_per_macro = 1
+    finite_retried_macrosteps = 0
+    finite_total_restarts = 0
+    finite_first_step_attempts = NamedTuple[]
 
     try
         for step in 1:controls.steps
@@ -297,6 +451,65 @@ function main(arguments)
                         map_diagnostics.collision_increment_norm,
                     )
                 end
+            elseif controls.source_mode == :finite_subcycled
+                advance = advance_finite_subcycled(M, controls)
+                if step == 1
+                    finite_first_step_attempts = advance.attempts
+                end
+                for attempt in advance.attempts
+                    if step == 1 || !attempt.success
+                        @printf(
+                            "finite subcycle attempt: macro_step=%d nsub=%d success=%s attempted=%d failure_substep=%d minimum_margin=%.8e message=%s\n",
+                            step,
+                            attempt.substeps,
+                            string(attempt.success),
+                            attempt.attempted_substeps,
+                            attempt.failure_substep,
+                            attempt.minimum_margin,
+                            attempt.exception,
+                        )
+                    end
+                    stats.minimum_trial_margin = min(
+                        stats.minimum_trial_margin,
+                        attempt.minimum_margin,
+                    )
+                end
+                stats.rejected_steps += advance.rejected_microsteps
+                finite_total_restarts += advance.restarts
+                finite_retried_macrosteps += (advance.restarts > 0 ? 1 : 0)
+                advance.success || error(advance.exception)
+                M = advance.state
+                margin = realizability_margin(M)
+                current_time = step*controls.dt
+                h = advance.h
+                stats.accepted_steps += advance.substeps
+                stats.minimum_h = min(stats.minimum_h, advance.h)
+                stats.maximum_source_norm = max(
+                    stats.maximum_source_norm,
+                    advance.maximum_source_norm,
+                )
+                stats.minimum_accepted_margin = min(
+                    stats.minimum_accepted_margin,
+                    advance.minimum_margin,
+                )
+                minimum_alpha = min(minimum_alpha, advance.minimum_alpha)
+                maximum_alpha = max(maximum_alpha, advance.maximum_alpha)
+                maximum_node_c2_over_theta = max(
+                    maximum_node_c2_over_theta,
+                    advance.maximum_node_c2_over_theta,
+                )
+                maximum_quadrature_residual_norm = max(
+                    maximum_quadrature_residual_norm,
+                    advance.maximum_quadrature_residual_norm,
+                )
+                maximum_collision_increment_norm = max(
+                    maximum_collision_increment_norm,
+                    advance.maximum_collision_increment_norm,
+                )
+                finite_maximum_substeps_per_macro = max(
+                    finite_maximum_substeps_per_macro,
+                    advance.substeps,
+                )
             else
                 M, current_time, h = advance_to_target(
                     M, current_time, step*controls.dt, h, controls, stats,
@@ -341,6 +554,10 @@ function main(arguments)
         "finite_maximum_node_c2_over_theta" => maximum_node_c2_over_theta,
         "finite_maximum_quadrature_residual_norm" => maximum_quadrature_residual_norm,
         "finite_maximum_collision_increment_norm" => maximum_collision_increment_norm,
+        "finite_max_substeps_limit" => controls.finite_max_substeps,
+        "finite_maximum_substeps_per_macro" => finite_maximum_substeps_per_macro,
+        "finite_retried_macrosteps" => finite_retried_macrosteps,
+        "finite_total_restarts" => finite_total_restarts,
         "legacy_cap_failure_step" => legacy_probe.failure_step,
         "legacy_failure_state_margin" => legacy_probe.state_margin,
         "adaptive_reached_final_time" => adaptive_reached_final_time,
@@ -362,6 +579,14 @@ function main(arguments)
     for (key, value) in legacy_probe.probes
         push!(metrics, key => value)
     end
+    for attempt in finite_first_step_attempts
+        prefix = "finite_first_step_nsub_$(attempt.substeps)"
+        push!(metrics, "$(prefix)_success" => attempt.success)
+        push!(metrics, "$(prefix)_attempted" => attempt.attempted_substeps)
+        push!(metrics, "$(prefix)_failure_substep" => attempt.failure_substep)
+        push!(metrics, "$(prefix)_minimum_margin" => attempt.minimum_margin)
+        push!(metrics, "$(prefix)_exception" => attempt.exception)
+    end
     write_metrics(controls.metrics, metrics)
 
     @printf("Adaptive Julia samples written:       %d\n", length(rows))
@@ -370,11 +595,15 @@ function main(arguments)
     @printf("Minimum h / dt:                       %.8e\n", stats.minimum_h/controls.dt)
     @printf("Maximum source norm:                  %.8e\n", stats.maximum_source_norm)
     @printf("Minimum accepted margin:              %.8e\n", stats.minimum_accepted_margin)
-    if controls.source_mode == :finite
+    if controls.source_mode in (:finite, :finite_subcycled)
         @printf("Minimum / maximum alpha:              %.8e / %.8e\n", minimum_alpha, maximum_alpha)
         @printf("Maximum node c2 / theta:              %.8e\n", maximum_node_c2_over_theta)
         @printf("Maximum quadrature residual norm:     %.8e\n", maximum_quadrature_residual_norm)
         @printf("Maximum collision increment norm:     %.8e\n", maximum_collision_increment_norm)
+        if controls.source_mode == :finite_subcycled
+            @printf("Maximum substeps per macro interval:  %d\n", finite_maximum_substeps_per_macro)
+            @printf("Retried macro intervals / restarts:  %d / %d\n", finite_retried_macrosteps, finite_total_restarts)
+        end
     end
     @printf("Julia mass drift:                     %.3e\n", mass_drift)
     @printf("Julia momentum drift:                 %.3e\n", momentum_drift)

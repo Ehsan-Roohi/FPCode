@@ -253,7 +253,7 @@ function try_finite_substeps(M, substeps, controls)
         margin = realizability_margin(candidate)
         safe_margin = isfinite(margin) ? margin : -Inf
         minimum_margin = min(minimum_margin, safe_margin)
-        if safe_margin < 0.0
+        if safe_margin < 0.0 || !is_realizable(candidate)
             return (
                 success=false,
                 state=M,

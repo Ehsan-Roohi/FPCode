@@ -80,15 +80,19 @@ def main() -> None:
     )
     adaptive_reached = metric_bool(julia_metrics, "adaptive_reached_final_time")
     source_mode = julia_metrics.get("source_mode", "raw")
-    if source_mode not in {"raw", "bounded"}:
+    if source_mode not in {"raw", "bounded", "finite"}:
         raise SystemExit(f"unknown Julia source mode: {source_mode}")
     mode_label = source_mode.upper()
     scientific_status = f"{mode_label}_CLOSURE_{'REACHED_FINAL_TIME' if adaptive_reached else 'ADAPTIVE_INTEGRATION_FAILED'}"
     summary = {
         "schema": (
-            "riemann35-fp-stage3-v1"
-            if source_mode == "bounded"
-            else "riemann35-fp-stage2-v4"
+            "riemann35-fp-stage4-v1"
+            if source_mode == "finite"
+            else (
+                "riemann35-fp-stage3-v1"
+                if source_mode == "bounded"
+                else "riemann35-fp-stage2-v4"
+            )
         ),
         "source_mode": source_mode,
         "scientific_status": scientific_status,
@@ -135,6 +139,17 @@ def main() -> None:
             ),
             "final_margin": float(julia_metrics["final_margin"]),
         },
+        "finite_map": (
+            {
+                "minimum_alpha": float(julia_metrics["finite_minimum_alpha"]),
+                "maximum_alpha": float(julia_metrics["finite_maximum_alpha"]),
+                "maximum_node_c2_over_theta": float(
+                    julia_metrics["finite_maximum_node_c2_over_theta"]
+                ),
+            }
+            if source_mode == "finite"
+            else None
+        ),
         "history_relative_l2": {
             quantity: history_l2(julia_rows, particle_rows, quantity)
             for quantity in QUANTITIES
@@ -146,7 +161,11 @@ def main() -> None:
     )
 
     adaptive = summary["adaptive_integrator"]
-    stage = "Stage-3" if source_mode == "bounded" else "Stage-2"
+    stage = (
+        "Stage-4"
+        if source_mode == "finite"
+        else ("Stage-3" if source_mode == "bounded" else "Stage-2")
+    )
     print(f"{stage} adaptive {source_mode} Julia CHyQMOM vs particle comparison")
     print(f"scientific status:       {scientific_status}")
     print(f"legacy cap failure step: {summary['legacy_integrator']['failure_step']}")
@@ -155,6 +174,16 @@ def main() -> None:
         f"{adaptive['accepted_microsteps']} / {adaptive['rejected_microsteps']}"
     )
     print(f"minimum h/dt:           {adaptive['minimum_h_over_dt']:.8e}")
+    if source_mode == "finite":
+        finite_map = summary["finite_map"]
+        print(
+            "finite alpha min/max:  "
+            f"{finite_map['minimum_alpha']:.8e} / {finite_map['maximum_alpha']:.8e}"
+        )
+        print(
+            "maximum node c2/theta: "
+            f"{finite_map['maximum_node_c2_over_theta']:.8e}"
+        )
     print(f"samples / final time:   {summary['samples']} / {summary['final_time']:.6g}")
     print(f"Julia mass drift:       {summary['julia_mass_drift']:.3e}")
     print(f"Julia momentum drift:   {summary['julia_momentum_drift']:.3e}")

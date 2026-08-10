@@ -28,10 +28,12 @@ AdaptiveStats(initial_margin) = AdaptiveStats(
 
 function parse_cli(arguments)
     length(arguments) in (8, 9) || error(
-        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE [raw|bounded]",
+        "usage: run_homogeneous_stage2.jl INITIAL HISTORY METRICS STEPS DT TAU PR GAMMA_SCALE [raw|bounded|finite]",
     )
     source_mode = length(arguments) == 9 ? Symbol(arguments[9]) : :raw
-    source_mode in (:raw, :bounded) || error("source mode must be raw or bounded")
+    source_mode in (:raw, :bounded, :finite) || error(
+        "source mode must be raw, bounded, or finite",
+    )
     return (
         initial=arguments[1],
         history=arguments[2],
@@ -246,12 +248,48 @@ function main(arguments)
     adaptive_reached_final_time = true
     adaptive_failure_step = 0
     adaptive_exception = "none"
+    minimum_alpha = Inf
+    maximum_alpha = 0.0
+    maximum_node_c2_over_theta = 0.0
 
     try
         for step in 1:controls.steps
-            M, current_time, h = advance_to_target(
-                M, current_time, step*controls.dt, h, controls, stats,
-            )
+            if controls.source_mode == :finite
+                previous = M
+                M, map_diagnostics = fp_collision_step35_bounded(
+                    M,
+                    controls.dt,
+                    controls.tau;
+                    Pr=controls.Pr,
+                    gamma_scale=controls.gamma_scale,
+                    speed_cap=controls.speed_cap,
+                    with_diagnostics=true,
+                )
+                margin = realizability_margin(M)
+                margin >= 0.0 || error(
+                    "finite FP map left the realizability cone at step $step",
+                )
+                current_time = step*controls.dt
+                h = controls.dt
+                stats.accepted_steps += 1
+                stats.minimum_h = min(stats.minimum_h, controls.dt)
+                stats.maximum_source_norm = max(
+                    stats.maximum_source_norm,
+                    norm(M-previous)/controls.dt,
+                )
+                stats.minimum_trial_margin = min(stats.minimum_trial_margin, margin)
+                stats.minimum_accepted_margin = min(stats.minimum_accepted_margin, margin)
+                minimum_alpha = min(minimum_alpha, map_diagnostics.alpha)
+                maximum_alpha = max(maximum_alpha, map_diagnostics.alpha)
+                maximum_node_c2_over_theta = max(
+                    maximum_node_c2_over_theta,
+                    map_diagnostics.maximum_c2_over_theta,
+                )
+            else
+                M, current_time, h = advance_to_target(
+                    M, current_time, step*controls.dt, h, controls, stats,
+                )
+            end
             if step % 10 == 0 || step == controls.steps
                 push!(rows, diagnostics(step, controls.dt, M, stats))
                 @printf(
@@ -286,6 +324,9 @@ function main(arguments)
     metrics = Pair{String,Any}[
         "source_mode" => string(controls.source_mode),
         "bounded_speed_cap" => controls.speed_cap,
+        "finite_minimum_alpha" => minimum_alpha,
+        "finite_maximum_alpha" => maximum_alpha,
+        "finite_maximum_node_c2_over_theta" => maximum_node_c2_over_theta,
         "legacy_cap_failure_step" => legacy_probe.failure_step,
         "legacy_failure_state_margin" => legacy_probe.state_margin,
         "adaptive_reached_final_time" => adaptive_reached_final_time,
@@ -315,6 +356,10 @@ function main(arguments)
     @printf("Minimum h / dt:                       %.8e\n", stats.minimum_h/controls.dt)
     @printf("Maximum source norm:                  %.8e\n", stats.maximum_source_norm)
     @printf("Minimum accepted margin:              %.8e\n", stats.minimum_accepted_margin)
+    if controls.source_mode == :finite
+        @printf("Minimum / maximum alpha:              %.8e / %.8e\n", minimum_alpha, maximum_alpha)
+        @printf("Maximum node c2 / theta:              %.8e\n", maximum_node_c2_over_theta)
+    end
     @printf("Julia mass drift:                     %.3e\n", mass_drift)
     @printf("Julia momentum drift:                 %.3e\n", momentum_drift)
     @printf("Julia energy drift:                   %.3e\n", energy_drift)

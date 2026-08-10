@@ -20,6 +20,16 @@ records alpha, the largest node `|c|^2/theta`, realizability, invariants, histor
 errors, and the final M400 difference. The raw and continuous-bounded functions
 remain in the patch chain as documented negative controls.
 
+Unity job `62747589` passed all 48 focused Julia tests and reached final time
+in 200 full finite steps with no rejection. The minimum accepted realizability
+margin was `6.48e-4`; mass, momentum, and energy drift were zero to roundoff.
+However, the final `M400` error was 97.087% and the largest equivalent source
+norm was `1.91e4`. The finite map was therefore operationally stable but
+scientifically rejected. The cause was an order-one CHyQMOM reconstruction
+jump in six retained cross moments for every positive timestep. Stage 5
+cancels that common reconstruction residual before applying the collision
+increment.
+
 Submit from a checkout of the latest GitHub branch:
 
 ```bash

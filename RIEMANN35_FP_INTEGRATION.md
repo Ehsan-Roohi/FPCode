@@ -46,6 +46,12 @@ high-order cross constraints.  It should therefore be used only to supply M6
 in this first experiment, not to overwrite the retained M4 state or the
 analytical M5 closure.  Sensitivity to the M6 construction must be reported.
 
+The finite-step validation exposed the same requirement in a stronger form:
+directly mapping the quadrature overwrites six retained cross moments and
+creates an order-one jump as `dt -> 0`. The residual-cancelled finite map uses
+`M_new = M + (Q_mapped - Q_unmapped)`, preserving the exact retained state
+while using CHyQMOM only for the collision increment.
+
 ## Implementation sequence
 
 1. Add a CPU function `fp_collision_source35(M, tau; Pr=2/3)` beside

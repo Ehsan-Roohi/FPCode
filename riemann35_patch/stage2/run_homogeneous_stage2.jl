@@ -251,6 +251,8 @@ function main(arguments)
     minimum_alpha = Inf
     maximum_alpha = 0.0
     maximum_node_c2_over_theta = 0.0
+    maximum_quadrature_residual_norm = 0.0
+    maximum_collision_increment_norm = 0.0
 
     try
         for step in 1:controls.steps
@@ -285,6 +287,16 @@ function main(arguments)
                     maximum_node_c2_over_theta,
                     map_diagnostics.maximum_c2_over_theta,
                 )
+                if hasproperty(map_diagnostics, :quadrature_residual_norm)
+                    maximum_quadrature_residual_norm = max(
+                        maximum_quadrature_residual_norm,
+                        map_diagnostics.quadrature_residual_norm,
+                    )
+                    maximum_collision_increment_norm = max(
+                        maximum_collision_increment_norm,
+                        map_diagnostics.collision_increment_norm,
+                    )
+                end
             else
                 M, current_time, h = advance_to_target(
                     M, current_time, step*controls.dt, h, controls, stats,
@@ -327,6 +339,8 @@ function main(arguments)
         "finite_minimum_alpha" => minimum_alpha,
         "finite_maximum_alpha" => maximum_alpha,
         "finite_maximum_node_c2_over_theta" => maximum_node_c2_over_theta,
+        "finite_maximum_quadrature_residual_norm" => maximum_quadrature_residual_norm,
+        "finite_maximum_collision_increment_norm" => maximum_collision_increment_norm,
         "legacy_cap_failure_step" => legacy_probe.failure_step,
         "legacy_failure_state_margin" => legacy_probe.state_margin,
         "adaptive_reached_final_time" => adaptive_reached_final_time,
@@ -359,6 +373,8 @@ function main(arguments)
     if controls.source_mode == :finite
         @printf("Minimum / maximum alpha:              %.8e / %.8e\n", minimum_alpha, maximum_alpha)
         @printf("Maximum node c2 / theta:              %.8e\n", maximum_node_c2_over_theta)
+        @printf("Maximum quadrature residual norm:     %.8e\n", maximum_quadrature_residual_norm)
+        @printf("Maximum collision increment norm:     %.8e\n", maximum_collision_increment_norm)
     end
     @printf("Julia mass drift:                     %.3e\n", mass_drift)
     @printf("Julia momentum drift:                 %.3e\n", momentum_drift)

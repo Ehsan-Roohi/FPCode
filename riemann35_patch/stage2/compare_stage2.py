@@ -20,6 +20,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--julia-metrics", type=Path, required=True)
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--baseline-final-m400", type=float, default=0.09702)
+    parser.add_argument("--stage", type=int, choices=(2, 3, 4, 5), default=None)
+    parser.add_argument("--require-m400-improvement", action="store_true")
     return parser.parse_args()
 
 
@@ -84,14 +86,22 @@ def main() -> None:
         raise SystemExit(f"unknown Julia source mode: {source_mode}")
     mode_label = source_mode.upper()
     scientific_status = f"{mode_label}_CLOSURE_{'REACHED_FINAL_TIME' if adaptive_reached else 'ADAPTIVE_INTEGRATION_FAILED'}"
+    inferred_stage = (
+        4 if source_mode == "finite" else (3 if source_mode == "bounded" else 2)
+    )
+    stage_number = args.stage if args.stage is not None else inferred_stage
     summary = {
         "schema": (
-            "riemann35-fp-stage4-v1"
-            if source_mode == "finite"
+            "riemann35-fp-stage5-v1"
+            if stage_number == 5
             else (
-                "riemann35-fp-stage3-v1"
-                if source_mode == "bounded"
-                else "riemann35-fp-stage2-v4"
+                "riemann35-fp-stage4-v1"
+                if source_mode == "finite"
+                else (
+                    "riemann35-fp-stage3-v1"
+                    if source_mode == "bounded"
+                    else "riemann35-fp-stage2-v4"
+                )
             )
         ),
         "source_mode": source_mode,
@@ -146,6 +156,12 @@ def main() -> None:
                 "maximum_node_c2_over_theta": float(
                     julia_metrics["finite_maximum_node_c2_over_theta"]
                 ),
+                "maximum_quadrature_residual_norm": finite_metric_or_none(
+                    julia_metrics, "finite_maximum_quadrature_residual_norm"
+                ),
+                "maximum_collision_increment_norm": finite_metric_or_none(
+                    julia_metrics, "finite_maximum_collision_increment_norm"
+                ),
             }
             if source_mode == "finite"
             else None
@@ -161,11 +177,7 @@ def main() -> None:
     )
 
     adaptive = summary["adaptive_integrator"]
-    stage = (
-        "Stage-4"
-        if source_mode == "finite"
-        else ("Stage-3" if source_mode == "bounded" else "Stage-2")
-    )
+    stage = f"Stage-{stage_number}"
     print(f"{stage} adaptive {source_mode} Julia CHyQMOM vs particle comparison")
     print(f"scientific status:       {scientific_status}")
     print(f"legacy cap failure step: {summary['legacy_integrator']['failure_step']}")
@@ -184,6 +196,16 @@ def main() -> None:
             "maximum node c2/theta: "
             f"{finite_map['maximum_node_c2_over_theta']:.8e}"
         )
+        if finite_map["maximum_quadrature_residual_norm"] is not None:
+            print(
+                "maximum quadrature residual: "
+                f"{finite_map['maximum_quadrature_residual_norm']:.8e}"
+            )
+        if finite_map["maximum_collision_increment_norm"] is not None:
+            print(
+                "maximum collision increment: "
+                f"{finite_map['maximum_collision_increment_norm']:.8e}"
+            )
     print(f"samples / final time:   {summary['samples']} / {summary['final_time']:.6g}")
     print(f"Julia mass drift:       {summary['julia_mass_drift']:.3e}")
     print(f"Julia momentum drift:   {summary['julia_momentum_drift']:.3e}")
@@ -205,6 +227,10 @@ def main() -> None:
         raise SystemExit("FAIL: Julia momentum conservation gate")
     if summary["julia_energy_drift"] > 1.0e-10:
         raise SystemExit("FAIL: Julia energy conservation gate")
+    if args.require_m400_improvement and not summary[
+        "m400_improved_over_gaussian_tail_baseline"
+    ]:
+        raise SystemExit("FAIL: final M400 did not improve over Gaussian-tail baseline")
     print(f"PASS: adaptive {source_mode}-closure comparison completed.")
 
 

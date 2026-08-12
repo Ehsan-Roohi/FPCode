@@ -89,6 +89,27 @@ map. Hysteresis controls release and prevents representation chatter.
    active-cell fraction, and wall time.
 6. Run crossing jets and compare with DSMC/SPARTA before proposing MFC coupling.
 
+## Stage-25A implementation status
+
+The first spatial contract is now implemented in
+`hyqmom_fp/spatial_shock.py` and
+`riemann35_patch/stage25a/run_normal_shock.py`. It includes:
+
+- exact Mach-3 monatomic Rankine-Hugoniot end states;
+- conservative positive 1D upwind transport of a three-dimensional DVM;
+- a 35-moment positive kinetic-flux macro baseline;
+- shared macro/micro face fluxes and causal neighbour/inflow birth rules;
+- the frozen Stage-24B sensor thresholds without spatial retuning;
+- full-DVM, macro, and adaptive histories with conservation, positivity,
+  realizability, active-cell, transition, and timing diagnostics; and
+- a predeclared qualification protocol in
+  `riemann35_patch/stage25a/STAGE25A_NORMAL_SHOCK_PROTOCOL.md`.
+
+The retained local smoke run is development evidence only. It exercises the
+new contracts on a coarse grid; the frozen physical/velocity/time/domain
+refinement and like-for-like economy gates remain required before any spatial
+accuracy claim.
+
 ## GPU boundary
 
 `chyqmom_nodes_3d` currently allocates vectors/matrices and is documented as a

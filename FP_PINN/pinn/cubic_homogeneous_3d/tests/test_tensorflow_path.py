@@ -63,6 +63,43 @@ class TensorFlowPathTests(unittest.TestCase):
                         places=6,
                     )
 
+    def test_tail_log_density_hessian_is_finite(self) -> None:
+        from train_stage2 import Config, DensityModel
+
+        config = Config(
+            case="heat_flux", output_dir="unused", reference="unused",
+            width=16, depth=2,
+        )
+        model = DensityModel(config)
+        times = tf.fill((6, 1), tf.constant(0.5, tf.float32))
+        velocities = tf.constant(
+            [
+                [12.0, 0.0, 0.0],
+                [-12.0, 0.0, 0.0],
+                [0.0, 12.0, 0.0],
+                [0.0, 0.0, -12.0],
+                [8.0, 8.0, 8.0],
+                [10.0, -7.0, 5.0],
+            ],
+            dtype=tf.float32,
+        )
+        with tf.GradientTape(persistent=True) as second_tape:
+            second_tape.watch(velocities)
+            with tf.GradientTape() as first_tape:
+                first_tape.watch(velocities)
+                log_f = model.log_density(times, velocities)
+            grad_h = first_tape.gradient(log_f, velocities)
+        hessian_h = second_tape.batch_jacobian(
+            grad_h, velocities, experimental_use_pfor=True
+        )
+        del second_tape
+        for name, value in (
+            ("log density", log_f),
+            ("log-density gradient", grad_h),
+            ("log-density Hessian", hessian_h),
+        ):
+            self.assertTrue(np.all(np.isfinite(value.numpy())), name)
+
     def test_one_training_step_is_finite(self) -> None:
         from train_stage2 import Config, DensityModel, make_train_step
 

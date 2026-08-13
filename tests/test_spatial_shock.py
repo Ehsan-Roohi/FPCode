@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import numpy as np
 
 from hyqmom_fp import (
@@ -17,6 +20,15 @@ from hyqmom_fp import (
     macro_upwind_transport_step,
     normal_shock_rankine_hugoniot,
     stage25_hysteresis,
+)
+from hyqmom_fp.mixture_closure import (
+    fit_equal_variance_marginal,
+    fit_location_scale_marginal,
+)
+from riemann35_patch.stage25a.run_normal_shock import (
+    _restore_checkpoint,
+    _write_checkpoint,
+    configuration,
 )
 
 
@@ -123,3 +135,106 @@ def test_one_coupled_shock_step_is_positive_causal_and_conservative() -> None:
     assert adaptive_diagnostics.transport.momentum_balance_residual < 2.0e-10
     assert adaptive_diagnostics.transport.energy_balance_residual < 2.0e-10
     assert np.min(adaptive_next.micro_masses[adaptive_next.active]) > 0.0
+
+
+def test_narrow_marginal_branch_is_scale_invariant() -> None:
+    """Regression for the Stage-25A qualification failure on Unity.
+
+    The old absolute tolerance sent this narrow, weakly leptokurtic state to
+    the equal-variance Pearson branch, where its component weight became
+    degenerate.  Scaling the velocity must not change the selected physical
+    branch or its normalized reconstruction accuracy.
+    """
+
+    second = 8.211656829056058e-6
+    third = 5.430200735561627e-13
+    fourth = 2.0278273191294818e-10
+    base = fit_location_scale_marginal(second, third, fourth)
+    velocity_scale = 1.0e3
+    scaled = fit_location_scale_marginal(
+        second * velocity_scale**2,
+        third * velocity_scale**3,
+        fourth * velocity_scale**4,
+    )
+    assert base.branch == scaled.branch
+    assert np.allclose(base.weights, scaled.weights, rtol=2.0e-11, atol=2.0e-13)
+    assert np.allclose(
+        base.means * velocity_scale, scaled.means, rtol=2.0e-10, atol=2.0e-12
+    )
+    assert np.allclose(
+        base.component_variances * velocity_scale**2,
+        scaled.component_variances,
+        rtol=2.0e-10,
+        atol=2.0e-12,
+    )
+    assert base.reconstruction_error < 2.0e-10
+    assert scaled.reconstruction_error < 2.0e-10
+
+
+def test_singular_pearson_carrier_uses_bounded_residual_fallback() -> None:
+    marginal = fit_equal_variance_marginal(
+        8.211656829056058e-6,
+        5.430200735561627e-13,
+        2.0278273191294818e-10,
+    )
+    assert marginal.branch == "degenerate-residual-fallback"
+    assert np.array_equal(marginal.weights, np.asarray([1.0]))
+    assert np.array_equal(marginal.means, np.asarray([0.0]))
+    assert marginal.component_variances[0] > 0.0
+    assert np.isfinite(marginal.reconstruction_error)
+
+
+def test_stage25a_checkpoint_round_trip_is_exact() -> None:
+    config = configuration("smoke", None)
+    xgrid, vgrid = _small_grids()
+    # Keep the checkpoint test small while exercising the same state types.
+    config.update(
+        {
+            "x_lower": xgrid.lower,
+            "x_upper": xgrid.upper,
+            "spatial_cells": xgrid.cells,
+            "v_lower": vgrid.lower,
+            "v_upper": vgrid.upper,
+            "velocity_shape": vgrid.shape,
+            "initial_active_half_width": 1,
+        }
+    )
+    shock = normal_shock_rankine_hugoniot(3.0)
+    reference, _, _ = initialize_normal_shock_dvm(xgrid, vgrid, shock)
+    macro = initialize_normal_shock_moments(xgrid, shock)
+    adaptive, _, _ = initialize_adaptive_normal_shock(
+        xgrid, vgrid, shock, initial_active_half_width=1
+    )
+    dt = float(config["cfl"]) * xgrid.width / np.max(
+        np.abs(vgrid.centers()[:, 0])
+    )
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "restart.npz"
+        _write_checkpoint(
+            path,
+            config=config,
+            dt=dt,
+            completed_steps=0,
+            reference=reference,
+            macro=macro,
+            adaptive=adaptive,
+            reference_history=[reference.moments()],
+            macro_history=[macro.copy()],
+            adaptive_history=[adaptive.moments.copy()],
+            active_history=[adaptive.active.copy()],
+            reference_diagnostics=[],
+            macro_diagnostics=[],
+            adaptive_diagnostics=[],
+            reference_seconds=0.0,
+            macro_seconds=0.0,
+            adaptive_seconds=0.0,
+        )
+        restored = _restore_checkpoint(
+            path, config=config, dt=dt, xgrid=xgrid, vgrid=vgrid
+        )
+    assert restored[0] == 0
+    assert np.array_equal(restored[1].masses, reference.masses)
+    assert np.array_equal(restored[2], macro)
+    assert np.array_equal(restored[3].moments, adaptive.moments)
+    assert np.array_equal(restored[3].micro_masses, adaptive.micro_masses)
+    assert np.array_equal(restored[3].active, adaptive.active)

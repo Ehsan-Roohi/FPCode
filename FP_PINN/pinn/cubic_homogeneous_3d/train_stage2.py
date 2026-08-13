@@ -238,8 +238,27 @@ class DensityModel(tf.keras.Model):
         log_m = tf_equilibrium_logpdf(c)
         alpha = 1.0 - tf.exp(-self.config.bridge_rate * t)
         alpha = tf.clip_by_value(alpha, 0.0, 1.0 - 1.0e-7)
-        density_base = (1.0 - alpha) * tf.exp(log_f0) + alpha * tf.exp(log_m)
-        return tf.math.log(tf.maximum(density_base, tf.constant(1.0e-38))) + correction
+        # Evaluate the bridge mixture entirely in log space.  The previous
+        # exp -> weighted sum -> log path produced non-finite second
+        # derivatives in broad-tail quadrature before the density underflowed.
+        log_one_minus_alpha = tf.math.log1p(-alpha)
+        safe_alpha = tf.maximum(
+            alpha, tf.constant(1.0e-30, dtype=alpha.dtype)
+        )
+        log_density_base = tf.reduce_logsumexp(
+            tf.concat(
+                [
+                    log_f0 + log_one_minus_alpha,
+                    log_m + tf.math.log(safe_alpha),
+                ],
+                axis=1,
+            ),
+            axis=1,
+            keepdims=True,
+        )
+        # Preserve the exact initial-condition ansatz at t=0.
+        log_density_base = tf.where(alpha > 0.0, log_density_base, log_f0)
+        return log_density_base + correction
 
 
 def sample_tf_proposal(

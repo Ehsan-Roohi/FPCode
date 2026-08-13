@@ -122,7 +122,11 @@ def fit_equal_variance_marginal(
 
     kappa3 = float(third)
     kappa4 = float(fourth - 3.0 * second**2)
-    scale = max(second, 1.0)
+    # Every tolerance in this marginal problem must scale with the velocity
+    # variance.  Using ``max(second, 1)`` made the branch decision depend on
+    # the dimensional velocity unit and could misclassify a narrow but
+    # genuinely non-Gaussian marginal as an almost Gaussian one.
+    scale = float(second)
     if abs(kappa3) <= gaussian_tolerance * scale**1.5 and abs(kappa4) <= (
         gaussian_tolerance * scale**2
     ):
@@ -140,7 +144,7 @@ def fit_equal_variance_marginal(
     admissible = sorted(
         float(root.real)
         for root in roots
-        if abs(root.imag) <= 5.0e-10 * max(1.0, abs(root.real))
+        if abs(root.imag) <= 5.0e-10 * max(scale, abs(root.real))
         and root.real >= -5.0e-12 * scale
         and root.real <= second + 5.0e-10 * scale
     )
@@ -172,7 +176,24 @@ def fit_equal_variance_marginal(
     p = 0.5 * (1.0 - difference)
     q = 1.0 - p
     if min(p, q) <= 1.0e-12:
-        raise ValueError("degenerate Gaussian-mixture weight")
+        # The Pearson equal-width representation is singular here: a
+        # vanishing component is sent to an unbounded velocity.  Retain a
+        # bounded Gaussian carrier and expose all unresolved moments through
+        # reconstruction_error.  finite_gaussian_mixture_fp_step advances
+        # that residual with its exact OU map, so no retained moment or
+        # collision invariant is silently discarded.
+        error = np.linalg.norm(
+            [third, fourth - 3.0 * second**2]
+        ) / max(np.linalg.norm([second, third, fourth]), np.finfo(float).tiny)
+        return MarginalMixture(
+            weights=np.asarray([1.0]),
+            means=np.asarray([0.0]),
+            variance=float(second),
+            component_variances=np.asarray([float(second)]),
+            between_variance=0.0,
+            reconstruction_error=float(error),
+            branch="degenerate-residual-fallback",
+        )
     separation = np.sqrt(between / (p * q))
     means = np.asarray([q * separation, -p * separation])
     variance = max(float(second - between), 0.0)
@@ -229,7 +250,7 @@ def fit_location_scale_marginal(
         raise ValueError("marginal moments must be finite with positive variance")
     kappa3 = float(third)
     kappa4 = float(fourth - 3.0 * second**2)
-    scale = max(second, 1.0)
+    scale = float(second)
     if kappa4 <= gaussian_tolerance * scale**2:
         return fit_equal_variance_marginal(
             second, third, fourth, gaussian_tolerance=gaussian_tolerance
@@ -343,7 +364,7 @@ def _fit_unequal_weight_location_scale(
     the smaller weight, avoiding the distant vanishing-weight Pearson branch.
     """
 
-    scale = max(second, 1.0)
+    scale = float(second)
 
     def candidate_for(p: float, separation: float):
         q = 1.0 - p
@@ -503,7 +524,7 @@ def reconstruct_gaussian_mixture_quadrature(
             )
         else:
             kappa4 = fourth - 3.0 * second**2
-            if kappa4 > 5.0e-13 * max(second, 1.0) ** 2:
+            if kappa4 > 5.0e-13 * second**2:
                 marginals.append(fit_location_scale_marginal(second, third, fourth))
             else:
                 marginals.append(fit_equal_variance_marginal(second, third, fourth))

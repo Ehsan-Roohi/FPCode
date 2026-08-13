@@ -82,3 +82,24 @@ Accuracy with activation nearly everywhere is reported as an accurate kinetic
 method but fails the hybrid-economy gate. Passing this Stage 25A gate permits,
 but does not replace, the subsequent three-dimensional crossing-jet and
 external DSMC/direct-Boltzmann validation.
+
+## Operational reproducibility and restart contract
+
+The qualification runner emits a flushed JSON progress record every five
+completed steps and writes an atomic restart checkpoint every 25 completed
+steps.  All three methods are advanced into temporary next states and are
+committed together, so a failure checkpoint always contains a mutually
+consistent reference, macro, and adaptive state.  A phase failure also writes
+`stage25a_failure_checkpoint.npz` before propagating the exception.
+
+Resume with the same frozen configuration using
+`--resume-checkpoint <checkpoint.npz>`.  The runner rejects a checkpoint if
+its grid, velocity domain, CFL, requested step count, or time step differs.
+Restarting changes no scientific threshold and preserves the complete moment,
+active-cell, diagnostic, and timing histories.
+
+The marginal reconstruction tolerances are relative to the local principal
+variance.  A singular vanishing-weight Pearson carrier is represented by a
+bounded Gaussian carrier; its unresolved retained moments are advanced by the
+exact OU residual map and its reconstruction error remains auditable.  This
+fallback must never be described as an exact nonlinear two-Gaussian fit.

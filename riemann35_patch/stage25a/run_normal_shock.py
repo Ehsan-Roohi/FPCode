@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import sys
 from dataclasses import asdict
@@ -24,7 +25,9 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from hyqmom_fp import (  # noqa: E402
+    AdaptiveSpatialState,
     DVMGrid,
+    SpatialDVMState,
     SpatialGrid1D,
     adaptive_shock_step,
     full_dvm_shock_step,
@@ -51,6 +54,24 @@ def arguments() -> argparse.Namespace:
     )
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--steps", type=int, default=None)
+    parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=None,
+        help="write a transactional restart checkpoint every N completed steps",
+    )
+    parser.add_argument(
+        "--resume-checkpoint",
+        type=Path,
+        default=None,
+        help="resume from a Stage-25A restart or failure checkpoint",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=None,
+        help="emit a flushed JSON progress record every N completed steps",
+    )
     return parser.parse_args()
 
 
@@ -117,7 +138,138 @@ def _transport_summary(diagnostics) -> dict[str, float]:
     }
 
 
-def run(config: dict[str, object], output: Path) -> dict[str, object]:
+def _write_checkpoint(
+    path: Path,
+    *,
+    config: dict[str, object],
+    dt: float,
+    completed_steps: int,
+    reference: SpatialDVMState,
+    macro: np.ndarray,
+    adaptive: AdaptiveSpatialState,
+    reference_history: list[np.ndarray],
+    macro_history: list[np.ndarray],
+    adaptive_history: list[np.ndarray],
+    active_history: list[np.ndarray],
+    reference_diagnostics: list[dict[str, object]],
+    macro_diagnostics: list[dict[str, object]],
+    adaptive_diagnostics: list[dict[str, object]],
+    reference_seconds: float,
+    macro_seconds: float,
+    adaptive_seconds: float,
+    failure_phase: str | None = None,
+    failure_message: str | None = None,
+) -> None:
+    """Atomically preserve a consistent pre-step or completed-step state."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "format": "stage25a-restart-v1",
+        "configuration": _jsonable(config),
+        "dt": dt,
+        "completed_steps": completed_steps,
+        "reference_diagnostics": reference_diagnostics,
+        "macro_diagnostics": macro_diagnostics,
+        "adaptive_diagnostics": adaptive_diagnostics,
+        "timing_seconds": {
+            "full_dvm": reference_seconds,
+            "macro": macro_seconds,
+            "adaptive": adaptive_seconds,
+        },
+        "failure_phase": failure_phase,
+        "failure_message": failure_message,
+    }
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("wb") as stream:
+        np.savez(
+            stream,
+            metadata=np.asarray(json.dumps(_jsonable(metadata))),
+            reference_masses=reference.masses,
+            macro=macro,
+            adaptive_moments=adaptive.moments,
+            adaptive_micro_masses=adaptive.micro_masses,
+            adaptive_active=adaptive.active,
+            adaptive_active_steps=adaptive.active_steps,
+            adaptive_release_counter=adaptive.release_counter,
+            adaptive_global_step=np.asarray(adaptive.global_step),
+            adaptive_transition_count=np.asarray(adaptive.transition_count),
+            adaptive_blocked_births=np.asarray(adaptive.blocked_births),
+            reference_history=np.asarray(reference_history),
+            macro_history=np.asarray(macro_history),
+            adaptive_history=np.asarray(adaptive_history),
+            active_history=np.asarray(active_history),
+        )
+    os.replace(temporary, path)
+
+
+def _restore_checkpoint(
+    path: Path,
+    *,
+    config: dict[str, object],
+    dt: float,
+    xgrid: SpatialGrid1D,
+    vgrid: DVMGrid,
+):
+    with np.load(path, allow_pickle=False) as saved:
+        metadata = json.loads(str(saved["metadata"].item()))
+        if metadata.get("format") != "stage25a-restart-v1":
+            raise ValueError("unsupported Stage-25A checkpoint format")
+        if metadata.get("configuration") != _jsonable(config):
+            raise ValueError("checkpoint configuration does not match this run")
+        if not np.isclose(float(metadata.get("dt")), dt, rtol=0.0, atol=1.0e-15):
+            raise ValueError("checkpoint time step does not match this run")
+        reference = SpatialDVMState(
+            xgrid, vgrid, saved["reference_masses"].copy()
+        )
+        macro = saved["macro"].copy()
+        adaptive = AdaptiveSpatialState(
+            spatial_grid=xgrid,
+            velocity_grid=vgrid,
+            moments=saved["adaptive_moments"].copy(),
+            micro_masses=saved["adaptive_micro_masses"].copy(),
+            active=saved["adaptive_active"].copy(),
+            active_steps=saved["adaptive_active_steps"].copy(),
+            release_counter=saved["adaptive_release_counter"].copy(),
+            global_step=int(saved["adaptive_global_step"]),
+            transition_count=int(saved["adaptive_transition_count"]),
+            blocked_births=int(saved["adaptive_blocked_births"]),
+        )
+        histories = tuple(
+            [item.copy() for item in saved[name]]
+            for name in (
+                "reference_history",
+                "macro_history",
+                "adaptive_history",
+                "active_history",
+            )
+        )
+    timings = metadata["timing_seconds"]
+    return (
+        int(metadata["completed_steps"]),
+        reference,
+        macro,
+        adaptive,
+        *histories,
+        list(metadata["reference_diagnostics"]),
+        list(metadata["macro_diagnostics"]),
+        list(metadata["adaptive_diagnostics"]),
+        float(timings["full_dvm"]),
+        float(timings["macro"]),
+        float(timings["adaptive"]),
+    )
+
+
+def run(
+    config: dict[str, object],
+    output: Path,
+    *,
+    checkpoint_every: int = 0,
+    resume_checkpoint: Path | None = None,
+    progress_every: int = 1,
+) -> dict[str, object]:
+    if checkpoint_every < 0 or progress_every < 1:
+        raise ValueError("checkpoint_every must be nonnegative and progress_every positive")
+    output.mkdir(parents=True, exist_ok=True)
     shock = normal_shock_rankine_hugoniot(3.0)
     xgrid = SpatialGrid1D(
         float(config["x_lower"]),
@@ -145,41 +297,126 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         initial_active_half_width=int(config["initial_active_half_width"]),
     )
 
-    reference_history = [reference.moments()]
-    macro_history = [macro.copy()]
-    adaptive_history = [adaptive.moments.copy()]
-    active_history = [adaptive.active.copy()]
-    reference_diagnostics = []
-    macro_diagnostics = []
-    adaptive_diagnostics = []
-
-    start = perf_counter()
-    reference_seconds = 0.0
-    macro_seconds = 0.0
-    adaptive_seconds = 0.0
-    for step in range(steps):
-        phase = perf_counter()
-        reference, reference_diag = full_dvm_shock_step(
-            reference, dt, tau, left_inflow, right_inflow
-        )
-        reference_seconds += perf_counter() - phase
-
-        phase = perf_counter()
-        macro, macro_diag = macro_shock_step(
+    if resume_checkpoint is None:
+        start_step = 0
+        reference_history = [reference.moments()]
+        macro_history = [macro.copy()]
+        adaptive_history = [adaptive.moments.copy()]
+        active_history = [adaptive.active.copy()]
+        reference_diagnostics = []
+        macro_diagnostics = []
+        adaptive_diagnostics = []
+        reference_seconds = 0.0
+        macro_seconds = 0.0
+        adaptive_seconds = 0.0
+    else:
+        (
+            start_step,
+            reference,
             macro,
-            xgrid,
-            dt,
-            tau,
-            shock.upstream_moments,
-            shock.downstream_moments,
+            adaptive,
+            reference_history,
+            macro_history,
+            adaptive_history,
+            active_history,
+            reference_diagnostics,
+            macro_diagnostics,
+            adaptive_diagnostics,
+            reference_seconds,
+            macro_seconds,
+            adaptive_seconds,
+        ) = _restore_checkpoint(
+            resume_checkpoint,
+            config=config,
+            dt=dt,
+            xgrid=xgrid,
+            vgrid=vgrid,
         )
-        macro_seconds += perf_counter() - phase
+        if start_step >= steps:
+            raise ValueError("checkpoint has already completed all requested steps")
+        print(
+            json.dumps(
+                {
+                    "event": "STAGE25A_RESUME",
+                    "completed_steps": start_step,
+                    "remaining_steps": steps - start_step,
+                    "checkpoint": str(resume_checkpoint),
+                }
+            ),
+            flush=True,
+        )
 
-        phase = perf_counter()
-        adaptive, adaptive_diag = adaptive_shock_step(
-            adaptive, dt, tau, adaptive_left, adaptive_right
-        )
-        adaptive_seconds += perf_counter() - phase
+    for step in range(start_step, steps):
+        phase_name = "macro"
+        try:
+            phase = perf_counter()
+            next_macro, macro_diag = macro_shock_step(
+                macro,
+                xgrid,
+                dt,
+                tau,
+                shock.upstream_moments,
+                shock.downstream_moments,
+            )
+            macro_step_seconds = perf_counter() - phase
+
+            phase_name = "adaptive"
+            phase = perf_counter()
+            next_adaptive, adaptive_diag = adaptive_shock_step(
+                adaptive, dt, tau, adaptive_left, adaptive_right
+            )
+            adaptive_step_seconds = perf_counter() - phase
+
+            phase_name = "full_dvm"
+            phase = perf_counter()
+            next_reference, reference_diag = full_dvm_shock_step(
+                reference, dt, tau, left_inflow, right_inflow
+            )
+            reference_step_seconds = perf_counter() - phase
+        except Exception as exc:
+            failure_path = output / "stage25a_failure_checkpoint.npz"
+            _write_checkpoint(
+                failure_path,
+                config=config,
+                dt=dt,
+                completed_steps=step,
+                reference=reference,
+                macro=macro,
+                adaptive=adaptive,
+                reference_history=reference_history,
+                macro_history=macro_history,
+                adaptive_history=adaptive_history,
+                active_history=active_history,
+                reference_diagnostics=reference_diagnostics,
+                macro_diagnostics=macro_diagnostics,
+                adaptive_diagnostics=adaptive_diagnostics,
+                reference_seconds=reference_seconds,
+                macro_seconds=macro_seconds,
+                adaptive_seconds=adaptive_seconds,
+                failure_phase=phase_name,
+                failure_message=f"{type(exc).__name__}: {exc}",
+            )
+            print(
+                json.dumps(
+                    {
+                        "event": "STAGE25A_FAILURE_CHECKPOINT",
+                        "failed_step": step + 1,
+                        "phase": phase_name,
+                        "checkpoint": str(failure_path),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+            raise
+
+        macro = next_macro
+        adaptive = next_adaptive
+        reference = next_reference
+        macro_seconds += macro_step_seconds
+        adaptive_seconds += adaptive_step_seconds
+        reference_seconds += reference_step_seconds
 
         reference_history.append(reference.moments())
         macro_history.append(macro.copy())
@@ -211,7 +448,59 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             }
         )
 
-    elapsed = perf_counter() - start
+        completed_steps = step + 1
+        if completed_steps % progress_every == 0 or completed_steps == steps:
+            print(
+                json.dumps(
+                    {
+                        "event": "STAGE25A_PROGRESS",
+                        "step": completed_steps,
+                        "steps": steps,
+                        "active_fraction": float(np.mean(adaptive.active)),
+                        "step_seconds": {
+                            "macro": macro_step_seconds,
+                            "adaptive": adaptive_step_seconds,
+                            "full_dvm": reference_step_seconds,
+                        },
+                    }
+                ),
+                flush=True,
+            )
+        if checkpoint_every and completed_steps % checkpoint_every == 0:
+            checkpoint_path = output / "stage25a_restart_checkpoint.npz"
+            _write_checkpoint(
+                checkpoint_path,
+                config=config,
+                dt=dt,
+                completed_steps=completed_steps,
+                reference=reference,
+                macro=macro,
+                adaptive=adaptive,
+                reference_history=reference_history,
+                macro_history=macro_history,
+                adaptive_history=adaptive_history,
+                active_history=active_history,
+                reference_diagnostics=reference_diagnostics,
+                macro_diagnostics=macro_diagnostics,
+                adaptive_diagnostics=adaptive_diagnostics,
+                reference_seconds=reference_seconds,
+                macro_seconds=macro_seconds,
+                adaptive_seconds=adaptive_seconds,
+            )
+            print(
+                json.dumps(
+                    {
+                        "event": "STAGE25A_CHECKPOINT",
+                        "completed_steps": completed_steps,
+                        "checkpoint": str(checkpoint_path),
+                    }
+                ),
+                flush=True,
+            )
+
+    # The three methods execute serially.  Summing their accumulated timings
+    # preserves the original wall-time meaning across checkpoint/resume.
+    elapsed = reference_seconds + macro_seconds + adaptive_seconds
     reference_history_array = np.asarray(reference_history)
     macro_history_array = np.asarray(macro_history)
     adaptive_history_array = np.asarray(adaptive_history)
@@ -284,7 +573,6 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             else "QUALIFICATION_HOLD"
         )
 
-    output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output / "stage25a_normal_shock_histories.npz",
         x=xgrid.centers,
@@ -380,7 +668,19 @@ def main() -> None:
     output = args.output
     if output is None:
         output = REPOSITORY_ROOT / "results/riemann35_stage25a" / args.mode
-    summary = run(config, output)
+    checkpoint_every = args.checkpoint_every
+    if checkpoint_every is None:
+        checkpoint_every = 25 if args.mode == "qualification" else 0
+    progress_every = args.progress_every
+    if progress_every is None:
+        progress_every = 1 if args.mode == "smoke" else 5
+    summary = run(
+        config,
+        output,
+        checkpoint_every=checkpoint_every,
+        resume_checkpoint=args.resume_checkpoint,
+        progress_every=progress_every,
+    )
     print(json.dumps(_jsonable({
         "decision": summary["decision"],
         "primary_metrics": summary["primary_metrics"],

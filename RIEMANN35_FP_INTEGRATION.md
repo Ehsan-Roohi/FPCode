@@ -101,7 +101,9 @@ The first spatial contract is now implemented in
 - shared macro/micro face fluxes and causal neighbour/inflow birth rules;
 - the frozen Stage-24B sensor thresholds without spatial retuning;
 - full-DVM, macro, and adaptive histories with conservation, positivity,
-  realizability, active-cell, transition, and timing diagnostics; and
+  realizability, active-cell, transition, and timing diagnostics;
+- scale-invariant marginal tolerances plus transactional progress,
+  failure-checkpoint, and exact-configuration resume support; and
 - a predeclared qualification protocol in
   `riemann35_patch/stage25a/STAGE25A_NORMAL_SHOCK_PROTOCOL.md`.
 

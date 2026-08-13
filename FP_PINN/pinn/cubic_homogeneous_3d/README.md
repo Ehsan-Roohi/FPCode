@@ -155,16 +155,18 @@ find "$RUN_ROOT" -maxdepth 2 -type f \
      -o -name 'stage2_final.weights.h5' \) -print
 ```
 
-Create a small upload archive without copying the large particle `.npz` files:
+The Slurm script packages every completed task automatically.  A complete,
+self-contained ZIP is written directly to the FPCode repository root, so no
+navigation into the output tree is needed:
 
-```bash
-cd "$FP_TEST/FP_PINN/pinn/cubic_homogeneous_3d"
-zip -r "FP_PINN_STAGE2_RESULTS_62700000.zip" "outputs/stage2-62700000" \
-  -i '*/metrics.json' '*/config.json' '*/loss_history.csv' \
-     '*/moments_by_time.csv' '*/stage2_validation.pdf' \
-     '*/stage2_validation.png' '*/stage2_final.weights.h5' \
-     '*/reference_metrics.json' '*/reference_history.csv'
+```text
+$FP_TEST/FP_PINN_STAGE2_JOB62700000_HEAT_FLUX_COMPLETE.zip
 ```
+
+The ZIP contains the complete case directory (including the independent
+particle reference), portable weights, figures, CSV/JSON diagnostics, Slurm
+logs when available, and exact Git/Slurm metadata.  Set
+`FP_PACKAGE_RESULTS=0` only when intentionally suppressing this archive.
 
 ## Gates and interpretation
 
@@ -179,6 +181,7 @@ The principal gates are:
 - maximum mass, momentum, and energy error;
 - stress-history error for `stress`;
 - heat-flux-history error for `heat_flux`;
+- transverse heat-flux symmetry for `heat_flux`;
 - equilibrium invariance for `equilibrium`;
 - exact initial condition, nonnegative density, and exact portable H5 reload.
 
@@ -186,4 +189,3 @@ Do not advance to spatial Couette flow merely because Slurm says `COMPLETED`.
 Advance when all three `metrics.json` files are finite, the curves are
 physically monotone/credible, and the recorded gates pass or any threshold
 change has a documented scientific justification.
-

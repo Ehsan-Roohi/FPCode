@@ -63,6 +63,8 @@ class Config:
     tail_fraction: float = 0.20
     tail_variance: float = 4.0
     fixed_velocity_quadrature: bool = False
+    axisymmetric_heat_flux: bool = True
+    antithetic_heat_flux_quadrature: bool = True
     stop_gradient_closure: bool = False
     closure_regularization: float = 1.0e-7
     nu: float = 1.0
@@ -115,6 +117,18 @@ def parse_args() -> Config:
         help="Reuse one deterministic velocity cloud to reduce closure noise",
     )
     parser.add_argument(
+        "--axisymmetric-heat-flux",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Restrict the heat-flux correction to (t,cx,cy^2+cz^2)",
+    )
+    parser.add_argument(
+        "--antithetic-heat-flux-quadrature",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use the four transverse sign reflections of every heat-flux velocity",
+    )
+    parser.add_argument(
         "--stop-gradient-closure", action="store_true",
         help="Use the old Picard-style closure instead of differentiating the 9x9 solve",
     )
@@ -139,6 +153,18 @@ def parse_args() -> Config:
         parser.error("--tail-variance must be greater than one")
     if config.heat_flux_scale <= 0.0:
         parser.error("--heat-flux-scale must be positive")
+    if (
+        config.case == "heat_flux"
+        and config.antithetic_heat_flux_quadrature
+        and config.n_velocity_per_time % 4
+    ):
+        parser.error("--n-velocity-per-time must be divisible by four for antithetic heat-flux quadrature")
+    if (
+        config.case == "heat_flux"
+        and config.antithetic_heat_flux_quadrature
+        and config.evaluation_samples % 4
+    ):
+        parser.error("--evaluation-samples must be divisible by four for antithetic heat-flux quadrature")
     return config
 
 
@@ -229,7 +255,20 @@ class DensityModel(tf.keras.Model):
         t = tf.cast(t, tf.float32)
         c = tf.cast(c, tf.float32)
         r2 = tf.reduce_sum(tf.square(c), axis=1, keepdims=True)
-        features = tf.concat([t / self.config.tmax, c / 3.0, r2 / 9.0], axis=1)
+        velocity_features = c / 3.0
+        if self.config.case == "heat_flux" and self.config.axisymmetric_heat_flux:
+            # The positive skew initial state and the homogeneous FP operator
+            # are invariant under every rotation in the transverse y-z plane.
+            # Keep the legacy five-feature shape so existing H5 weights remain
+            # loadable, but remove the two symmetry-breaking coordinates.  The
+            # correction then depends only on (t, cx, cy^2+cz^2).
+            velocity_features = tf.concat(
+                [velocity_features[:, 0:1], tf.zeros_like(velocity_features[:, 1:3])],
+                axis=1,
+            )
+        features = tf.concat(
+            [t / self.config.tmax, velocity_features, r2 / 9.0], axis=1
+        )
         raw = self(features)
         correction = t * self.config.correction_cap * tf.tanh(
             raw / self.config.correction_cap
@@ -277,31 +316,47 @@ def sample_tf_proposal(
     )
     times = tf.sort(times, axis=0)
     if velocity_grid is None:
-        selector = tf.random.uniform((total, 1))
+        antithetic = (
+            config.case == "heat_flux" and config.antithetic_heat_flux_quadrature
+        )
+        sample_total = total // 4 if antithetic else total
+        selector = tf.random.uniform((sample_total, 1))
         core_fraction = 0.5 * (1.0 - config.tail_fraction)
         choose_initial = selector < core_fraction
         choose_equilibrium = tf.logical_and(
             selector >= core_fraction, selector < 2.0 * core_fraction
         )
-        equilibrium = tf.random.normal((total, 3))
+        equilibrium = tf.random.normal((sample_total, 3))
         tail = tf.sqrt(tf.cast(config.tail_variance, tf.float32)) * tf.random.normal(
-            (total, 3)
+            (sample_total, 3)
         )
         if config.case == "equilibrium":
-            initial = tf.random.normal((total, 3))
+            initial = tf.random.normal((sample_total, 3))
         elif config.case == "stress":
-            initial = tf.random.normal((total, 3)) * tf.sqrt(
+            initial = tf.random.normal((sample_total, 3)) * tf.sqrt(
                 tf.constant([1.6, 0.9, 0.5], dtype=tf.float32)
             )
         else:
-            choose_a = tf.random.uniform((total, 1)) < (1.0 / 3.0)
+            choose_a = tf.random.uniform((sample_total, 1)) < (1.0 / 3.0)
             x_mean = tf.where(choose_a, 1.0, -0.5)
             initial = tf.concat(
-                [x_mean + tf.sqrt(0.5) * tf.random.normal((total, 1)),
-                 tf.random.normal((total, 2))], axis=1,
+                [x_mean + tf.sqrt(0.5) * tf.random.normal((sample_total, 1)),
+                 tf.random.normal((sample_total, 2))], axis=1,
             )
         c = tf.where(choose_initial, initial, tf.where(choose_equilibrium, equilibrium, tail))
-        c = tf.reshape(c, (nt, nv, 3))
+        if antithetic:
+            c = tf.reshape(c, (nt, nv // 4, 3))
+            c = tf.concat(
+                [
+                    c,
+                    c * tf.constant([1.0, -1.0, 1.0], dtype=c.dtype),
+                    c * tf.constant([1.0, 1.0, -1.0], dtype=c.dtype),
+                    c * tf.constant([1.0, -1.0, -1.0], dtype=c.dtype),
+                ],
+                axis=1,
+            )
+        else:
+            c = tf.reshape(c, (nt, nv, 3))
         flat_c = tf.reshape(c, (-1, 3))
         log_q = tf.reshape(
             tf_training_proposal_logpdf(config, flat_c), (nt, nv, 1)
@@ -579,11 +634,28 @@ def _evaluate_marginal(
     return result
 
 
+def _evaluation_proposal(config: Config, rng: np.random.Generator) -> np.ndarray:
+    """Return the independent validation proposal, paired when symmetry permits.
+
+    Pairing is a quadrature variance reduction only.  It does not introduce
+    particle-reference information into training or evaluation.
+    """
+    if config.case != "heat_flux" or not config.antithetic_heat_flux_quadrature:
+        return sample_proposal(config.case, config.evaluation_samples, rng)
+    base = sample_proposal(config.case, config.evaluation_samples // 4, rng)
+    signs = np.array(
+        [[1.0, 1.0, 1.0], [1.0, -1.0, 1.0],
+         [1.0, 1.0, -1.0], [1.0, -1.0, -1.0]],
+        dtype=np.float64,
+    )
+    return np.concatenate([base * sign for sign in signs], axis=0)
+
+
 def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any]:
     reference = np.load(config.reference)
     times = reference["time"]
     rng = np.random.default_rng(config.seed + 9001)
-    proposal = sample_proposal(config.case, config.evaluation_samples, rng)
+    proposal = _evaluation_proposal(config, rng)
     log_q = proposal_logpdf(config.case, proposal)
     model_mass, model_mean, model_dm2, model_pij, model_q = [], [], [], [], []
     minimum_density = np.inf
@@ -610,6 +682,21 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     ref_dev[:,[0,3,5]]-=ref_dm2[:,None]/3.0
     stress_error=float(np.linalg.norm(pred_dev-ref_dev)/max(np.linalg.norm(ref_dev),1.0e-12))
     heat_error=float(np.linalg.norm(model_q-ref_q)/max(np.linalg.norm(ref_q),1.0e-12))
+    active_heat_error=heat_error
+    transverse_heat_flux_relative=0.0
+    reference_transverse_heat_flux_relative=0.0
+    if config.case == "heat_flux":
+        active_heat_error=float(
+            np.linalg.norm(model_q[:,0]-ref_q[:,0])
+            / max(np.linalg.norm(ref_q[:,0]),1.0e-12)
+        )
+        active_heat_scale=max(float(np.max(np.abs(ref_q[:,0]))),1.0e-12)
+        transverse_heat_flux_relative=float(
+            np.max(np.linalg.norm(model_q[:,1:3],axis=1))/active_heat_scale
+        )
+        reference_transverse_heat_flux_relative=float(
+            np.max(np.linalg.norm(ref_q[:,1:3],axis=1))/active_heat_scale
+        )
 
     centers=reference["histogram_centers"]
     selected=np.unique([0,len(times)//2,len(times)-1])
@@ -629,7 +716,7 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     initial_prediction=np.exp(_predict_log_density(model,0.0,initial_points))
     initial_exact=np.exp(initial_logpdf(config.case,initial_points))
     initial_linf=float(np.max(np.abs(initial_prediction-initial_exact)))
-    relevant_error = stress_error if config.case == "stress" else heat_error
+    relevant_error = stress_error if config.case == "stress" else active_heat_error
     relevant_threshold = 0.20 if config.case == "heat_flux" else 0.15
     if config.case == "equilibrium":
         relevant_error=max(float(np.max(np.linalg.norm(pred_dev,axis=1))),
@@ -644,6 +731,8 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "initial_condition_linf": initial_linf < 2.0e-6,
         "positive_density": minimum_density >= 0.0,
     }
+    if config.case == "heat_flux":
+        checks["transverse_heat_flux_symmetry"] = transverse_heat_flux_relative < 0.02
     metrics: dict[str,Any]={
         "case":config.case,"marginal_relative_l2":marginal_error,
         "stress_history_relative_l2":stress_error,"heat_flux_history_relative_l2":heat_error,
@@ -654,6 +743,12 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "minimum_density":minimum_density,"initial_condition_linf":initial_linf,
         "gate_checks":checks,"gate_passed":bool(all(checks.values())),
     }
+    if config.case == "heat_flux":
+        metrics.update({
+            "heat_flux_active_axis_relative_l2":active_heat_error,
+            "max_transverse_heat_flux_relative":transverse_heat_flux_relative,
+            "reference_transverse_heat_flux_relative":reference_transverse_heat_flux_relative,
+        })
 
     np.savez_compressed(
         output/"validation.npz",time=times,model_mass=model_mass,model_mean=model_mean,
@@ -705,11 +800,20 @@ def make_validation_plot(
     axes[1,0].semilogy(times,np.maximum(np.abs(dm2-3),1e-12),label="energy")
     axes[1,0].set(xlabel=r"$t/\tau$",ylabel="absolute error",title="Conservation audit")
     axes[1,0].legend()
-    axes[1,1].axis("off")
-    axes[1,1].text(0.02,0.95,
-        "Stage 2: homogeneous cubic FP\n"+f"case: {config.case}\n"
-        "PINN: exact IC + positive log-density\nclosure: 9 x 9 C/Gamma + cubic lambda\n"
-        "validation: independent particle reference",va="top",family="monospace")
+    if config.case=="heat_flux":
+        axes[1,1].semilogy(times,np.maximum(np.abs(q[:,1]),1e-12),label=r"PINN $|Q_y|$")
+        axes[1,1].semilogy(times,np.maximum(np.abs(q[:,2]),1e-12),label=r"PINN $|Q_z|$")
+        axes[1,1].semilogy(times,np.maximum(np.linalg.norm(ref_q[:,1:3],axis=1),1e-12),
+                            "--",label="particle transverse noise")
+        axes[1,1].set(xlabel=r"$t/\tau$",ylabel="absolute magnitude",
+                      title="Transverse-symmetry audit")
+        axes[1,1].legend(fontsize=7)
+    else:
+        axes[1,1].axis("off")
+        axes[1,1].text(0.02,0.95,
+            "Stage 2: homogeneous cubic FP\n"+f"case: {config.case}\n"
+            "PINN: exact IC + positive log-density\nclosure: 9 x 9 C/Gamma + cubic lambda\n"
+            "validation: independent particle reference",va="top",family="monospace")
     fig.savefig(output/"stage2_validation.pdf",bbox_inches="tight")
     fig.savefig(output/"stage2_validation.png",dpi=300,bbox_inches="tight")
     plt.close(fig)

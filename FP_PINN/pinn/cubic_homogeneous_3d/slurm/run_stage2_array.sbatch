@@ -111,6 +111,12 @@ fi
 if [[ "${FP_FIXED_VELOCITY_QUADRATURE:-0}" == "1" ]]; then
     TRAIN_ARGS+=(--fixed-velocity-quadrature)
 fi
+if [[ "${FP_AXISYMMETRIC_HEAT_FLUX:-1}" == "0" ]]; then
+    TRAIN_ARGS+=(--no-axisymmetric-heat-flux)
+fi
+if [[ "${FP_ANTITHETIC_HEAT_FLUX_QUADRATURE:-1}" == "0" ]]; then
+    TRAIN_ARGS+=(--no-antithetic-heat-flux-quadrature)
+fi
 if [[ "${FP_STOP_GRADIENT_CLOSURE:-0}" == "1" ]]; then
     TRAIN_ARGS+=(--stop-gradient-closure)
 fi
@@ -119,3 +125,24 @@ python -u train_stage2.py "${TRAIN_ARGS[@]}"
 
 echo "Stage-2 case completed: $CASE_NAME"
 echo "Artifacts: $STAGE2_DIR/$CASE_OUTPUT"
+
+if [[ "${FP_PACKAGE_RESULTS:-1}" == "1" ]]; then
+    ARCHIVE="$REPO_ROOT/FP_PINN_STAGE2_JOB${SLURM_ARRAY_JOB_ID}_${CASE_NAME^^}_COMPLETE.zip"
+    LOG_ARGS=()
+    JOB_RECORD="$(scontrol show job -o "$SLURM_JOB_ID" 2>/dev/null || true)"
+    for LOG_KEY in StdOut StdErr; do
+        LOG_PATH="$(sed -n "s/.* ${LOG_KEY}=\([^ ]*\).*/\1/p" <<<"$JOB_RECORD")"
+        if [[ -n "$LOG_PATH" && -f "$LOG_PATH" ]]; then
+            LOG_ARGS+=(--log "$LOG_PATH")
+        fi
+    done
+    python package_stage2.py \
+        --case-output "$CASE_OUTPUT" \
+        --archive "$ARCHIVE" \
+        --repo-root "$REPO_ROOT" \
+        --job-id "$SLURM_JOB_ID" \
+        --array-job-id "$SLURM_ARRAY_JOB_ID" \
+        --task-id "$SLURM_ARRAY_TASK_ID" \
+        --case "$CASE_NAME" \
+        "${LOG_ARGS[@]}"
+fi

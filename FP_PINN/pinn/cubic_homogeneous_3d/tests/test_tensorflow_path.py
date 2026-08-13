@@ -18,6 +18,70 @@ except ModuleNotFoundError:  # The repository's lightweight CPU test environment
 
 @unittest.skipIf(tf is None, "TensorFlow is tested inside the Unity dsmc-gpu environment")
 class TensorFlowPathTests(unittest.TestCase):
+    def test_heat_flux_model_is_axisymmetric_with_legacy_weight_shape(self) -> None:
+        from train_stage2 import Config, DensityModel
+
+        config = Config(
+            case="heat_flux", output_dir="unused", reference="unused",
+            width=16, depth=2, axisymmetric_heat_flux=True,
+        )
+        model = DensityModel(config)
+        model.log_density(tf.zeros((1, 1)), tf.zeros((1, 3)))
+        generator = tf.random.Generator.from_seed(9182)
+        for variable in model.trainable_variables:
+            variable.assign(generator.normal(variable.shape, dtype=variable.dtype))
+
+        times = tf.fill((4, 1), tf.constant(0.63, tf.float32))
+        velocities = tf.constant(
+            [[0.4, 1.2, -0.7], [-0.9, 0.3, 1.8],
+             [1.4, -1.1, -0.2], [-1.2, 0.8, -1.5]],
+            dtype=tf.float32,
+        )
+        rotations = tf.stack(
+            [velocities[:, 0], -velocities[:, 2], velocities[:, 1]], axis=1
+        )
+        reflected = velocities * tf.constant([1.0, -1.0, -1.0], tf.float32)
+        baseline = model.log_density(times, velocities).numpy()
+        np.testing.assert_allclose(
+            model.log_density(times, rotations).numpy(), baseline,
+            rtol=2e-6, atol=2e-6,
+        )
+        np.testing.assert_allclose(
+            model.log_density(times, reflected).numpy(), baseline,
+            rtol=2e-6, atol=2e-6,
+        )
+
+    def test_heat_flux_quadrature_is_antithetic(self) -> None:
+        from train_stage2 import Config, sample_tf_proposal
+
+        config = Config(
+            case="heat_flux", output_dir="unused", reference="unused",
+            n_time_batch=3, n_velocity_per_time=64,
+            antithetic_heat_flux_quadrature=True,
+        )
+        time_grid, velocity_grid, log_q = sample_tf_proposal(config)
+        quarter = config.n_velocity_per_time // 4
+        signs = np.array(
+            [[1.0, 1.0, 1.0], [1.0, -1.0, 1.0],
+             [1.0, 1.0, -1.0], [1.0, -1.0, -1.0]],
+            dtype=np.float32,
+        )
+        for index, sign in enumerate(signs):
+            target = slice(index * quarter, (index + 1) * quarter)
+            np.testing.assert_allclose(
+                velocity_grid.numpy()[:, target, :],
+                velocity_grid.numpy()[:, :quarter, :] * sign,
+                rtol=0.0, atol=0.0,
+            )
+            np.testing.assert_allclose(
+                time_grid.numpy()[:, target, :], time_grid.numpy()[:, :quarter, :],
+                rtol=0.0, atol=0.0,
+            )
+            np.testing.assert_allclose(
+                log_q.numpy()[:, target, :], log_q.numpy()[:, :quarter, :],
+                rtol=2e-6, atol=2e-6,
+            )
+
     def test_zero_pde_defect_has_zero_weak_heat_flux_loss(self) -> None:
         from train_stage2 import weak_heat_flux_loss
 

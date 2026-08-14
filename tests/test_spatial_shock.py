@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 
 from hyqmom_fp import (
+    AdaptiveSpatialState,
     DVMGrid,
     SpatialDVMState,
     SpatialGrid1D,
@@ -18,9 +19,11 @@ from hyqmom_fp import (
     initialize_normal_shock_dvm,
     initialize_normal_shock_moments,
     macro_upwind_transport_step,
+    mixture_of_gaussians_moments_35,
     normal_shock_rankine_hugoniot,
     stage25_hysteresis,
 )
+from hyqmom_fp.dvm_reference import initialize_diagonal_gaussian_mixture
 from hyqmom_fp.mixture_closure import (
     fit_equal_variance_marginal,
     fit_location_scale_marginal,
@@ -135,6 +138,58 @@ def test_one_coupled_shock_step_is_positive_causal_and_conservative() -> None:
     assert adaptive_diagnostics.transport.momentum_balance_residual < 2.0e-10
     assert adaptive_diagnostics.transport.energy_balance_residual < 2.0e-10
     assert np.min(adaptive_next.micro_masses[adaptive_next.active]) > 0.0
+
+
+def test_new_birth_cannot_donate_again_during_the_same_step() -> None:
+    """Activation propagates at most one cell from a causal donor per step."""
+
+    xgrid = SpatialGrid1D(-4.5, 4.5, 9)
+    vgrid = DVMGrid(
+        lower=(-3.0, -2.5, -1.5),
+        upper=(3.0, 2.5, 1.5),
+        shape=(15, 13, 9),
+    )
+    components = [
+        (0.72, (1.20, 0.55, 0.0), np.diag([0.08, 0.06, 0.05])),
+        (0.28, (-0.25, -1.00, 0.0), np.diag([0.05, 0.07, 0.05])),
+    ]
+    donor, _ = initialize_diagonal_gaussian_mixture(
+        vgrid, components, match_exact_moments=True
+    )
+    moments = np.repeat(
+        mixture_of_gaussians_moments_35(components)[None, :], xgrid.cells, axis=0
+    )
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[4] = True
+    masses = np.zeros((xgrid.cells, vgrid.size))
+    masses[4] = donor.masses
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=0,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    next_state, diagnostics = adaptive_shock_step(
+        state, 0.002, 1.0, donor, donor
+    )
+
+    assert diagnostics.activation_cells == (0, 3, 5, 8)
+    assert diagnostics.activation_sources == (
+        "left_inflow",
+        "right_neighbor",
+        "left_neighbor",
+        "right_inflow",
+    )
+    assert diagnostics.activation_donor_cells == (None, 4, 4, None)
+    assert diagnostics.blocked_cells == (1, 2, 6, 7)
+    assert np.array_equal(np.flatnonzero(next_state.active), [0, 3, 4, 5, 8])
 
 
 def test_narrow_marginal_branch_is_scale_invariant() -> None:

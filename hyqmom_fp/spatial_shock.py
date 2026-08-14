@@ -533,8 +533,12 @@ class AdaptiveSpatialState:
 class AdaptiveSpatialStepDiagnostics:
     active_fraction: float
     activations: int
+    activation_cells: tuple[int, ...]
+    activation_sources: tuple[str, ...]
+    activation_donor_cells: tuple[int | None, ...]
     releases: int
     blocked_births: int
+    blocked_cells: tuple[int, ...]
     interface_macro_reconstructions: int
     maximum_micro_macro_residual: float
     minimum_micro_mass: float
@@ -623,12 +627,21 @@ def adaptive_shock_step(
         raise ValueError("adaptive DVM transport CFL exceeds unity")
 
     active = state.active.copy()
+    # Birth decisions are synchronous.  A microstate born during this step is
+    # not allowed to become a donor until the next step; otherwise the
+    # left-to-right loop order can propagate kinetic memory across the entire
+    # domain instantaneously.
+    active_at_step_start = state.active.copy()
     masses = state.micro_masses.copy()
     active_steps = state.active_steps.copy()
     release_counter = state.release_counter.copy()
     activations = 0
+    activation_cells: list[int] = []
+    activation_sources: list[str] = []
+    activation_donor_cells: list[int | None] = []
     releases = 0
     blocked = 0
+    blocked_cells: list[int] = []
 
     readings = [
         kinetic_activation_sensor(item, tau=tau, prandtl=prandtl)
@@ -638,27 +651,40 @@ def adaptive_shock_step(
         if active[cell] or not policy.requests_activation(reading):
             continue
         donor = None
-        if cell > 0 and active[cell - 1]:
-            donor = DVMState(state.velocity_grid, masses[cell - 1])
-        elif cell + 1 < nx and active[cell + 1]:
-            donor = DVMState(state.velocity_grid, masses[cell + 1])
+        donor_cell: int | None = None
+        source = ""
+        if cell > 0 and active_at_step_start[cell - 1]:
+            donor_cell = cell - 1
+            source = "left_neighbor"
+            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
+        elif cell + 1 < nx and active_at_step_start[cell + 1]:
+            donor_cell = cell + 1
+            source = "right_neighbor"
+            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
         elif cell == 0:
+            source = "left_inflow"
             donor = left_inflow
         elif cell == nx - 1:
+            source = "right_inflow"
             donor = right_inflow
         if donor is None:
             blocked += 1
+            blocked_cells.append(cell)
             continue
         try:
             born = _activate_from_donor(state.moments[cell], donor)
         except (FloatingPointError, ValueError):
             blocked += 1
+            blocked_cells.append(cell)
             continue
         masses[cell] = born.masses
         active[cell] = True
         active_steps[cell] = 0
         release_counter[cell] = 0
         activations += 1
+        activation_cells.append(cell)
+        activation_sources.append(source)
+        activation_donor_cells.append(donor_cell)
 
     macro_positive = [None] * nx
     macro_negative = [None] * nx
@@ -818,8 +844,12 @@ def adaptive_shock_step(
     return next_state, AdaptiveSpatialStepDiagnostics(
         active_fraction=float(np.mean(active)),
         activations=activations,
+        activation_cells=tuple(activation_cells),
+        activation_sources=tuple(activation_sources),
+        activation_donor_cells=tuple(activation_donor_cells),
         releases=releases,
         blocked_births=blocked,
+        blocked_cells=tuple(blocked_cells),
         interface_macro_reconstructions=interface_reconstructions,
         maximum_micro_macro_residual=float(sync_residual),
         minimum_micro_mass=minimum_micro_mass,

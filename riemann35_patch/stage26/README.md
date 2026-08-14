@@ -86,3 +86,8 @@ job, collector job, and bundle path.
 The collector always creates the diagnostic ZIP.  It exits nonzero when an
 overall scientific gate fails so Slurm accounting cannot make a failed audit
 look successful merely because packaging completed.
+
+The accepted 8192-point local production result is frozen in
+`reference_results/local_validated_20260814`.  It passed all selected-method
+gates and is the default evidence record; repeating it on Unity is optional,
+not a prerequisite for continuing the method development.

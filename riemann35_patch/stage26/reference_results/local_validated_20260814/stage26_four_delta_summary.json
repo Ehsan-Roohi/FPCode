@@ -1,0 +1,615 @@
+{
+  "schema": "riemann35-stage26-four-delta-collection-v1",
+  "scientific_scope": "homogeneous regularized four-delta stress test of the cubic-FP closure; this is not MD/DSMC validation of the physical FP model",
+  "missing_methods": [],
+  "gates": {
+    "all_four_methods_completed": true,
+    "initial_mass_momentum_energy_constraints": true,
+    "initial_third_order_moments_nonzero": true,
+    "positive_realizable_histories": true,
+    "collision_invariants": true,
+    "reference_M400_scramble_spread": true,
+    "reference_M420_scramble_spread": true,
+    "adaptive_M400_history_error": true,
+    "adaptive_M420_history_error": true,
+    "positive_reference_and_adaptive_microstate_weights": true,
+    "no_blocked_causal_activation": true,
+    "no_donor_persistence_probe": true
+  },
+  "overall_pass": true,
+  "error_gate": 0.03,
+  "reference_spread_gate": 0.03,
+  "initial_constraints": {
+    "mass_error": 1.1102230246251565e-16,
+    "momentum_norm": 7.416830457584993e-17,
+    "energy_trace_error": 4.440892098500626e-16,
+    "central_third_norm": 0.36650717827887774,
+    "weights": [
+      0.45,
+      0.25,
+      0.2,
+      0.1
+    ],
+    "centers": [
+      [
+        -0.5993797588038327,
+        -0.3458205319512273,
+        0.0
+      ],
+      [
+        -0.07325662331170817,
+        1.02486773067007,
+        0.0
+      ],
+      [
+        1.309983864994292,
+        0.08670097517043529,
+        0.0
+      ],
+      [
+        0.2603827429079338,
+        -1.1793788832355225,
+        0.0
+      ]
+    ]
+  },
+  "maximum_invariant_errors": {
+    "mass": 3.3306690738754696e-16,
+    "momentum": 1.4111089632544159e-11,
+    "energy_trace": 7.0887740122316245e-12
+  },
+  "minimum_realizability_margin": 1.0000243912529955e-12,
+  "reference_scramble_spread": {
+    "rho": 8.953702652031571e-17,
+    "momentum_norm": 1.0429801233579892,
+    "energy_trace": 3.0091989655173165e-12,
+    "M300": 0.02091571364728113,
+    "M030": 0.05808745828196975,
+    "M210": 0.0800569084595342,
+    "M120": 0.07724624141872469,
+    "M400": 0.011795211047313141,
+    "M040": 0.008090122294764879,
+    "M220": 0.008877816369362083,
+    "M420": 0.026661023760133854,
+    "M600": 0.0345243825495822,
+    "third_order_norm": 0.018739870367114525,
+    "heat_flux_norm": 0.025576839988177176,
+    "realizability_margin": 0.013220506356650275
+  },
+  "history_relative_l2_vs_full_fp_qmc": {
+    "stage9_mixture": {
+      "rho": 1.0966001403040935e-16,
+      "momentum_norm": 0.9999768112797657,
+      "energy_trace": 1.7511339807810584e-12,
+      "M300": 0.16816372931484702,
+      "M030": 0.09331898569713276,
+      "M210": 0.37546316100679417,
+      "M120": 0.8694864898573895,
+      "M400": 0.10529370639486431,
+      "M040": 0.006888184888762119,
+      "M220": 0.07019770444343043,
+      "M420": 0.18779274174709484,
+      "M600": 0.3610242527382415,
+      "third_order_norm": 0.16412124163601555,
+      "heat_flux_norm": 0.23231342347908804,
+      "realizability_margin": 0.02306433326196721
+    },
+    "grad_gqmom": {
+      "rho": 1.0966001403040935e-16,
+      "momentum_norm": 0.9999768112797657,
+      "energy_trace": 1.7502919893341958e-12,
+      "M300": 0.017844933381910722,
+      "M030": 0.12040537994309572,
+      "M210": 0.37694063146152645,
+      "M120": 0.4363563166116753,
+      "M400": 0.04158189025398274,
+      "M040": 0.018881946731188235,
+      "M220": 0.24185735980794815,
+      "M420": 0.7813003840315276,
+      "M600": 0.16752404274377092,
+      "third_order_norm": 0.012251388910670683,
+      "heat_flux_norm": 0.04828386025747417,
+      "realizability_margin": 0.03242151873243985
+    },
+    "adaptive_memory": {
+      "rho": 2.193200280608187e-16,
+      "momentum_norm": 0.4124782243146544,
+      "energy_trace": 7.527073699569868e-13,
+      "M300": 0.008653603516958106,
+      "M030": 0.03556512164487514,
+      "M210": 0.04719917292373188,
+      "M120": 0.04213631604595432,
+      "M400": 0.004780268460050126,
+      "M040": 0.007960493952134252,
+      "M220": 0.009866493283294366,
+      "M420": 0.017397999051400267,
+      "M600": 0.012484248819708672,
+      "third_order_norm": 0.0074709745965047866,
+      "heat_flux_norm": 0.005767747427043461,
+      "realizability_margin": 0.012003701516547538
+    }
+  },
+  "algebraic_comparison_diagnostics": {
+    "stage9_mixture": {
+      "minimum_quadrature_weight": 5.660838723532438e-06,
+      "maximum_negative_weight_count": 0,
+      "maximum_negative_mass_fraction": 0.0,
+      "minimum_even_tail_moment": 0.10378441008968908,
+      "even_tail_nonnegative": true
+    },
+    "grad_gqmom": {
+      "minimum_quadrature_weight": -0.005339134336169979,
+      "maximum_negative_weight_count": 82,
+      "maximum_negative_mass_fraction": 0.04861087650257785,
+      "minimum_even_tail_moment": -0.12946543422156612,
+      "even_tail_nonnegative": false
+    }
+  },
+  "methods": {
+    "full_fp_qmc": {
+      "schema": "riemann35-stage26-four-delta-method-v1",
+      "method": "full_fp_qmc",
+      "controls": {
+        "dt_over_tau": 0.0025,
+        "final_time_over_tau": 1.0,
+        "steps": 400,
+        "sample_every": 10,
+        "sensor_every": 10,
+        "replicates": 4,
+        "points_per_component": 8192,
+        "regularization_fraction": 0.03,
+        "component_variance": 0.01,
+        "rotation_degrees": 17.0,
+        "seed_base": 20260814,
+        "energy_trace_definition": "(M200+M020+M002)/M000"
+      },
+      "initial_constraints": {
+        "mass_error": 1.1102230246251565e-16,
+        "momentum_norm": 7.416830457584993e-17,
+        "energy_trace_error": 4.440892098500626e-16,
+        "central_third_norm": 0.36650717827887774,
+        "weights": [
+          0.45,
+          0.25,
+          0.2,
+          0.1
+        ],
+        "centers": [
+          [
+            -0.5993797588038327,
+            -0.3458205319512273,
+            0.0
+          ],
+          [
+            -0.07325662331170817,
+            1.02486773067007,
+            0.0
+          ],
+          [
+            1.309983864994292,
+            0.08670097517043529,
+            0.0
+          ],
+          [
+            0.2603827429079338,
+            -1.1793788832355225,
+            0.0
+          ]
+        ]
+      },
+      "initial_sensor": {
+        "source_disagreement": 1.6151888836951869,
+        "tail_disagreement": 0.5309724284819896,
+        "standardized_skewness_norm": 1.05146348080548,
+        "reconstruction_failure": false,
+        "requests_activation": true,
+        "stage9_status": "PASS",
+        "grad_status": "PASS"
+      },
+      "no_donor_persistence_probe": null,
+      "replicate_diagnostics": [
+        {
+          "replicate": 0,
+          "projection_relative_residual": 2.2084789897814e-15,
+          "minimum_probability": 1.1277418144690989e-05,
+          "minimum_quadrature_weight": 1.1277418144690987e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020908720085521828,
+          "maximum_momentum_drift": 6.5930957660531425e-15,
+          "maximum_energy_drift": 1.6431300764452317e-14,
+          "elapsed_seconds": 9.966148733001319,
+          "blocked_activations": 0,
+          "transitions": []
+        },
+        {
+          "replicate": 1,
+          "projection_relative_residual": 1.0263630422619075e-11,
+          "minimum_probability": 1.2003045856445003e-05,
+          "minimum_quadrature_weight": 1.2003045856445001e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020905947605695314,
+          "maximum_momentum_drift": 5.257377166746487e-15,
+          "maximum_energy_drift": 1.532107773982716e-14,
+          "elapsed_seconds": 10.047531658994558,
+          "blocked_activations": 0,
+          "transitions": []
+        },
+        {
+          "replicate": 2,
+          "projection_relative_residual": 3.625650769062144e-12,
+          "minimum_probability": 1.2053852007987018e-05,
+          "minimum_quadrature_weight": 1.2053852007987016e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020907312900624545,
+          "maximum_momentum_drift": 9.15009922422065e-15,
+          "maximum_energy_drift": 1.354472090042691e-14,
+          "elapsed_seconds": 9.998158754999167,
+          "blocked_activations": 0,
+          "transitions": []
+        },
+        {
+          "replicate": 3,
+          "projection_relative_residual": 2.0891929609429545e-12,
+          "minimum_probability": 1.1864164277075423e-05,
+          "minimum_quadrature_weight": 1.1864164277075421e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020907661199517154,
+          "maximum_momentum_drift": 8.827906414528169e-15,
+          "maximum_energy_drift": 1.554312234475219e-14,
+          "elapsed_seconds": 10.006692770999507,
+          "blocked_activations": 0,
+          "transitions": []
+        }
+      ],
+      "minimum_realizability_margin": 0.0006182144626140543,
+      "minimum_quadrature_weight": 1.1277418144690987e-05,
+      "maximum_negative_weight_count": 0,
+      "maximum_negative_mass_fraction": 0.0,
+      "minimum_even_tail_moment": 0.020905947605695314,
+      "maximum_mass_error": 3.3306690738754696e-16,
+      "maximum_momentum_norm": 7.869631797526982e-12,
+      "maximum_energy_trace_error": 6.259881502046483e-12,
+      "mean_micro_active_fraction": 1.0,
+      "total_elapsed_seconds": 40.01853191799455,
+      "archive": "/tmp/stage26_tune8192/ref/stage26_full_fp_qmc.npz"
+    },
+    "stage9_mixture": {
+      "schema": "riemann35-stage26-four-delta-method-v1",
+      "method": "stage9_mixture",
+      "controls": {
+        "dt_over_tau": 0.0025,
+        "final_time_over_tau": 1.0,
+        "steps": 400,
+        "sample_every": 10,
+        "sensor_every": 10,
+        "replicates": 1,
+        "points_per_component": null,
+        "regularization_fraction": 0.03,
+        "component_variance": 0.01,
+        "rotation_degrees": 17.0,
+        "seed_base": 20260814,
+        "energy_trace_definition": "(M200+M020+M002)/M000"
+      },
+      "initial_constraints": {
+        "mass_error": 1.1102230246251565e-16,
+        "momentum_norm": 7.416830457584993e-17,
+        "energy_trace_error": 4.440892098500626e-16,
+        "central_third_norm": 0.36650717827887774,
+        "weights": [
+          0.45,
+          0.25,
+          0.2,
+          0.1
+        ],
+        "centers": [
+          [
+            -0.5993797588038327,
+            -0.3458205319512273,
+            0.0
+          ],
+          [
+            -0.07325662331170817,
+            1.02486773067007,
+            0.0
+          ],
+          [
+            1.309983864994292,
+            0.08670097517043529,
+            0.0
+          ],
+          [
+            0.2603827429079338,
+            -1.1793788832355225,
+            0.0
+          ]
+        ]
+      },
+      "initial_sensor": {
+        "source_disagreement": 1.6151888836951869,
+        "tail_disagreement": 0.5309724284819896,
+        "standardized_skewness_norm": 1.05146348080548,
+        "reconstruction_failure": false,
+        "requests_activation": true,
+        "stage9_status": "PASS",
+        "grad_status": "PASS"
+      },
+      "no_donor_persistence_probe": null,
+      "replicate_diagnostics": [
+        {
+          "replicate": 0,
+          "projection_relative_residual": 0.0,
+          "minimum_probability": 0.0,
+          "minimum_quadrature_weight": 5.660838723532438e-06,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.10378441008968908,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 0.0006182144626140543,
+          "minimum_limiter_fraction": 1.0,
+          "elapsed_seconds": 7.565892222999537,
+          "blocked_activations": 0,
+          "transitions": []
+        }
+      ],
+      "minimum_realizability_margin": 0.0006182144626140543,
+      "minimum_quadrature_weight": 5.660838723532438e-06,
+      "maximum_negative_weight_count": 0,
+      "maximum_negative_mass_fraction": 0.0,
+      "minimum_even_tail_moment": 0.10378441008968908,
+      "maximum_mass_error": 1.1102230246251565e-16,
+      "maximum_momentum_norm": 7.416830457584993e-17,
+      "maximum_energy_trace_error": 3.552713678800501e-15,
+      "mean_micro_active_fraction": 0.0,
+      "total_elapsed_seconds": 7.565892222999537,
+      "archive": "/tmp/stage26_local_v2/stage26_stage9_mixture.npz"
+    },
+    "grad_gqmom": {
+      "schema": "riemann35-stage26-four-delta-method-v1",
+      "method": "grad_gqmom",
+      "controls": {
+        "dt_over_tau": 0.0025,
+        "final_time_over_tau": 1.0,
+        "steps": 400,
+        "sample_every": 10,
+        "sensor_every": 10,
+        "replicates": 1,
+        "points_per_component": null,
+        "regularization_fraction": 0.03,
+        "component_variance": 0.01,
+        "rotation_degrees": 17.0,
+        "seed_base": 20260814,
+        "energy_trace_definition": "(M200+M020+M002)/M000"
+      },
+      "initial_constraints": {
+        "mass_error": 1.1102230246251565e-16,
+        "momentum_norm": 7.416830457584993e-17,
+        "energy_trace_error": 4.440892098500626e-16,
+        "central_third_norm": 0.36650717827887774,
+        "weights": [
+          0.45,
+          0.25,
+          0.2,
+          0.1
+        ],
+        "centers": [
+          [
+            -0.5993797588038327,
+            -0.3458205319512273,
+            0.0
+          ],
+          [
+            -0.07325662331170817,
+            1.02486773067007,
+            0.0
+          ],
+          [
+            1.309983864994292,
+            0.08670097517043529,
+            0.0
+          ],
+          [
+            0.2603827429079338,
+            -1.1793788832355225,
+            0.0
+          ]
+        ]
+      },
+      "initial_sensor": {
+        "source_disagreement": 1.6151888836951869,
+        "tail_disagreement": 0.5309724284819896,
+        "standardized_skewness_norm": 1.05146348080548,
+        "reconstruction_failure": false,
+        "requests_activation": true,
+        "stage9_status": "PASS",
+        "grad_status": "PASS"
+      },
+      "no_donor_persistence_probe": null,
+      "replicate_diagnostics": [
+        {
+          "replicate": 0,
+          "projection_relative_residual": 0.0,
+          "minimum_probability": 0.0,
+          "minimum_quadrature_weight": -0.005339134336169979,
+          "maximum_negative_weight_count": 82,
+          "maximum_negative_mass_fraction": 0.04861087650257785,
+          "minimum_even_tail_moment": -0.12946543422156612,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 9.99639758801265e-13,
+          "minimum_limiter_fraction": 0.039236203822148784,
+          "elapsed_seconds": 15.592307840997819,
+          "blocked_activations": 0,
+          "transitions": []
+        }
+      ],
+      "minimum_realizability_margin": 1.0000243912529955e-12,
+      "minimum_quadrature_weight": -0.005339134336169979,
+      "maximum_negative_weight_count": 82,
+      "maximum_negative_mass_fraction": 0.04861087650257785,
+      "minimum_even_tail_moment": -0.12946543422156612,
+      "maximum_mass_error": 1.1102230246251565e-16,
+      "maximum_momentum_norm": 7.416830457584993e-17,
+      "maximum_energy_trace_error": 3.552713678800501e-15,
+      "mean_micro_active_fraction": 0.0,
+      "total_elapsed_seconds": 15.592307840997819,
+      "archive": "/tmp/stage26_local_v2/stage26_grad_gqmom.npz"
+    },
+    "adaptive_memory": {
+      "schema": "riemann35-stage26-four-delta-method-v1",
+      "method": "adaptive_memory",
+      "controls": {
+        "dt_over_tau": 0.0025,
+        "final_time_over_tau": 1.0,
+        "steps": 400,
+        "sample_every": 10,
+        "sensor_every": 10,
+        "replicates": 4,
+        "points_per_component": 8192,
+        "regularization_fraction": 0.03,
+        "component_variance": 0.01,
+        "rotation_degrees": 17.0,
+        "seed_base": 111688475,
+        "energy_trace_definition": "(M200+M020+M002)/M000"
+      },
+      "initial_constraints": {
+        "mass_error": 1.1102230246251565e-16,
+        "momentum_norm": 7.416830457584993e-17,
+        "energy_trace_error": 4.440892098500626e-16,
+        "central_third_norm": 0.36650717827887774,
+        "weights": [
+          0.45,
+          0.25,
+          0.2,
+          0.1
+        ],
+        "centers": [
+          [
+            -0.5993797588038327,
+            -0.3458205319512273,
+            0.0
+          ],
+          [
+            -0.07325662331170817,
+            1.02486773067007,
+            0.0
+          ],
+          [
+            1.309983864994292,
+            0.08670097517043529,
+            0.0
+          ],
+          [
+            0.2603827429079338,
+            -1.1793788832355225,
+            0.0
+          ]
+        ]
+      },
+      "initial_sensor": {
+        "source_disagreement": 1.6151888836951869,
+        "tail_disagreement": 0.5309724284819896,
+        "standardized_skewness_norm": 1.05146348080548,
+        "reconstruction_failure": false,
+        "requests_activation": true,
+        "stage9_status": "PASS",
+        "grad_status": "PASS"
+      },
+      "no_donor_persistence_probe": {
+        "passed": true,
+        "final_mode": "micro",
+        "release_blocked_without_causal_donor": true,
+        "transition": "micro->micro"
+      },
+      "replicate_diagnostics": [
+        {
+          "replicate": 0,
+          "projection_relative_residual": 2.3400862087592137e-11,
+          "minimum_probability": 1.2127917462276746e-05,
+          "minimum_quadrature_weight": 1.2127917462276745e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.02090624275970812,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 0.0006182144626140543,
+          "elapsed_seconds": 18.390522264999163,
+          "blocked_activations": 0,
+          "blocked_releases_without_causal_donor": 0,
+          "transitions": [],
+          "final_mode": "micro",
+          "tail_ambiguous_final": false
+        },
+        {
+          "replicate": 1,
+          "projection_relative_residual": 2.047963664106959e-12,
+          "minimum_probability": 1.1859338424642188e-05,
+          "minimum_quadrature_weight": 1.1859338424642186e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020905700501036982,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 0.0006182144626140543,
+          "elapsed_seconds": 18.420905349004897,
+          "blocked_activations": 0,
+          "blocked_releases_without_causal_donor": 0,
+          "transitions": [],
+          "final_mode": "micro",
+          "tail_ambiguous_final": false
+        },
+        {
+          "replicate": 2,
+          "projection_relative_residual": 1.2932173213154652e-12,
+          "minimum_probability": 1.1912861176132145e-05,
+          "minimum_quadrature_weight": 1.1912861176132144e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.02090602723861039,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 0.0006182144626140543,
+          "elapsed_seconds": 18.525149840999802,
+          "blocked_activations": 0,
+          "blocked_releases_without_causal_donor": 0,
+          "transitions": [],
+          "final_mode": "micro",
+          "tail_ambiguous_final": false
+        },
+        {
+          "replicate": 3,
+          "projection_relative_residual": 2.8289997500862635e-12,
+          "minimum_probability": 1.2135615642555229e-05,
+          "minimum_quadrature_weight": 1.2135615642555227e-05,
+          "maximum_negative_weight_count": 0,
+          "maximum_negative_mass_fraction": 0.0,
+          "minimum_even_tail_moment": 0.020906773501631434,
+          "maximum_momentum_drift": 0.0,
+          "maximum_energy_drift": 0.0,
+          "minimum_realizability_margin": 0.0006182144626140543,
+          "elapsed_seconds": 18.48051180499897,
+          "blocked_activations": 0,
+          "blocked_releases_without_causal_donor": 0,
+          "transitions": [],
+          "final_mode": "micro",
+          "tail_ambiguous_final": false
+        }
+      ],
+      "minimum_realizability_margin": 0.0006182144626140543,
+      "minimum_quadrature_weight": 1.1859338424642186e-05,
+      "maximum_negative_weight_count": 0,
+      "maximum_negative_mass_fraction": 0.0,
+      "minimum_even_tail_moment": 0.020905700501036982,
+      "maximum_mass_error": 3.3306690738754696e-16,
+      "maximum_momentum_norm": 1.4111089632544159e-11,
+      "maximum_energy_trace_error": 7.0887740122316245e-12,
+      "mean_micro_active_fraction": 1.0,
+      "total_elapsed_seconds": 73.81708926000283,
+      "archive": "/tmp/stage26_tune8192/adp/stage26_adaptive_memory.npz"
+    }
+  }
+}

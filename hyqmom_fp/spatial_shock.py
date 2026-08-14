@@ -536,12 +536,17 @@ class AdaptiveSpatialStepDiagnostics:
     activation_cells: tuple[int, ...]
     activation_sources: tuple[str, ...]
     activation_donor_cells: tuple[int | None, ...]
+    activation_carrier_used: tuple[bool, ...]
+    activation_donor_fractions: tuple[float | None, ...]
+    activation_reasons: tuple[str, ...]
+    activation_front_signals: tuple[float | None, ...]
     releases: int
     blocked_births: int
     blocked_cells: tuple[int, ...]
     sensor_evaluated: bool
     activation_sensor_evaluations: int
     release_sensor_evaluations: int
+    front_sensor_evaluations: int
     macro_equilibrium_shortcuts: int
     interface_macro_reconstructions: int
     maximum_micro_macro_residual: float
@@ -602,9 +607,92 @@ def _safe_macro_interface_state(grid: DVMGrid, target: np.ndarray) -> DVMState:
 def _activate_from_donor(
     target: np.ndarray,
     donor: DVMState,
-) -> DVMState:
-    projected, _ = project_cell_masses_minimum_kl(donor, target)
-    return projected
+    carrier: DVMState | None = None,
+    donor_direction: str | None = None,
+) -> tuple[DVMState, float | None]:
+    """Project causal kinetic data onto a requested retained-moment state.
+
+    With no carrier this is the Stage-27 donor projection.  When a known
+    positive background/inflow carrier is supplied, the entropy proposal is a
+    convex donor--carrier blend.  For a left/right neighbour, the donor enters
+    through the corresponding upwind half range before the scalar blend is
+    fitted.  This uses the already-known kinetic face direction; it does not
+    reconstruct a tail from the retained moments.
+    """
+
+    proposal = donor
+    donor_fraction: float | None = None
+    if carrier is not None:
+        if carrier.grid != donor.grid:
+            raise ValueError("birth carrier and donor grids must match")
+        target_vector = np.asarray(target, dtype=float)
+        carrier_moments = carrier.moments()
+        endpoint_masses = donor.masses
+        if donor_direction in ("left_neighbor", "right_neighbor"):
+            vx = donor.grid.centers()[:, 0]
+            incoming_speed = (
+                np.maximum(vx, 0.0)
+                if donor_direction == "left_neighbor"
+                else np.maximum(-vx, 0.0)
+            )
+            maximum_incoming_speed = float(np.max(incoming_speed))
+            if maximum_incoming_speed <= 0.0:
+                raise ValueError("directional birth donor has no incoming velocities")
+            half_range_fraction = incoming_speed / maximum_incoming_speed
+            endpoint_masses = (
+                half_range_fraction * donor.masses
+                + (1.0 - half_range_fraction) * carrier.masses
+            )
+        endpoint = DVMState(donor.grid, endpoint_masses)
+        endpoint_moments = endpoint.moments()
+        scale = np.maximum.reduce(
+            (
+                np.abs(target_vector),
+                np.abs(endpoint_moments),
+                np.abs(carrier_moments),
+                np.full(35, 1.0e-12),
+            )
+        )
+        direction = (endpoint_moments - carrier_moments) / scale
+        offset = (target_vector - carrier_moments) / scale
+        denominator = float(np.dot(direction, direction))
+        donor_fraction = (
+            float(np.clip(np.dot(offset, direction) / denominator, 0.0, 1.0))
+            if denominator > 1.0e-30
+            else 0.5
+        )
+        proposal = DVMState(
+            donor.grid,
+            donor_fraction * endpoint_masses
+            + (1.0 - donor_fraction) * carrier.masses,
+        )
+    projected, _ = project_cell_masses_minimum_kl(proposal, target)
+    return projected, donor_fraction
+
+
+def _kinetic_front_signal(
+    donor: DVMState,
+    carrier: DVMState,
+    donor_direction: str,
+) -> float:
+    """Return an incoming half-range L1 discrepancy in ``[0, 2]``."""
+
+    if donor.grid != carrier.grid:
+        raise ValueError("front donor and carrier grids must match")
+    vx = donor.grid.centers()[:, 0]
+    if donor_direction == "left_neighbor":
+        incoming_speed = np.maximum(vx, 0.0)
+    elif donor_direction == "right_neighbor":
+        incoming_speed = np.maximum(-vx, 0.0)
+    else:
+        raise ValueError("front signal requires a left/right neighbour")
+    numerator = float(
+        np.sum(incoming_speed * np.abs(donor.masses - carrier.masses))
+    )
+    denominator = float(
+        np.sum(incoming_speed * 0.5 * (donor.masses + carrier.masses))
+    )
+    return numerator / max(denominator, 1.0e-30)
 
 
 def adaptive_shock_step(
@@ -618,6 +706,8 @@ def adaptive_shock_step(
     prandtl: float = 2.0 / 3.0,
     sensor_interval_steps: int = 1,
     macro_equilibrium_tolerance: float = 0.0,
+    birth_carrier: DVMState | None = None,
+    kinetic_front_on: float | None = None,
 ) -> tuple[AdaptiveSpatialState, AdaptiveSpatialStepDiagnostics]:
     """Advance one causal hybrid shock interval with shared conservative fluxes.
 
@@ -632,6 +722,16 @@ def adaptive_shock_step(
     shortcut for inactive cells whose transported 35 moments already match
     their local Maxwellian to that relative tolerance.  Zero disables the
     shortcut and preserves the earlier implementation exactly.
+
+    ``birth_carrier`` may provide a known positive background/inflow state for
+    interior neighbour births.  Such births use a convex carrier--donor
+    proposal before entropy projection.  Omitting it preserves the Stage-27
+    donor-only rule.
+
+    ``kinetic_front_on`` optionally activates an inactive neighbour when the
+    incoming half-range DVM flux from an active donor differs sufficiently
+    from ``birth_carrier``.  This is a cheap causal front detector evaluated
+    from retained kinetic memory, not an algebraic tail closure.
     """
 
     policy = stage25_hysteresis() if hysteresis is None else hysteresis
@@ -642,6 +742,13 @@ def adaptive_shock_step(
         or macro_equilibrium_tolerance < 0.0
     ):
         raise ValueError("macro_equilibrium_tolerance must be finite and nonnegative")
+    if birth_carrier is not None and birth_carrier.grid != state.velocity_grid:
+        raise ValueError("birth carrier grid must match the adaptive velocity grid")
+    if kinetic_front_on is not None:
+        if not np.isfinite(kinetic_front_on) or kinetic_front_on < 0.0:
+            raise ValueError("kinetic_front_on must be finite and nonnegative")
+        if birth_carrier is None:
+            raise ValueError("kinetic_front_on requires a known birth_carrier")
     nx = state.spatial_grid.cells
     features = state.velocity_grid.feature_matrix(HYQMOM_35_INDICES)
     vx = state.velocity_grid.centers()[:, 0]
@@ -665,6 +772,10 @@ def adaptive_shock_step(
     activation_cells: list[int] = []
     activation_sources: list[str] = []
     activation_donor_cells: list[int | None] = []
+    activation_carrier_used: list[bool] = []
+    activation_donor_fractions: list[float | None] = []
+    activation_reasons: list[str] = []
+    activation_front_signals: list[float | None] = []
     releases = 0
     blocked = 0
     blocked_cells: list[int] = []
@@ -672,50 +783,82 @@ def adaptive_shock_step(
     sensor_evaluated = state.global_step % sensor_interval_steps == 0
     activation_sensor_evaluations = 0
     release_sensor_evaluations = 0
+    front_sensor_evaluations = 0
     macro_equilibrium_shortcuts = 0
-    if sensor_evaluated:
-        for cell in np.flatnonzero(~active_at_step_start):
+    for cell in np.flatnonzero(~active_at_step_start):
+        moment_request = False
+        if sensor_evaluated:
             reading = kinetic_activation_sensor(
                 state.moments[cell], tau=tau, prandtl=prandtl
             )
             activation_sensor_evaluations += 1
-            if not policy.requests_activation(reading):
-                continue
-            donor = None
-            donor_cell: int | None = None
-            source = ""
-            if cell > 0 and active_at_step_start[cell - 1]:
-                donor_cell = cell - 1
-                source = "left_neighbor"
-                donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
-            elif cell + 1 < nx and active_at_step_start[cell + 1]:
-                donor_cell = cell + 1
-                source = "right_neighbor"
-                donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
-            elif cell == 0:
-                source = "left_inflow"
-                donor = left_inflow
-            elif cell == nx - 1:
-                source = "right_inflow"
-                donor = right_inflow
-            if donor is None:
+            moment_request = policy.requests_activation(reading)
+        donor = None
+        donor_cell: int | None = None
+        source = ""
+        if cell > 0 and active_at_step_start[cell - 1]:
+            donor_cell = cell - 1
+            source = "left_neighbor"
+            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
+        elif cell + 1 < nx and active_at_step_start[cell + 1]:
+            donor_cell = cell + 1
+            source = "right_neighbor"
+            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
+        elif cell == 0:
+            source = "left_inflow"
+            donor = left_inflow
+        elif cell == nx - 1:
+            source = "right_inflow"
+            donor = right_inflow
+
+        front_signal: float | None = None
+        front_request = False
+        if (
+            kinetic_front_on is not None
+            and donor is not None
+            and donor_cell is not None
+        ):
+            front_signal = _kinetic_front_signal(
+                donor, birth_carrier, source  # type: ignore[arg-type]
+            )
+            front_sensor_evaluations += 1
+            front_request = front_signal >= kinetic_front_on
+        if not moment_request and not front_request:
+            continue
+        if donor is None:
+            if moment_request:
                 blocked += 1
                 blocked_cells.append(cell)
-                continue
-            try:
-                born = _activate_from_donor(state.moments[cell], donor)
-            except (FloatingPointError, ValueError):
-                blocked += 1
-                blocked_cells.append(cell)
-                continue
-            masses[cell] = born.masses
-            active[cell] = True
-            active_steps[cell] = 0
-            release_counter[cell] = 0
-            activations += 1
-            activation_cells.append(cell)
-            activation_sources.append(source)
-            activation_donor_cells.append(donor_cell)
+            continue
+        try:
+            carrier = (
+                birth_carrier
+                if birth_carrier is not None and donor_cell is not None
+                else None
+            )
+            born, donor_fraction = _activate_from_donor(
+                state.moments[cell], donor, carrier, source
+            )
+        except (FloatingPointError, ValueError):
+            blocked += 1
+            blocked_cells.append(cell)
+            continue
+        masses[cell] = born.masses
+        active[cell] = True
+        active_steps[cell] = 0
+        release_counter[cell] = 0
+        activations += 1
+        activation_cells.append(cell)
+        activation_sources.append(source)
+        activation_donor_cells.append(donor_cell)
+        activation_carrier_used.append(carrier is not None)
+        activation_donor_fractions.append(donor_fraction)
+        activation_reasons.append(
+            "moment_and_kinetic_front"
+            if moment_request and front_request
+            else "moment_sensor" if moment_request else "kinetic_front"
+        )
+        activation_front_signals.append(front_signal)
 
     macro_positive = [None] * nx
     macro_negative = [None] * nx
@@ -896,12 +1039,17 @@ def adaptive_shock_step(
         activation_cells=tuple(activation_cells),
         activation_sources=tuple(activation_sources),
         activation_donor_cells=tuple(activation_donor_cells),
+        activation_carrier_used=tuple(activation_carrier_used),
+        activation_donor_fractions=tuple(activation_donor_fractions),
+        activation_reasons=tuple(activation_reasons),
+        activation_front_signals=tuple(activation_front_signals),
         releases=releases,
         blocked_births=blocked,
         blocked_cells=tuple(blocked_cells),
         sensor_evaluated=sensor_evaluated,
         activation_sensor_evaluations=activation_sensor_evaluations,
         release_sensor_evaluations=release_sensor_evaluations,
+        front_sensor_evaluations=front_sensor_evaluations,
         macro_equilibrium_shortcuts=macro_equilibrium_shortcuts,
         interface_macro_reconstructions=interface_reconstructions,
         maximum_micro_macro_residual=float(sync_residual),

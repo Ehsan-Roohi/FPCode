@@ -28,6 +28,7 @@ from hyqmom_fp.mixture_closure import (
     fit_equal_variance_marginal,
     fit_location_scale_marginal,
 )
+from hyqmom_fp.spatial_shock import _activate_from_donor
 from riemann35_patch.stage25a.run_normal_shock import (
     _restore_checkpoint,
     _write_checkpoint,
@@ -270,6 +271,102 @@ def test_inactive_maxwellian_cells_use_opt_in_equilibrium_shortcut() -> None:
 
     assert diagnostics.macro_equilibrium_shortcuts == xgrid.cells
     assert np.allclose(final.moments, moments, rtol=2.0e-13, atol=2.0e-13)
+
+
+def test_causal_birth_carrier_recovers_a_positive_convex_kinetic_blend() -> None:
+    """A known carrier improves birth without algebraically inventing a tail."""
+
+    vgrid = DVMGrid(
+        lower=(-3.0, -2.5, -1.5),
+        upper=(3.0, 2.5, 1.5),
+        shape=(15, 13, 9),
+    )
+    carrier_components = [(1.0, (0.0, 0.0, 0.0), 0.3 * np.eye(3))]
+    donor_components = [
+        (0.72, (1.20, 0.55, 0.0), np.diag([0.08, 0.06, 0.05])),
+        (0.28, (-0.25, -1.00, 0.0), np.diag([0.05, 0.07, 0.05])),
+    ]
+    carrier, _ = initialize_diagonal_gaussian_mixture(
+        vgrid, carrier_components, match_exact_moments=True
+    )
+    donor, _ = initialize_diagonal_gaussian_mixture(
+        vgrid, donor_components, match_exact_moments=True
+    )
+    expected_fraction = 0.35
+    target = (
+        expected_fraction * donor.moments()
+        + (1.0 - expected_fraction) * carrier.moments()
+    )
+
+    born, measured_fraction = _activate_from_donor(target, donor, carrier)
+
+    assert np.isclose(measured_fraction, expected_fraction, atol=2.0e-13)
+    assert np.min(born.masses) > 0.0
+    assert np.allclose(born.moments(), target, rtol=2.0e-10, atol=2.0e-11)
+    expected_masses = (
+        expected_fraction * donor.masses
+        + (1.0 - expected_fraction) * carrier.masses
+    )
+    assert np.allclose(born.masses, expected_masses, rtol=2.0e-9, atol=2.0e-13)
+
+
+def test_kinetic_front_sensor_activates_only_immediate_causal_neighbours() -> None:
+    xgrid = SpatialGrid1D(-4.5, 4.5, 9)
+    vgrid = DVMGrid(
+        lower=(-3.0, -2.5, -1.5),
+        upper=(3.0, 2.5, 1.5),
+        shape=(15, 13, 9),
+    )
+    carrier, _ = initialize_diagonal_gaussian_mixture(
+        vgrid,
+        [(1.0, (0.0, 0.0, 0.0), 0.3 * np.eye(3))],
+        match_exact_moments=True,
+    )
+    donor, _ = initialize_diagonal_gaussian_mixture(
+        vgrid,
+        [
+            (0.72, (1.20, 0.55, 0.0), np.diag([0.08, 0.06, 0.05])),
+            (0.28, (-0.25, -1.00, 0.0), np.diag([0.05, 0.07, 0.05])),
+        ],
+        match_exact_moments=True,
+    )
+    moments = np.repeat(carrier.moments()[None, :], xgrid.cells, axis=0)
+    moments[4] = donor.moments()
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[4] = True
+    masses = np.zeros((xgrid.cells, vgrid.size))
+    masses[4] = donor.masses
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=1,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.002,
+        1.0,
+        carrier,
+        carrier,
+        sensor_interval_steps=100,
+        birth_carrier=carrier,
+        kinetic_front_on=0.0,
+    )
+
+    assert diagnostics.activation_cells == (3, 5)
+    assert diagnostics.activation_donor_cells == (4, 4)
+    assert diagnostics.activation_reasons == ("kinetic_front", "kinetic_front")
+    assert diagnostics.activation_sensor_evaluations == 0
+    assert diagnostics.front_sensor_evaluations == 2
+    assert np.array_equal(np.flatnonzero(final.active), [3, 4, 5])
+    assert np.min(final.micro_masses[final.active]) > 0.0
 
 
 def test_narrow_marginal_branch_is_scale_invariant() -> None:

@@ -3,7 +3,45 @@
 This file is the durable handoff record for future work.  Update it whenever a
 stage changes the selected method or the next scientific decision.
 
-## Current accepted state: Stage 28 (local qualification; Unity reproduction pending)
+## Current accepted state: Stage 29 (local qualification)
+
+Stage 29 closes the moving-front gate proposed after Stage 28.  A localized
+regularized four-delta pocket with unit positive x velocity is advected through
+an equilibrium background.  Because the retained-moment sensor reacts one
+cell too late for predictive `M420`, the adaptive lifecycle now has an opt-in
+causal front detector: it measures the incoming half-range discrepancy between
+an already-active DVM donor and a known positive background carrier.  The
+detector uses the frozen Stage-25 `tail_on = 0.40` threshold.
+
+Every front birth forms a positive directional carrier--donor proposal and
+then applies the existing entropy projection to the transported 35 moments.
+It uses only already-known kinetic information; no unidentified tail is
+reconstructed from the retained moments.  Omitting the new options preserves
+the Stage-27/28 lifecycle exactly.
+
+The full 48-cell, 24-step workstation qualification is archived under
+`stage29/reference_results/local_validated_20260814`.
+
+Accepted local quantitative result:
+
+- all numerical, causal, localization, accuracy, and measured-performance
+  gates passed;
+- four kinetic-front births occurred, three at the right-moving leading front;
+- mean kinetic fraction was 16.83%, and peak/final fractions were 20.83%;
+- final adaptive errors against the refined positive DVM were 0.2300% for
+  `M400` and 0.4280% for predictive `M420`;
+- space-time errors were 0.1099% (`M400`) and 0.6405% (`M420`);
+- adaptive wall time was 0.8010 times the same-grid coarse Full-DVM wall time,
+  a measured 1.248x speedup;
+- maximum finite-volume balance residual was `3.45e-15`, maximum micro/macro
+  synchronization residual was `1.84e-13`, and all DVM masses stayed positive.
+
+This is local numerical validation of the implemented cubic FP operator.  A
+Unity reproduction is useful for portable cluster timing but is not a blocker
+for the scientific sequence.  No independent MD/DSMC physical validation has
+yet been performed.
+
+## Previous accepted state: Stage 28
 
 Stage 28 closes the performance defect exposed by Stage 27 on a localized
 regularized four-delta pocket in an equilibrium spatial background.  The
@@ -31,9 +69,7 @@ Accepted local quantitative result:
 - maximum finite-volume balance residual was `7.41e-14`, maximum micro/macro
   synchronization residual was `3.84e-15`, and all DVM masses stayed positive.
 
-The same pinned configuration must still be reproduced on Unity before
-calling this a cluster-validated performance result.  No independent MD/DSMC
-physical validation has yet been performed.
+The archived timing is a local workstation result, not a cluster benchmark.
 
 ## Previous accepted state: Stage 27
 
@@ -110,9 +146,9 @@ Accepted quantitative result:
 
 ## Next scientific step
 
-First reproduce the pinned Stage-28 qualification on Unity and compare its
-measured adaptive/coarse-DVM timing ratio with the frozen local result.  If the
-cluster run passes, the next scientific gate is a moving/advecting localized
-nonequilibrium region that forces at least one new causal neighbor birth while
-retaining the sub-50% kinetic fraction and measured speedup.  Independent
-MD/DSMC validation remains necessary later for physical fidelity.
+Extend the moving-pocket experiment long enough to exercise the complete
+front-following lifecycle: causal birth ahead of the pocket and verified
+release behind it, while retaining sub-50% kinetic support, the 3% `M400` and
+`M420` accuracy gates, and measured speedup.  A Unity reproduction remains an
+optional portability/timing check.  Independent MD/DSMC validation remains
+necessary later for physical fidelity.

@@ -16,6 +16,13 @@ from .moments import (
     maxwellian_moments_35,
     mixture_of_gaussians_moments_35,
 )
+from .four_delta import (
+    FourDeltaInitialState,
+    THIRD_ORDER_INDICES,
+    all_third_order_indices,
+    regularized_four_delta_state,
+    weighted_raw_moments,
+)
 from .grad_hyqmom import (
     GaussianGQMOMMarginal,
     GradHyQMOMQuadrature,
@@ -163,6 +170,7 @@ __all__ = [
     "PersistentTwoPopulationDiagnostics",
     "PersistentTwoPopulationState",
     "FiniteMixtureStepDiagnostics",
+    "FourDeltaInitialState",
     "MarginalMixture",
     "MaximumEntropyQuadrature",
     "MaximumEntropyStepDiagnostics",
@@ -171,10 +179,12 @@ __all__ = [
     "SpatialDVMState",
     "SpatialGrid1D",
     "TransportDiagnostics",
+    "THIRD_ORDER_INDICES",
     "WeightedNodeTailClosure",
     "TwoPopulationQuadrature",
     "TwoPopulationStepDiagnostics",
     "adaptive_tail_memory_fp_step",
+    "all_third_order_indices",
     "adaptive_shock_step",
     "bgk_collision_source",
     "bernoulli_function",
@@ -225,6 +235,7 @@ __all__ = [
     "project_cell_masses_minimum_kl",
     "project_positive_microstate",
     "realizability_margin_35",
+    "regularized_four_delta_state",
     "reconstruct_gaussian_mixture_quadrature",
     "reconstruct_grad_hyqmom_quadrature",
     "reconstruct_maximum_entropy_quadrature",
@@ -236,4 +247,5 @@ __all__ = [
     "stage25_hysteresis",
     "two_population_fp_step",
     "total_degree_indices",
+    "weighted_raw_moments",
 ]

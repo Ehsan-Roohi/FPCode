@@ -172,6 +172,7 @@ class AdaptiveStepDiagnostics:
     used_micro_step: bool
     activation_requested: bool
     activation_blocked: bool
+    release_blocked_without_causal_donor: bool
     tail_ambiguous: bool
     sensor_before: KineticSensorReading
     sensor_after: KineticSensorReading
@@ -555,8 +556,16 @@ def adaptive_tail_memory_fp_step(
     prandtl: float = 2.0 / 3.0,
     incoming_microstate: PositiveMicrostate | None = None,
     sensor_interval_steps: int = 10,
+    causal_reactivation_available: bool = True,
 ) -> tuple[AdaptiveTailMemoryState, AdaptiveStepDiagnostics]:
-    """Advance one causal adaptive macro--micro collision interval."""
+    """Advance one causal adaptive macro--micro collision interval.
+
+    ``causal_reactivation_available`` controls the no-donor persistence rule.
+    When false, an active microstate is retained even after the sensor becomes
+    safe because discarding it would make a later activation non-causal.  The
+    default remains true for backward compatibility with the Stage-20 release
+    control, where a future causal donor is assumed explicitly.
+    """
 
     if dt <= 0.0 or tau <= 0.0:
         raise ValueError("dt and tau must be positive")
@@ -575,6 +584,7 @@ def adaptive_tail_memory_fp_step(
     microstate = adaptive.microstate
     projection_residual = 0.0
     activation_blocked = False
+    release_blocked_without_causal_donor = False
     used_micro_step = mode_before == "micro"
     transition = f"{mode_before}->{mode_before}"
     tail_ambiguous = adaptive.tail_ambiguous
@@ -645,10 +655,11 @@ def adaptive_tail_memory_fp_step(
                 if hysteresis.permits_release(sensor_after)
                 else 0
             )
-        if (
+        release_requested = (
             steps_in_mode >= hysteresis.minimum_active_steps
             and release_counter >= hysteresis.release_hold_steps
-        ):
+        )
+        if release_requested and causal_reactivation_available:
             mode_after = "macro"
             microstate = None
             transition = "micro->macro"
@@ -657,6 +668,10 @@ def adaptive_tail_memory_fp_step(
             activation_counter = 0
             release_counter = 0
             tail_ambiguous = False
+        elif release_requested:
+            release_blocked_without_causal_donor = True
+            release_counter = hysteresis.release_hold_steps
+            transition = "micro->micro"
         elif transition != "macro->micro":
             transition = "micro->micro"
     else:
@@ -697,6 +712,7 @@ def adaptive_tail_memory_fp_step(
         used_micro_step=used_micro_step,
         activation_requested=activation_requested,
         activation_blocked=activation_blocked,
+        release_blocked_without_causal_donor=release_blocked_without_causal_donor,
         tail_ambiguous=tail_ambiguous,
         sensor_before=sensor_before,
         sensor_after=sensor_after,

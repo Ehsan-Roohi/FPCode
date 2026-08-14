@@ -112,6 +112,18 @@ new contracts on a coarse grid; the frozen physical/velocity/time/domain
 refinement and like-for-like economy gates remain required before any spatial
 accuracy claim.
 
+## Stage-26 four-delta screening
+
+`riemann35_patch/stage26` implements the cheaper homogeneous extreme-
+nonequilibrium test suggested by Rodney Fox. Four planar populations have unit
+mass, zero momentum, unit energy trace, and nonzero third-order moments. The
+stage compares the Stage-9 mixture, Appendix-C Grad/GQMOM, and causal-memory
+paths with independently scrambled positive Full-FP QMC histories, including
+the retained `M400` and predictive untransported `M420` observables. It also
+enforces the explicit no-donor persistence rule in the homogeneous adaptive
+run. This is a closure stress test for the cubic FP operator, not MD/DSMC
+validation of the physical collision model.
+
 ## GPU boundary
 
 `chyqmom_nodes_3d` currently allocates vectors/matrices and is documented as a

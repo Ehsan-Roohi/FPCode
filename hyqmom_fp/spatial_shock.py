@@ -539,6 +539,10 @@ class AdaptiveSpatialStepDiagnostics:
     releases: int
     blocked_births: int
     blocked_cells: tuple[int, ...]
+    sensor_evaluated: bool
+    activation_sensor_evaluations: int
+    release_sensor_evaluations: int
+    macro_equilibrium_shortcuts: int
     interface_macro_reconstructions: int
     maximum_micro_macro_residual: float
     minimum_micro_mass: float
@@ -612,10 +616,32 @@ def adaptive_shock_step(
     *,
     hysteresis: ActivationHysteresis | None = None,
     prandtl: float = 2.0 / 3.0,
+    sensor_interval_steps: int = 1,
+    macro_equilibrium_tolerance: float = 0.0,
 ) -> tuple[AdaptiveSpatialState, AdaptiveSpatialStepDiagnostics]:
-    """Advance one causal hybrid shock interval with shared conservative fluxes."""
+    """Advance one causal hybrid shock interval with shared conservative fluxes.
+
+    ``sensor_interval_steps`` controls how often the expensive closure-
+    disagreement sensor is sampled.  A value of one preserves the Stage-27
+    lifecycle exactly.  Between samples the active mask and release counters
+    are held fixed; transport and collision continue normally.  Release hold
+    counts therefore remain counts of verified safe sensor observations, not
+    extrapolated unevaluated steps.
+
+    A positive ``macro_equilibrium_tolerance`` enables a cheap fixed-point
+    shortcut for inactive cells whose transported 35 moments already match
+    their local Maxwellian to that relative tolerance.  Zero disables the
+    shortcut and preserves the earlier implementation exactly.
+    """
 
     policy = stage25_hysteresis() if hysteresis is None else hysteresis
+    if sensor_interval_steps < 1:
+        raise ValueError("sensor_interval_steps must be positive")
+    if (
+        not np.isfinite(macro_equilibrium_tolerance)
+        or macro_equilibrium_tolerance < 0.0
+    ):
+        raise ValueError("macro_equilibrium_tolerance must be finite and nonnegative")
     nx = state.spatial_grid.cells
     features = state.velocity_grid.feature_matrix(HYQMOM_35_INDICES)
     vx = state.velocity_grid.centers()[:, 0]
@@ -643,48 +669,53 @@ def adaptive_shock_step(
     blocked = 0
     blocked_cells: list[int] = []
 
-    readings = [
-        kinetic_activation_sensor(item, tau=tau, prandtl=prandtl)
-        for item in state.moments
-    ]
-    for cell, reading in enumerate(readings):
-        if active[cell] or not policy.requests_activation(reading):
-            continue
-        donor = None
-        donor_cell: int | None = None
-        source = ""
-        if cell > 0 and active_at_step_start[cell - 1]:
-            donor_cell = cell - 1
-            source = "left_neighbor"
-            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
-        elif cell + 1 < nx and active_at_step_start[cell + 1]:
-            donor_cell = cell + 1
-            source = "right_neighbor"
-            donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
-        elif cell == 0:
-            source = "left_inflow"
-            donor = left_inflow
-        elif cell == nx - 1:
-            source = "right_inflow"
-            donor = right_inflow
-        if donor is None:
-            blocked += 1
-            blocked_cells.append(cell)
-            continue
-        try:
-            born = _activate_from_donor(state.moments[cell], donor)
-        except (FloatingPointError, ValueError):
-            blocked += 1
-            blocked_cells.append(cell)
-            continue
-        masses[cell] = born.masses
-        active[cell] = True
-        active_steps[cell] = 0
-        release_counter[cell] = 0
-        activations += 1
-        activation_cells.append(cell)
-        activation_sources.append(source)
-        activation_donor_cells.append(donor_cell)
+    sensor_evaluated = state.global_step % sensor_interval_steps == 0
+    activation_sensor_evaluations = 0
+    release_sensor_evaluations = 0
+    macro_equilibrium_shortcuts = 0
+    if sensor_evaluated:
+        for cell in np.flatnonzero(~active_at_step_start):
+            reading = kinetic_activation_sensor(
+                state.moments[cell], tau=tau, prandtl=prandtl
+            )
+            activation_sensor_evaluations += 1
+            if not policy.requests_activation(reading):
+                continue
+            donor = None
+            donor_cell: int | None = None
+            source = ""
+            if cell > 0 and active_at_step_start[cell - 1]:
+                donor_cell = cell - 1
+                source = "left_neighbor"
+                donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
+            elif cell + 1 < nx and active_at_step_start[cell + 1]:
+                donor_cell = cell + 1
+                source = "right_neighbor"
+                donor = DVMState(state.velocity_grid, state.micro_masses[donor_cell])
+            elif cell == 0:
+                source = "left_inflow"
+                donor = left_inflow
+            elif cell == nx - 1:
+                source = "right_inflow"
+                donor = right_inflow
+            if donor is None:
+                blocked += 1
+                blocked_cells.append(cell)
+                continue
+            try:
+                born = _activate_from_donor(state.moments[cell], donor)
+            except (FloatingPointError, ValueError):
+                blocked += 1
+                blocked_cells.append(cell)
+                continue
+            masses[cell] = born.masses
+            active[cell] = True
+            active_steps[cell] = 0
+            release_counter[cell] = 0
+            activations += 1
+            activation_cells.append(cell)
+            activation_sources.append(source)
+            activation_donor_cells.append(donor_cell)
 
     macro_positive = [None] * nx
     macro_negative = [None] * nx
@@ -786,32 +817,50 @@ def adaptive_shock_step(
             updated_moments[cell] = final.moments()
             active_steps[cell] += 1
         else:
-            updated_moments[cell], _ = finite_gaussian_mixture_fp_step(
-                transported_moments[cell],
-                dt,
-                tau,
-                prandtl=prandtl,
-                speed_cap=np.inf,
-            )
+            use_equilibrium_shortcut = False
+            if macro_equilibrium_tolerance > 0.0:
+                macro = macroscopic_state(transported_moments[cell])
+                equilibrium = maxwellian_moments_35(
+                    macro.rho, macro.velocity, macro.theta
+                )
+                relative_residual = float(
+                    np.linalg.norm(transported_moments[cell] - equilibrium)
+                    / max(np.linalg.norm(equilibrium), 1.0e-30)
+                )
+                use_equilibrium_shortcut = (
+                    relative_residual <= macro_equilibrium_tolerance
+                )
+            if use_equilibrium_shortcut:
+                updated_moments[cell] = transported_moments[cell]
+                macro_equilibrium_shortcuts += 1
+            else:
+                updated_moments[cell], _ = finite_gaussian_mixture_fp_step(
+                    transported_moments[cell],
+                    dt,
+                    tau,
+                    prandtl=prandtl,
+                    speed_cap=np.inf,
+                )
 
-    final_readings = [
-        kinetic_activation_sensor(item, tau=tau, prandtl=prandtl)
-        for item in updated_moments
-    ]
-    for cell in np.flatnonzero(active):
-        if policy.permits_release(final_readings[cell]):
-            release_counter[cell] += 1
-        else:
-            release_counter[cell] = 0
-        if (
-            active_steps[cell] >= policy.minimum_active_steps
-            and release_counter[cell] >= policy.release_hold_steps
-        ):
-            active[cell] = False
-            updated_masses[cell] = 0.0
-            active_steps[cell] = 0
-            release_counter[cell] = 0
-            releases += 1
+    if sensor_evaluated:
+        for cell in np.flatnonzero(active):
+            reading = kinetic_activation_sensor(
+                updated_moments[cell], tau=tau, prandtl=prandtl
+            )
+            release_sensor_evaluations += 1
+            if policy.permits_release(reading):
+                release_counter[cell] += 1
+            else:
+                release_counter[cell] = 0
+            if (
+                active_steps[cell] >= policy.minimum_active_steps
+                and release_counter[cell] >= policy.release_hold_steps
+            ):
+                active[cell] = False
+                updated_masses[cell] = 0.0
+                active_steps[cell] = 0
+                release_counter[cell] = 0
+                releases += 1
 
     margins = np.asarray([realizability_margin_35(item) for item in updated_moments])
     if float(np.min(margins)) < -2.0e-12:
@@ -850,6 +899,10 @@ def adaptive_shock_step(
         releases=releases,
         blocked_births=blocked,
         blocked_cells=tuple(blocked_cells),
+        sensor_evaluated=sensor_evaluated,
+        activation_sensor_evaluations=activation_sensor_evaluations,
+        release_sensor_evaluations=release_sensor_evaluations,
+        macro_equilibrium_shortcuts=macro_equilibrium_shortcuts,
         interface_macro_reconstructions=interface_reconstructions,
         maximum_micro_macro_residual=float(sync_residual),
         minimum_micro_mass=minimum_micro_mass,

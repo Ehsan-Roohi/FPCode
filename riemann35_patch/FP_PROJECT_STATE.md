@@ -3,7 +3,39 @@
 This file is the durable handoff record for future work.  Update it whenever a
 stage changes the selected method or the next scientific decision.
 
-## Current accepted state: Stage 27
+## Current accepted state: Stage 28 (local qualification; Unity reproduction pending)
+
+Stage 28 closes the performance defect exposed by Stage 27 on a localized
+regularized four-delta pocket in an equilibrium spatial background.  The
+spatial lifecycle now accepts an explicit sensor cadence.  Skipped samples
+hold activation and release state fixed, and the default cadence remains one,
+so earlier stages are unchanged.  An additional opt-in shortcut bypasses the
+macro collision map only when the transported 35 moments match their local
+Maxwellian to a declared relative tolerance (`1e-12` in Stage 28).
+
+The full 48-cell, 24-step local qualification is archived under
+`stage28/reference_results/local_validated_20260814`.
+
+Accepted local quantitative result:
+
+- all numerical, localization, and measured-performance gates passed;
+- mean, peak, and final kinetic fractions were all 16.67%;
+- final adaptive errors against the refined positive DVM were 0.2092% for
+  `M400` and 0.4974% for predictive `M420`;
+- space-time errors were 0.1294% (`M400`) and 0.4689% (`M420`);
+- the adaptive path evaluated the sensor 144 times instead of the 2,304
+  Stage-27-style evaluations and used 380 audited Maxwellian fixed-point
+  shortcuts;
+- adaptive wall time was 0.8757 times the same-grid coarse Full-DVM wall time,
+  a measured 1.142x speedup;
+- maximum finite-volume balance residual was `7.41e-14`, maximum micro/macro
+  synchronization residual was `3.84e-15`, and all DVM masses stayed positive.
+
+The same pinned configuration must still be reproduced on Unity before
+calling this a cluster-validated performance result.  No independent MD/DSMC
+physical validation has yet been performed.
+
+## Previous accepted state: Stage 27
 
 The accepted method remains causal adaptive macro--micro evolution with
 positive kinetic memory.  An instantaneous algebraic tail cannot be treated as
@@ -78,10 +110,9 @@ Accepted quantitative result:
 
 ## Next scientific step
 
-Optimize the spatial lifecycle before returning to an expensive normal shock:
-avoid recomputing costly release sensors in every active cell at every step,
-then test a localized non-equilibrium pocket whose kinetic region need not fill
-the whole domain.  The next gate must preserve Stage-27 causality and accuracy
-while demonstrating an active fraction below 50% and an actual wall-time gain
-against the same coarse Full-DVM reference.  Independent MD/DSMC validation
-remains necessary later for physical fidelity.
+First reproduce the pinned Stage-28 qualification on Unity and compare its
+measured adaptive/coarse-DVM timing ratio with the frozen local result.  If the
+cluster run passes, the next scientific gate is a moving/advecting localized
+nonequilibrium region that forces at least one new causal neighbor birth while
+retaining the sub-50% kinetic fraction and measured speedup.  Independent
+MD/DSMC validation remains necessary later for physical fidelity.

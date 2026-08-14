@@ -192,6 +192,86 @@ def test_new_birth_cannot_donate_again_during_the_same_step() -> None:
     assert np.array_equal(np.flatnonzero(next_state.active), [0, 3, 4, 5, 8])
 
 
+def test_spatial_sensor_cadence_is_explicit_and_holds_lifecycle() -> None:
+    """Skipped sensor steps neither invent births nor advance release holds."""
+
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    state, left, right = initialize_adaptive_normal_shock(
+        xgrid, vgrid, shock, initial_active_half_width=1
+    )
+    state = AdaptiveSpatialState(
+        spatial_grid=state.spatial_grid,
+        velocity_grid=state.velocity_grid,
+        moments=state.moments,
+        micro_masses=state.micro_masses,
+        active=state.active,
+        active_steps=state.active_steps,
+        release_counter=state.release_counter,
+        global_step=1,
+        transition_count=state.transition_count,
+        blocked_births=state.blocked_births,
+    )
+
+    next_state, diagnostics = adaptive_shock_step(
+        state, 0.005, 1.0, left, right, sensor_interval_steps=4
+    )
+
+    assert not diagnostics.sensor_evaluated
+    assert diagnostics.activation_sensor_evaluations == 0
+    assert diagnostics.release_sensor_evaluations == 0
+    assert diagnostics.activations == 0
+    assert diagnostics.releases == 0
+    assert np.array_equal(next_state.active, state.active)
+    assert np.array_equal(next_state.release_counter, state.release_counter)
+
+
+def test_spatial_sensor_cadence_rejects_nonpositive_interval() -> None:
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    state, left, right = initialize_adaptive_normal_shock(xgrid, vgrid, shock)
+    try:
+        adaptive_shock_step(
+            state, 0.005, 1.0, left, right, sensor_interval_steps=0
+        )
+    except ValueError as error:
+        assert "sensor_interval_steps" in str(error)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("nonpositive sensor cadence must be rejected")
+
+
+def test_inactive_maxwellian_cells_use_opt_in_equilibrium_shortcut() -> None:
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    _, left, _ = initialize_normal_shock_dvm(xgrid, vgrid, shock)
+    moments = np.repeat(left.moments()[None, :], xgrid.cells, axis=0)
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=np.zeros((xgrid.cells, vgrid.size)),
+        active=np.zeros(xgrid.cells, dtype=bool),
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=1,
+        transition_count=0,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.005,
+        1.0,
+        left,
+        left,
+        sensor_interval_steps=100,
+        macro_equilibrium_tolerance=1.0e-12,
+    )
+
+    assert diagnostics.macro_equilibrium_shortcuts == xgrid.cells
+    assert np.allclose(final.moments, moments, rtol=2.0e-13, atol=2.0e-13)
+
+
 def test_narrow_marginal_branch_is_scale_invariant() -> None:
     """Regression for the Stage-25A qualification failure on Unity.
 

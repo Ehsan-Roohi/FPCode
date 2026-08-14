@@ -9,6 +9,9 @@ from hyqmom_fp import (
     reconstruct_grad_hyqmom_quadrature,
     regularized_four_delta_state,
 )
+from riemann35_patch.stage26.run_four_delta_method import (
+    _algebraic_metrics_and_diagnostics,
+)
 
 
 def test_four_delta_state_satisfies_declared_constraints() -> None:
@@ -27,6 +30,32 @@ def test_four_delta_state_is_inside_gaussian_gqmom_domain() -> None:
     quadrature = reconstruct_grad_hyqmom_quadrature(state.moments)
     assert quadrature.relative_moment_residual < 1.0e-10
     assert quadrature.minimum_hankel_margin > 0.0
+
+
+def test_entropy_projection_accepts_a_constraint_converged_roundoff_step() -> None:
+    state = regularized_four_delta_state()
+    _, _, diagnostics = positive_microstate_from_components(
+        state.components,
+        points_per_component=4096,
+        seed=66_718_403,
+    )
+    assert diagnostics.scaled_constraint_residual < 1.0e-9
+    assert diagnostics.relative_moment_residual < 2.0e-8
+
+
+def test_stage26_records_signed_grad_tail_as_physically_inadmissible() -> None:
+    state = regularized_four_delta_state()
+    stage9 = _algebraic_metrics_and_diagnostics(
+        state.moments, "stage9_mixture"
+    )
+    grad = _algebraic_metrics_and_diagnostics(state.moments, "grad_gqmom")
+    assert stage9[1] > 0.0
+    assert stage9[2] == 0
+    assert stage9[4] > 0.0
+    assert grad[1] < 0.0
+    assert grad[2] > 0
+    assert grad[3] > 0.0
+    assert grad[4] < 0.0
 
 
 def test_no_donor_rule_retains_a_sensor_safe_microstate() -> None:

@@ -198,6 +198,33 @@ def main() -> None:
     adaptive_diagnostics = method_summaries.get("adaptive_memory", {}).get(
         "replicate_diagnostics", []
     )
+    persistence_probe = method_summaries.get("adaptive_memory", {}).get(
+        "no_donor_persistence_probe"
+    )
+    comparison_diagnostics = {}
+    for method in ("stage9_mixture", "grad_gqmom"):
+        if method not in method_summaries:
+            continue
+        method_summary = method_summaries[method]
+        minimum_even_tail = float(method_summary["minimum_even_tail_moment"])
+        comparison_diagnostics[method] = {
+            "minimum_quadrature_weight": float(
+                method_summary["minimum_quadrature_weight"]
+            ),
+            "maximum_negative_weight_count": int(
+                method_summary["maximum_negative_weight_count"]
+            ),
+            "maximum_negative_mass_fraction": float(
+                method_summary["maximum_negative_mass_fraction"]
+            ),
+            "minimum_even_tail_moment": minimum_even_tail,
+            "even_tail_nonnegative": minimum_even_tail >= -1.0e-12,
+        }
+    positive_microstate_weights = all(
+        method in method_summaries
+        and float(method_summaries[method]["minimum_quadrature_weight"]) > 0.0
+        for method in ("full_fp_qmc", "adaptive_memory")
+    )
     gates = {
         "all_four_methods_completed": not missing,
         "initial_mass_momentum_energy_constraints": bool(initial)
@@ -222,9 +249,14 @@ def main() -> None:
             "M420", float("inf")
         )
         < args.error_gate,
+        "positive_reference_and_adaptive_microstate_weights": (
+            positive_microstate_weights
+        ),
         "no_blocked_causal_activation": bool(adaptive_diagnostics)
         and sum(int(item.get("blocked_activations", 0)) for item in adaptive_diagnostics)
         == 0,
+        "no_donor_persistence_probe": bool(persistence_probe)
+        and bool(persistence_probe.get("passed", False)),
     }
     summary = {
         "schema": "riemann35-stage26-four-delta-collection-v1",
@@ -243,6 +275,7 @@ def main() -> None:
         "minimum_realizability_margin": all_minimum_margin,
         "reference_scramble_spread": reference_spread,
         "history_relative_l2_vs_full_fp_qmc": errors,
+        "algebraic_comparison_diagnostics": comparison_diagnostics,
         "methods": method_summaries,
     }
     summary_path = args.root / "stage26_four_delta_summary.json"
@@ -294,12 +327,34 @@ def main() -> None:
                 f"{errors[method]['M420']:.2%} | "
                 f"{errors[method]['third_order_norm']:.2%} |"
             )
+    if comparison_diagnostics:
+        lines.extend(
+            [
+                "",
+                "| Algebraic method | Minimum weight | Max negative weights | "
+                "Negative mass fraction | Minimum even tail |",
+                "|---|---:|---:|---:|---:|",
+            ]
+        )
+        for method in ("stage9_mixture", "grad_gqmom"):
+            if method not in comparison_diagnostics:
+                continue
+            item = comparison_diagnostics[method]
+            lines.append(
+                f"| {METHOD_LABELS[method]} | "
+                f"{item['minimum_quadrature_weight']:.6g} | "
+                f"{item['maximum_negative_weight_count']} | "
+                f"{item['maximum_negative_mass_fraction']:.3%} | "
+                f"{item['minimum_even_tail_moment']:.6g} |"
+            )
     if missing:
         lines.extend(["", "Missing/failed methods: " + ", ".join(missing)])
     lines.extend(
         [
             "",
-            "The adaptive run enforces no-donor persistence: because this homogeneous problem has no inflow or active spatial neighbour, an active microstate is not discarded merely because the sensor becomes temporarily safe.",
+            "The adaptive run enforces no-donor persistence. A separate safe-state probe forces a release request without an available causal donor and must retain the positive microstate.",
+            "",
+            "Signed Grad/GQMOM source weights are reported as a comparison diagnostic. A negative even tail moment is physically inadmissible even when the retained 35-moment vector remains realizable.",
         ]
     )
     (args.root / "STAGE26_RESULTS.md").write_text(
@@ -308,6 +363,8 @@ def main() -> None:
     _write_bundle(args.root, args.bundle)
     print(json.dumps(summary, indent=2, allow_nan=True), flush=True)
     print(f"[stage26] bundle={args.bundle}", flush=True)
+    if not summary["overall_pass"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

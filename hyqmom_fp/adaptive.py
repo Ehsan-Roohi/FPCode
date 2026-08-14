@@ -421,9 +421,13 @@ def project_positive_microstate(
         for _ in range(35):
             trial_parameters = parameters - step * direction
             trial = evaluate(trial_parameters)
+            trial_residual_norm = float(np.linalg.norm(trial[3]))
             if (
                 np.isfinite(trial[0])
-                and trial[0] <= objective - 1.0e-4 * step * descent
+                and (
+                    trial_residual_norm <= tolerance
+                    or trial[0] <= objective - 1.0e-4 * step * descent
+                )
             ):
                 parameters = trial_parameters
                 objective, probabilities, mean, residual = trial

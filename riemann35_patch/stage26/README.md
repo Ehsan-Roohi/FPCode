@@ -43,8 +43,8 @@ no-donor persistence rule; blocked release events are recorded.
 
 - `dt/tau = 0.0025`, final time `t/tau = 1`;
 - four QMC scramblings;
-- 4096 Sobol points per component for Full FP;
-- 1024 Sobol points per component for adaptive memory;
+- 8192 Sobol points per component for Full FP;
+- 8192 independent Sobol points per component for adaptive memory;
 - sampling and sensor evaluation every ten steps;
 - all four jobs run concurrently as a Slurm array.
 
@@ -53,14 +53,21 @@ The collector reports every metric, but the decision gates are:
 - all methods complete;
 - exact initial mass, momentum, energy, and nonzero-third-moment constraints;
 - realizable histories and invariant errors below `2e-8`;
+- strictly positive particle weights for Full FP and adaptive memory;
 - Full-FP scramble spread below 3% for both `M400` and the untransported
   predictive observable `M420`;
 - adaptive history errors below 3% for `M400` and `M420`; and
-- no blocked causal activation.
+- no blocked causal activation; and
+- a forced safe-state no-donor probe that requests release but retains its
+  microstate because no causal future donor exists.
 
-Stage-9 and Grad/GQMOM errors are comparisons, not pass requirements.  If the
-reference-spread gate alone fails, increase the reference point count before
-changing any physical or closure setting.
+Stage-9 and Grad/GQMOM errors are comparisons, not pass requirements.  Their
+minimum quadrature weight, signed negative-mass fraction, and minimum even
+tail moment are reported explicitly.  Negative Grad source weights are not by
+themselves treated as a failed selected-method gate, but a negative `M420` or
+`M600` is identified as physically inadmissible.  If the reference-spread gate
+alone fails, increase the reference point count before changing any physical
+or closure setting.
 
 ## Outputs
 
@@ -75,3 +82,7 @@ after-any collector writes:
 
 `submission.txt` records the pinned commit, checkout, result directory, array
 job, collector job, and bundle path.
+
+The collector always creates the diagnostic ZIP.  It exits nonzero when an
+overall scientific gate fails so Slurm accounting cannot make a failed audit
+look successful merely because packaging completed.

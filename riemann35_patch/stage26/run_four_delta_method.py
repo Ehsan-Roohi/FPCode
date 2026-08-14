@@ -62,6 +62,9 @@ METRIC_NAMES = (
     "heat_flux_norm",
     "realizability_margin",
 )
+EVEN_TAIL_METRIC_POSITIONS = tuple(
+    METRIC_NAMES.index(metric) for metric in ("M420", "M600")
+)
 POSITION = {index: offset for offset, index in enumerate(HYQMOM_35_INDICES)}
 THIRD_INDICES = tuple(index for index in HYQMOM_35_INDICES if sum(index) == 3)
 
@@ -76,7 +79,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--tau", type=float, default=1.0)
     parser.add_argument("--prandtl", type=float, default=2.0 / 3.0)
     parser.add_argument("--replicates", type=int, default=4)
-    parser.add_argument("--points-per-component", type=int, default=4096)
+    parser.add_argument("--points-per-component", type=int, default=8192)
     parser.add_argument("--workers", type=int, default=min(4, os.cpu_count() or 1))
     parser.add_argument("--seed", type=int, default=20_260_814)
     parser.add_argument("--regularization-fraction", type=float, default=0.03)
@@ -160,18 +163,35 @@ def _metrics(
     )
 
 
-def _algebraic_metrics(moments: np.ndarray, method: str) -> np.ndarray:
+def _algebraic_metrics_and_diagnostics(
+    moments: np.ndarray, method: str
+) -> tuple[np.ndarray, float, int, float, float]:
     if method == "stage9_mixture":
         quadrature = reconstruct_gaussian_mixture_quadrature(moments)
     elif method == "grad_gqmom":
         quadrature = reconstruct_grad_hyqmom_quadrature(moments)
     else:  # pragma: no cover - protected by callers
         raise ValueError(f"no algebraic tail builder for {method}")
-    return _metrics(
+    weights = np.asarray(quadrature.weights, dtype=float)
+    nodes = np.asarray(quadrature.nodes, dtype=float)
+    metrics = _metrics(
         moments,
-        tail_nodes=np.asarray(quadrature.nodes),
-        tail_weights=np.asarray(quadrature.weights),
+        tail_nodes=nodes,
+        tail_weights=weights,
     )
+    even_tail = _raw_node_moments(nodes, weights, TAIL_INDICES)
+    negative_weights = weights[weights < 0.0]
+    return (
+        metrics,
+        float(np.min(weights)),
+        int(np.count_nonzero(weights < -1.0e-14)),
+        float(-np.sum(negative_weights)) if negative_weights.size else 0.0,
+        float(np.min(even_tail)),
+    )
+
+
+def _algebraic_metrics(moments: np.ndarray, method: str) -> np.ndarray:
+    return _algebraic_metrics_and_diagnostics(moments, method)[0]
 
 
 def _progress(method: str, replicate: int, step: int, steps: int) -> None:
@@ -240,6 +260,12 @@ def _run_qmc_replicate(task: tuple) -> dict[str, object]:
         "modes": np.ones(len(histories), dtype=int),
         "projection_relative_residual": projection.relative_moment_residual,
         "minimum_probability": projection.minimum_probability,
+        "minimum_quadrature_weight": float(np.min(weights)),
+        "maximum_negative_weight_count": 0,
+        "maximum_negative_mass_fraction": 0.0,
+        "minimum_even_tail_moment": float(
+            np.min(np.asarray(metrics)[:, EVEN_TAIL_METRIC_POSITIONS])
+        ),
         "maximum_momentum_drift": maximum_momentum_drift,
         "maximum_energy_drift": maximum_energy_drift,
         "elapsed_seconds": time.perf_counter() - start,
@@ -331,6 +357,12 @@ def _run_adaptive_replicate(task: tuple) -> dict[str, object]:
         "modes": np.asarray(modes, dtype=int),
         "projection_relative_residual": projection.relative_moment_residual,
         "minimum_probability": projection.minimum_probability,
+        "minimum_quadrature_weight": float(np.min(candidate.weights)),
+        "maximum_negative_weight_count": 0,
+        "maximum_negative_mass_fraction": 0.0,
+        "minimum_even_tail_moment": float(
+            np.min(np.asarray(metrics)[:, EVEN_TAIL_METRIC_POSITIONS])
+        ),
         "maximum_momentum_drift": 0.0,
         "maximum_energy_drift": 0.0,
         "minimum_realizability_margin": minimum_margin,
@@ -340,6 +372,55 @@ def _run_adaptive_replicate(task: tuple) -> dict[str, object]:
         "transitions": transitions,
         "final_mode": adaptive.mode,
         "tail_ambiguous_final": adaptive.tail_ambiguous,
+    }
+
+
+def _run_no_donor_persistence_probe(
+    *, tau: float, prandtl: float, seed: int
+) -> dict[str, object]:
+    """Force a safe release request and verify no-donor persistence."""
+
+    components = ((1.0, np.zeros(3), np.eye(3)),)
+    candidate, moments, _ = positive_microstate_from_components(
+        components,
+        points_per_component=256,
+        seed=seed,
+        provenance="stage26-safe-no-donor-persistence-probe",
+    )
+    policy = ActivationHysteresis(
+        release_hold_steps=1,
+        minimum_active_steps=0,
+    )
+    adaptive = initialize_adaptive_tail_memory(
+        moments,
+        candidate_microstate=candidate,
+        hysteresis=policy,
+        force_causal_birth=True,
+        noise_seed=seed + 1_000_003,
+        tau=tau,
+        prandtl=prandtl,
+    )
+    updated, diagnostics = adaptive_tail_memory_fp_step(
+        adaptive,
+        1.0e-3 * tau,
+        tau,
+        hysteresis=policy,
+        prandtl=prandtl,
+        sensor_interval_steps=1,
+        causal_reactivation_available=False,
+    )
+    passed = bool(
+        updated.mode == "micro"
+        and updated.microstate is not None
+        and diagnostics.release_blocked_without_causal_donor
+    )
+    return {
+        "passed": passed,
+        "final_mode": updated.mode,
+        "release_blocked_without_causal_donor": (
+            diagnostics.release_blocked_without_causal_donor
+        ),
+        "transition": diagnostics.transition,
     }
 
 
@@ -361,7 +442,12 @@ def _run_deterministic(
         raise ValueError(f"unsupported deterministic method {method}")
     moments = target.copy()
     histories = [moments.copy()]
-    metrics = [_algebraic_metrics(moments, method)]
+    initial = _algebraic_metrics_and_diagnostics(moments, method)
+    metrics = [initial[0]]
+    minimum_quadrature_weight = initial[1]
+    maximum_negative_weight_count = initial[2]
+    maximum_negative_mass_fraction = initial[3]
+    minimum_even_tail_moment = initial[4]
     minimum_margin = float(realizability_margin_35(moments))
     minimum_limiter = 1.0
     start = time.perf_counter()
@@ -373,9 +459,26 @@ def _run_deterministic(
         minimum_margin = min(minimum_margin, realizability_margin_35(moments))
         if method == "grad_gqmom":
             minimum_limiter = min(minimum_limiter, diagnostics.limiter_fraction)
+            maximum_negative_mass_fraction = max(
+                maximum_negative_mass_fraction,
+                diagnostics.negative_mass_fraction,
+            )
         if step in sample_set:
             histories.append(moments.copy())
-            metrics.append(_algebraic_metrics(moments, method))
+            sampled = _algebraic_metrics_and_diagnostics(moments, method)
+            metrics.append(sampled[0])
+            minimum_quadrature_weight = min(
+                minimum_quadrature_weight, sampled[1]
+            )
+            maximum_negative_weight_count = max(
+                maximum_negative_weight_count, sampled[2]
+            )
+            maximum_negative_mass_fraction = max(
+                maximum_negative_mass_fraction, sampled[3]
+            )
+            minimum_even_tail_moment = min(
+                minimum_even_tail_moment, sampled[4]
+            )
         if step == steps or step % max(steps // 8, 1) == 0:
             _progress(method, 0, step, steps)
     return {
@@ -385,6 +488,10 @@ def _run_deterministic(
         "modes": np.zeros(len(histories), dtype=int),
         "projection_relative_residual": 0.0,
         "minimum_probability": 0.0,
+        "minimum_quadrature_weight": minimum_quadrature_weight,
+        "maximum_negative_weight_count": maximum_negative_weight_count,
+        "maximum_negative_mass_fraction": maximum_negative_mass_fraction,
+        "minimum_even_tail_moment": minimum_even_tail_moment,
         "maximum_momentum_drift": 0.0,
         "maximum_energy_drift": 0.0,
         "minimum_realizability_margin": minimum_margin,
@@ -495,6 +602,15 @@ def main() -> None:
         initial_weights=state.weights,
         initial_centers=state.centers,
     )
+    persistence_probe = (
+        _run_no_donor_persistence_probe(
+            tau=args.tau,
+            prandtl=args.prandtl,
+            seed=args.seed + 404_873,
+        )
+        if args.method == "adaptive_memory"
+        else None
+    )
     summary = {
         "schema": "riemann35-stage26-four-delta-method-v1",
         "method": args.method,
@@ -534,6 +650,7 @@ def main() -> None:
             "stage9_status": reading.stage9_status,
             "grad_status": reading.grad_status,
         },
+        "no_donor_persistence_probe": persistence_probe,
         "replicate_diagnostics": [
             {
                 key: value
@@ -544,6 +661,24 @@ def main() -> None:
         ],
         "minimum_realizability_margin": float(
             np.min(metric_histories[..., METRIC_NAMES.index("realizability_margin")])
+        ),
+        "minimum_quadrature_weight": float(
+            min(float(result["minimum_quadrature_weight"]) for result in results)
+        ),
+        "maximum_negative_weight_count": int(
+            max(
+                int(result["maximum_negative_weight_count"])
+                for result in results
+            )
+        ),
+        "maximum_negative_mass_fraction": float(
+            max(
+                float(result["maximum_negative_mass_fraction"])
+                for result in results
+            )
+        ),
+        "minimum_even_tail_moment": float(
+            min(float(result["minimum_even_tail_moment"]) for result in results)
         ),
         "maximum_mass_error": float(
             np.max(np.abs(metric_histories[..., METRIC_NAMES.index("rho")] - 1.0))

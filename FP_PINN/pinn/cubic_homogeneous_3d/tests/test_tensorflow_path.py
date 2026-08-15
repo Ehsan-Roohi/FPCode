@@ -82,6 +82,25 @@ class TensorFlowPathTests(unittest.TestCase):
                 rtol=2e-6, atol=2e-6,
             )
 
+    def test_fixed_heat_flux_quadrature_cycles_independent_panels(self) -> None:
+        from train_stage2 import Config, build_fixed_quadrature_panels
+
+        config = Config(
+            case="heat_flux", output_dir="unused", reference="unused",
+            n_time_batch=2, n_velocity_per_time=64,
+            fixed_velocity_quadrature=True, quadrature_panels=3,
+            antithetic_heat_flux_quadrature=True,
+        )
+        velocity, log_q = build_fixed_quadrature_panels(config)
+        self.assertEqual(tuple(velocity.shape), (3, 2, 64, 3))
+        self.assertEqual(tuple(log_q.shape), (3, 2, 64, 1))
+        self.assertFalse(np.array_equal(velocity.numpy()[0], velocity.numpy()[1]))
+        quarter = config.n_velocity_per_time // 4
+        np.testing.assert_array_equal(
+            velocity.numpy()[:, :, quarter:2 * quarter, :],
+            velocity.numpy()[:, :, :quarter, :] * [1.0, -1.0, 1.0],
+        )
+
     def test_zero_pde_defect_has_zero_weak_heat_flux_loss(self) -> None:
         from train_stage2 import weak_heat_flux_loss
 

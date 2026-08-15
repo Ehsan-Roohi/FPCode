@@ -63,6 +63,7 @@ class Config:
     tail_fraction: float = 0.20
     tail_variance: float = 4.0
     fixed_velocity_quadrature: bool = False
+    quadrature_panels: int = 1
     axisymmetric_heat_flux: bool = True
     antithetic_heat_flux_quadrature: bool = True
     stop_gradient_closure: bool = False
@@ -114,7 +115,11 @@ def parse_args() -> Config:
     parser.add_argument("--tail-variance", type=float, default=4.0)
     parser.add_argument(
         "--fixed-velocity-quadrature", action="store_true",
-        help="Reuse one deterministic velocity cloud to reduce closure noise",
+        help="Reuse deterministic velocity clouds to reduce closure noise",
+    )
+    parser.add_argument(
+        "--quadrature-panels", type=int, default=1,
+        help="Number of independent fixed clouds cycled across optimizer steps",
     )
     parser.add_argument(
         "--axisymmetric-heat-flux",
@@ -153,6 +158,10 @@ def parse_args() -> Config:
         parser.error("--tail-variance must be greater than one")
     if config.heat_flux_scale <= 0.0:
         parser.error("--heat-flux-scale must be positive")
+    if config.quadrature_panels < 1:
+        parser.error("--quadrature-panels must be at least one")
+    if config.quadrature_panels > 1 and not config.fixed_velocity_quadrature:
+        parser.error("--quadrature-panels > 1 requires --fixed-velocity-quadrature")
     if (
         config.case == "heat_flux"
         and config.antithetic_heat_flux_quadrature
@@ -490,18 +499,45 @@ def weak_heat_flux_loss(
     )
 
 
+def build_fixed_quadrature_panels(
+    config: Config,
+) -> tuple[tf.Tensor, tf.Tensor]:
+    """Build independent antithetic clouds for deterministic panel cycling."""
+    velocity_panels = []
+    log_q_panels = []
+    for _ in range(config.quadrature_panels):
+        _, c_grid, log_q = sample_tf_proposal(config)
+        velocity_panels.append(c_grid)
+        log_q_panels.append(log_q)
+    return (
+        tf.stop_gradient(tf.stack(velocity_panels, axis=0)),
+        tf.stop_gradient(tf.stack(log_q_panels, axis=0)),
+    )
+
+
 def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimizer, config: Config):
     fixed_c: tf.Tensor | None = None
     fixed_log_q: tf.Tensor | None = None
+    panel_cursor: tf.Variable | None = None
     if config.fixed_velocity_quadrature:
-        # Common random numbers remove optimizer-to-optimizer closure jitter.
-        _, fixed_c, fixed_log_q = sample_tf_proposal(config)
-        fixed_c = tf.stop_gradient(fixed_c)
-        fixed_log_q = tf.stop_gradient(fixed_log_q)
+        # Several common-random-number panels retain stable closures without
+        # letting the optimizer memorize a single quadrature realization.
+        fixed_c, fixed_log_q = build_fixed_quadrature_panels(config)
+        panel_cursor = tf.Variable(
+            0, dtype=tf.int32, trainable=False, name="quadrature_panel_cursor"
+        )
 
     @tf.function(reduce_retracing=True)
     def train_step() -> dict[str, tf.Tensor]:
-        t_grid, c_grid, log_q = sample_tf_proposal(config, fixed_c, fixed_log_q)
+        if fixed_c is None:
+            t_grid, c_grid, log_q = sample_tf_proposal(config)
+        else:
+            assert fixed_log_q is not None and panel_cursor is not None
+            panel = tf.math.floormod(panel_cursor, tf.shape(fixed_c)[0])
+            t_grid, c_grid, log_q = sample_tf_proposal(
+                config, tf.gather(fixed_c, panel), tf.gather(fixed_log_q, panel)
+            )
+            panel_cursor.assign_add(1)
         flat_t = tf.reshape(t_grid, (-1,1))
         flat_c = tf.reshape(c_grid, (-1,3))
         with tf.GradientTape() as parameter_tape:

@@ -54,6 +54,13 @@ ENERGY_POSITIONS = np.asarray(
     dtype=int,
 )
 
+KINETIC_FRONT_OBSERVABLES = (
+    "mass",
+    "stress_xx",
+    "heat_flux_x",
+    "M420",
+)
+
 
 @dataclass(frozen=True)
 class SpatialGrid1D:
@@ -510,23 +517,37 @@ class AdaptiveSpatialState:
     global_step: int
     transition_count: int
     blocked_births: int
+    front_signal_history: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         nx = self.spatial_grid.cells
         moments = np.asarray(self.moments, dtype=float)
         masses = np.asarray(self.micro_masses, dtype=float)
         active = np.asarray(self.active, dtype=bool)
+        front_signal_history = (
+            np.zeros(nx, dtype=float)
+            if self.front_signal_history is None
+            else np.asarray(self.front_signal_history, dtype=float)
+        )
         if moments.shape != (nx, 35):
             raise ValueError("adaptive moments have the wrong shape")
         if masses.shape != (nx, self.velocity_grid.size):
             raise ValueError("adaptive micro masses have the wrong shape")
         if active.shape != (nx,):
             raise ValueError("adaptive active mask has the wrong shape")
+        if front_signal_history.shape != (nx,):
+            raise ValueError("front signal history has the wrong shape")
+        if (
+            not np.all(np.isfinite(front_signal_history))
+            or np.any(front_signal_history < 0.0)
+        ):
+            raise ValueError("front signal history must be finite and nonnegative")
         if np.any(masses[active] < 0.0) or not np.all(np.isfinite(masses[active])):
             raise ValueError("active micro masses must be finite and nonnegative")
         object.__setattr__(self, "moments", moments)
         object.__setattr__(self, "micro_masses", masses)
         object.__setattr__(self, "active", active)
+        object.__setattr__(self, "front_signal_history", front_signal_history)
 
 
 @dataclass(frozen=True)
@@ -540,6 +561,9 @@ class AdaptiveSpatialStepDiagnostics:
     activation_donor_fractions: tuple[float | None, ...]
     activation_reasons: tuple[str, ...]
     activation_front_signals: tuple[float | None, ...]
+    activation_front_components: tuple[dict[str, float] | None, ...]
+    activation_front_predicted_signals: tuple[float | None, ...]
+    activation_front_direction_aligned: tuple[bool | None, ...]
     releases: int
     release_cells: tuple[int, ...]
     blocked_births: int
@@ -680,22 +704,67 @@ def _kinetic_front_signal(
 ) -> float:
     """Return an incoming half-range L1 discrepancy in ``[0, 2]``."""
 
+    return _kinetic_front_signals(
+        donor, carrier, donor_direction, observables=("mass",)
+    )["mass"]
+
+
+def _kinetic_front_signals(
+    donor: DVMState,
+    carrier: DVMState,
+    donor_direction: str,
+    *,
+    observables: Sequence[str] = ("mass",),
+) -> dict[str, float]:
+    """Return causal incoming half-range discrepancies for selected moments.
+
+    Each component is normalized by the donor--carrier half-range average, so
+    it lies in ``[0, 2]`` and can use the frozen Stage-25 tail threshold.  The
+    stress and heat-flux weights are formed in the known carrier frame; M420
+    retains its declared raw-moment definition.  Only the already-active
+    positive donor and the fixed positive carrier enter this diagnostic.
+    """
+
     if donor.grid != carrier.grid:
         raise ValueError("front donor and carrier grids must match")
-    vx = donor.grid.centers()[:, 0]
+    selected = tuple(observables)
+    if not selected:
+        raise ValueError("front observables must not be empty")
+    unknown = tuple(name for name in selected if name not in KINETIC_FRONT_OBSERVABLES)
+    if unknown:
+        raise ValueError(f"unknown front observables: {unknown}")
+    if len(set(selected)) != len(selected):
+        raise ValueError("front observables must be unique")
+
+    nodes = donor.grid.centers()
+    vx = nodes[:, 0]
     if donor_direction == "left_neighbor":
         incoming_speed = np.maximum(vx, 0.0)
     elif donor_direction == "right_neighbor":
         incoming_speed = np.maximum(-vx, 0.0)
     else:
         raise ValueError("front signal requires a left/right neighbour")
-    numerator = float(
-        np.sum(incoming_speed * np.abs(donor.masses - carrier.masses))
-    )
-    denominator = float(
-        np.sum(incoming_speed * 0.5 * (donor.masses + carrier.masses))
-    )
-    return numerator / max(denominator, 1.0e-30)
+
+    carrier_macro = macroscopic_state(carrier.moments())
+    peculiar = nodes - carrier_macro.velocity[None, :]
+    peculiar_squared = np.sum(peculiar**2, axis=1)
+    weights = {
+        "mass": np.ones(donor.grid.size),
+        "stress_xx": peculiar[:, 0] ** 2 - peculiar_squared / 3.0,
+        "heat_flux_x": 0.5 * peculiar[:, 0] * peculiar_squared,
+        "M420": nodes[:, 0] ** 4 * nodes[:, 1] ** 2,
+    }
+    difference = np.abs(donor.masses - carrier.masses)
+    average = 0.5 * (donor.masses + carrier.masses)
+    signals: dict[str, float] = {}
+    for name in selected:
+        weighted_speed = incoming_speed * np.abs(weights[name])
+        numerator = float(np.sum(weighted_speed * difference))
+        denominator = float(np.sum(weighted_speed * average))
+        signals[name] = float(
+            np.clip(numerator / max(denominator, 1.0e-30), 0.0, 2.0)
+        )
+    return signals
 
 
 def adaptive_shock_step(
@@ -712,6 +781,8 @@ def adaptive_shock_step(
     macro_equilibrium_tolerance: float = 0.0,
     birth_carrier: DVMState | SpatialDVMState | None = None,
     kinetic_front_on: float | None = None,
+    kinetic_front_observables: Sequence[str] = ("mass",),
+    directional_front_lookahead_steps: int = 0,
     causal_activation_candidates_only: bool = False,
 ) -> tuple[AdaptiveSpatialState, AdaptiveSpatialStepDiagnostics]:
     """Advance one causal hybrid shock interval with shared conservative fluxes.
@@ -743,6 +814,19 @@ def adaptive_shock_step(
     incoming half-range DVM flux from an active donor differs sufficiently
     from ``birth_carrier``.  This is a cheap causal front detector evaluated
     from retained kinetic memory, not an algebraic tail closure.
+
+    ``kinetic_front_observables`` selects which incoming half-range positive-
+    donor discrepancies feed that detector.  The default mass discrepancy is
+    exactly the Stage-29--31 rule.  Adding stress, heat-flux, or M420 weights
+    changes only the diagnostic view of the same causal donor/carrier pair;
+    it does not reconstruct an inactive-cell tail.
+
+    A positive ``directional_front_lookahead_steps`` turns the added weighted
+    observables into a true advective precursor.  They are then eligible only
+    in the direction of the active donor's mean velocity, and a one-sided
+    linear prediction uses the previous causal signal in that target cell.
+    The legacy mass signal remains instantaneous and bidirectional.  Zero
+    disables prediction and preserves the Stage-29--31 rule exactly.
 
     ``causal_activation_candidates_only`` skips the expensive retained-moment
     activation sensor in inactive cells that have neither kinetic inflow nor
@@ -781,6 +865,23 @@ def adaptive_shock_step(
             raise ValueError("kinetic_front_on must be finite and nonnegative")
         if birth_carrier is None:
             raise ValueError("kinetic_front_on requires a known birth_carrier")
+    front_observables = tuple(kinetic_front_observables)
+    if not front_observables:
+        raise ValueError("kinetic_front_observables must not be empty")
+    unknown_front_observables = tuple(
+        name for name in front_observables
+        if name not in KINETIC_FRONT_OBSERVABLES
+    )
+    if unknown_front_observables:
+        raise ValueError(
+            f"unknown kinetic_front_observables: {unknown_front_observables}"
+        )
+    if len(set(front_observables)) != len(front_observables):
+        raise ValueError("kinetic_front_observables must be unique")
+    if directional_front_lookahead_steps < 0:
+        raise ValueError("directional_front_lookahead_steps must be nonnegative")
+    if directional_front_lookahead_steps > 0 and front_observables == ("mass",):
+        raise ValueError("directional lookahead requires a weighted observable")
     nx = state.spatial_grid.cells
     features = state.velocity_grid.feature_matrix(HYQMOM_35_INDICES)
     vx = state.velocity_grid.centers()[:, 0]
@@ -808,10 +909,14 @@ def adaptive_shock_step(
     activation_donor_fractions: list[float | None] = []
     activation_reasons: list[str] = []
     activation_front_signals: list[float | None] = []
+    activation_front_components: list[dict[str, float] | None] = []
+    activation_front_predicted_signals: list[float | None] = []
+    activation_front_direction_aligned: list[bool | None] = []
     releases = 0
     release_cells: list[int] = []
     blocked = 0
     blocked_cells: list[int] = []
+    next_front_signal_history = np.zeros(nx, dtype=float)
 
     def carrier_for_cell(cell: int) -> DVMState | None:
         if isinstance(birth_carrier, SpatialDVMState):
@@ -856,6 +961,9 @@ def adaptive_shock_step(
                 moment_request = policy.requests_activation(reading)
 
         front_signal: float | None = None
+        front_components: dict[str, float] | None = None
+        front_predicted_signal: float | None = None
+        front_direction_aligned: bool | None = None
         front_request = False
         local_carrier = carrier_for_cell(cell)
         if (
@@ -863,9 +971,46 @@ def adaptive_shock_step(
             and donor is not None
             and donor_cell is not None
         ):
-            front_signal = _kinetic_front_signal(
-                donor, local_carrier, source  # type: ignore[arg-type]
+            front_components = _kinetic_front_signals(
+                donor,
+                local_carrier,  # type: ignore[arg-type]
+                source,
+                observables=front_observables,
             )
+            mass_signal = float(front_components.get("mass", 0.0))
+            weighted_signal = max(
+                (
+                    float(value)
+                    for name, value in front_components.items()
+                    if name != "mass"
+                ),
+                default=0.0,
+            )
+            if directional_front_lookahead_steps > 0:
+                donor_velocity_x = macroscopic_state(donor.moments()).velocity[0]
+                front_direction_aligned = bool(
+                    (donor_velocity_x > 0.0 and source == "left_neighbor")
+                    or (donor_velocity_x < 0.0 and source == "right_neighbor")
+                )
+                if front_direction_aligned:
+                    previous_signal = float(state.front_signal_history[cell])
+                    growth = max(weighted_signal - previous_signal, 0.0)
+                    front_predicted_signal = float(
+                        np.clip(
+                            weighted_signal
+                            + directional_front_lookahead_steps * growth,
+                            0.0,
+                            2.0,
+                        )
+                    )
+                    next_front_signal_history[cell] = weighted_signal
+                    front_signal = max(
+                        mass_signal, weighted_signal, front_predicted_signal
+                    )
+                else:
+                    front_signal = mass_signal
+            else:
+                front_signal = max(front_components.values())
             front_sensor_evaluations += 1
             front_request = front_signal >= kinetic_front_on
         if not moment_request and not front_request:
@@ -904,6 +1049,10 @@ def adaptive_shock_step(
             else "moment_sensor" if moment_request else "kinetic_front"
         )
         activation_front_signals.append(front_signal)
+        activation_front_components.append(front_components)
+        activation_front_predicted_signals.append(front_predicted_signal)
+        activation_front_direction_aligned.append(front_direction_aligned)
+        next_front_signal_history[cell] = 0.0
 
     macro_positive = [None] * nx
     macro_negative = [None] * nx
@@ -1075,6 +1224,7 @@ def adaptive_shock_step(
         global_step=state.global_step + 1,
         transition_count=state.transition_count + activations + releases,
         blocked_births=state.blocked_births + blocked,
+        front_signal_history=next_front_signal_history,
     )
     minimum_micro_mass = (
         float(np.min(updated_masses[active])) if np.any(active) else 0.0
@@ -1089,6 +1239,13 @@ def adaptive_shock_step(
         activation_donor_fractions=tuple(activation_donor_fractions),
         activation_reasons=tuple(activation_reasons),
         activation_front_signals=tuple(activation_front_signals),
+        activation_front_components=tuple(activation_front_components),
+        activation_front_predicted_signals=tuple(
+            activation_front_predicted_signals
+        ),
+        activation_front_direction_aligned=tuple(
+            activation_front_direction_aligned
+        ),
         releases=releases,
         release_cells=tuple(release_cells),
         blocked_births=blocked,

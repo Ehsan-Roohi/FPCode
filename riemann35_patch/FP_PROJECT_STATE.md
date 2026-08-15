@@ -3,7 +3,53 @@
 This file is the durable handoff record for future work.  Update it whenever a
 stage changes the selected method or the next scientific decision.
 
-## Current scientific result: Stage 31 (held-out hold)
+## Current scientific result: Stage 32 (development hold)
+
+Stage 32 treated the Stage-31 Mach-2 shock strictly as a development case for
+a direction-aware causal precursor.  The legacy mass front signal remains
+instantaneous and bidirectional.  Added stress-, heat-flux-, and predictive-
+`M420` half-range signals are eligible only along the active donor's mean-flow
+direction, and their one-sided growth is projected over the already-frozen
+20-step minimum kinetic dwell.  The Stage-25/30 `0.40` threshold, two-cell
+initial support, 8/4 sensor cadences, release holds, minimum dwell, positive
+carrier projection, and all accuracy limits were unchanged.
+
+The selected 48-cell, 48-step workstation result is archived under
+`stage32/reference_results/local_hold_20260815`.  Its decision is
+**DEVELOPMENT_HOLD**; the rule is not frozen and this is not a blind
+qualification.
+
+Quantitative result:
+
+- eight causal kinetic-front births occurred, including two downstream
+  `left_neighbor` births at cells 26 and 27; both were weighted predictions
+  while the legacy mass signal remained below `0.40`;
+- three releases occurred with zero four-step chatter events;
+- mean, peak, and final kinetic fractions were 16.37%, 20.83%, and 20.83%;
+- adaptive wall time was 0.6653 times the same-grid coarse Full-DVM time, a
+  measured 1.503x local speedup;
+- full-profile normal-stress and predictive-`M420` errors improved to 2.55%
+  and 0.44%; shock-core stress, heat-flux, and `M420` errors were 2.06%, 2.32%,
+  and 0.73%;
+- full-domain heat-flux error remained 4.41%, so the unchanged 3% physical-
+  profile gate failed;
+- positivity, conservation, realizability, reference refinement, causal
+  provenance, directionality, localization, lifecycle, and performance
+  contracts all passed;
+- maximum finite-volume balance and micro/macro synchronization residuals
+  were `1.67e-14` and `4.60e-13`.
+
+The remaining heat-flux error is dominated by weak macro far-field tails,
+not the shock core.  Instantaneous bidirectional weighting, a longer
+release-horizon lookahead, a source-off collision shortcut, and exploratory
+carrier-flux filters were rejected; the last were stopped at 3.08% rather
+than tuned further against the 3% boundary.  See
+`stage32/STAGE32_DEVELOPMENT_NOTES.md`.
+
+Stage 30 remains the last fully passed qualification.  Mach 2.5 is reserved
+for Stage 33 and remains untouched.
+
+## Previous scientific result: Stage 31 (held-out hold)
 
 Stage 31 applied the complete frozen Stage-30 lifecycle to a Mach-2 normal
 shock that was not used in the Stage-25A Mach-3 threshold campaign.  The
@@ -226,11 +272,11 @@ Accepted quantitative result:
 
 ## Next scientific step
 
-Treat the Stage-31 Mach-2 shock as a development case for a direction-aware
-causal precursor that can identify its missed downstream stress/heat-flux
-layer from already-active positive kinetic data.  Preserve the Stage-25/30
-thresholds and birth provenance; do not create a tail from the target cell's
-35 moments.  Freeze the new rule before testing it on another untouched shock
-Mach number.  A Unity reproduction is not useful until the physical-profile
-hold is resolved.  Independent DSMC validation remains necessary later for
-physical fidelity.
+Resolve the remaining conservative macro far-field heat-flux transport defect
+on the Mach-2 development case without lowering the 3% gate or tuning a halo
+against it.  Predeclare an independently motivated flux/reconstruction audit,
+retain Candidate B's causal direction-aware precursor, and require every
+Stage-32 gate to pass before freezing the rule.  Only then run the reserved
+Mach-2.5 Stage-33 blind test once, without retuning.  A Unity reproduction is
+not useful while the workstation physical-profile gate remains on hold.
+Independent DSMC validation remains necessary later for physical fidelity.

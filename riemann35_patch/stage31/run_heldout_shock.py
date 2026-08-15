@@ -79,6 +79,20 @@ def configuration(mode: str, steps: int | None = None) -> dict[str, object]:
     }
     nx, default_steps, coarse_shape, refined_shape = presets[mode]
     values: dict[str, object] = {
+        "stage": "31",
+        "case": "held_out_normal_shock_ma2",
+        "result_stem": "stage31_heldout_shock",
+        "report_filename": "STAGE31_HELDOUT_SHOCK_RESULT.md",
+        "report_title": "Stage 31 held-out Mach-2 normal-shock result",
+        "figure_title": "Held-out Mach-2 normal shock — frozen Stage-30 lifecycle",
+        "progress_event": "STAGE31_PROGRESS",
+        "workstation_pass_label": "WORKSTATION_PASS",
+        "workstation_hold_label": "WORKSTATION_HOLD",
+        "smoke_pass_label": "SMOKE_PASS",
+        "smoke_hold_label": "SMOKE_HOLD",
+        "case_contract_name": "held_out_mach_not_stage25a_tuning_case_pass",
+        "case_contract_pass": True,
+        "case_summary": "Mach 2 (Stage 25A used Mach 3)",
         "mode": mode,
         "scope": "held-out numerical cross-case validation; not MD/DSMC evidence",
         "mach": 2.0,
@@ -102,6 +116,10 @@ def configuration(mode: str, steps: int | None = None) -> dict[str, object]:
         "causal_activation_candidates_only": True,
         "macro_equilibrium_tolerance": 1.0e-12,
         "kinetic_front_on": stage25_hysteresis().tail_on,
+        "kinetic_front_observables": ("mass",),
+        "directional_front_lookahead_steps": 0,
+        "minimum_left_neighbor_front_births": 0,
+        "minimum_weighted_only_front_births": 0,
         "release_persistence_steps": 4,
         "profile_error_limit_percent": 3.0,
         "comparison_half_width": 3.0,
@@ -134,6 +152,9 @@ def _plot(
     profiles: dict[str, dict[str, np.ndarray]],
     active_history: np.ndarray,
     dt: float,
+    *,
+    filename: str = "stage31_heldout_shock_profiles.png",
+    title: str = "Held-out Mach-2 normal shock — frozen Stage-30 lifecycle",
 ) -> None:
     labels = {
         "rho": (r"Density $\rho$", r"$\rho$"),
@@ -170,8 +191,8 @@ def _plot(
         xlabel=r"$x/\lambda_1$",
         ylabel=r"$t/\tau$",
     )
-    fig.suptitle("Held-out Mach-2 normal shock — frozen Stage-30 lifecycle", fontsize=14)
-    fig.savefig(output / "stage31_heldout_shock_profiles.png", dpi=190)
+    fig.suptitle(title, fontsize=14)
+    fig.savefig(output / filename, dpi=190)
     plt.close(fig)
 
 
@@ -198,6 +219,10 @@ def _chatter_events(
 
 def run(config: dict[str, object], output: Path) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=True)
+    stage = str(config.get("stage", "31"))
+    case = str(config.get("case", "held_out_normal_shock_ma2"))
+    result_stem = str(config.get("result_stem", "stage31_heldout_shock"))
+    progress_event = str(config.get("progress_event", "STAGE31_PROGRESS"))
     shock = normal_shock_rankine_hugoniot(float(config["mach"]))
     xgrid = SpatialGrid1D(
         float(config["x_lower"]),
@@ -278,6 +303,10 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             macro_equilibrium_tolerance=float(config["macro_equilibrium_tolerance"]),
             birth_carrier=cellwise_carriers,
             kinetic_front_on=float(config["kinetic_front_on"]),
+            kinetic_front_observables=tuple(config["kinetic_front_observables"]),
+            directional_front_lookahead_steps=int(
+                config.get("directional_front_lookahead_steps", 0)
+            ),
             causal_activation_candidates_only=bool(
                 config["causal_activation_candidates_only"]
             ),
@@ -298,7 +327,7 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             json.dumps(
                 _jsonable(
                     {
-                        "event": "STAGE31_PROGRESS",
+                        "event": progress_event,
                         "step": step,
                         "steps": steps,
                         "active_cells": int(np.sum(adaptive.active)),
@@ -357,15 +386,21 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             "carrier_used": bool(carrier),
             "reason": reason,
             "front_signal": signal,
+            "front_components": components,
+            "front_predicted_signal": predicted,
+            "front_direction_aligned": aligned,
         }
         for step, item in enumerate(adaptive_diagnostics, start=1)
-        for cell, source, donor, carrier, reason, signal in zip(
+        for cell, source, donor, carrier, reason, signal, components, predicted, aligned in zip(
             item["activation_cells"],
             item["activation_sources"],
             item["activation_donor_cells"],
             item["activation_carrier_used"],
             item["activation_reasons"],
             item["activation_front_signals"],
+            item["activation_front_components"],
+            item["activation_front_predicted_signals"],
+            item["activation_front_direction_aligned"],
         )
     ]
     front_births = [item for item in births if "kinetic_front" in item["reason"]]
@@ -378,6 +413,35 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             and float(item["front_signal"]) >= float(config["kinetic_front_on"])
             for item in front_births
         )
+    )
+    left_neighbor_front_births = [
+        item for item in front_births if item["source"] == "left_neighbor"
+    ]
+    threshold = float(config["kinetic_front_on"])
+    weighted_only_front_births = [
+        item
+        for item in front_births
+        if item["front_components"] is not None
+        and float(item["front_components"].get("mass", 0.0)) < threshold
+        and max(
+            max(
+                (
+                    float(value)
+                    for name, value in item["front_components"].items()
+                    if name != "mass"
+                ),
+                default=0.0,
+            )
+            if item["front_direction_aligned"] is not False
+            else 0.0,
+            float(item["front_predicted_signal"] or 0.0),
+        ) >= threshold
+    ]
+    directional_precursor_pass = bool(
+        len(left_neighbor_front_births)
+        >= int(config.get("minimum_left_neighbor_front_births", 0))
+        and len(weighted_only_front_births)
+        >= int(config.get("minimum_weighted_only_front_births", 0))
     )
     chatter = _chatter_events(
         adaptive_diagnostics, int(config["release_persistence_steps"])
@@ -450,21 +514,28 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         and profile_accuracy_pass
         and invariants_pass
         and lifecycle_pass
+        and directional_precursor_pass
         and localization_pass
         and performance_pass
     )
     decision = (
-        "WORKSTATION_PASS" if config["mode"] == "workstation" and all_pass
-        else "WORKSTATION_HOLD" if config["mode"] == "workstation"
-        else "SMOKE_PASS" if invariants_pass and lifecycle_pass
-        else "SMOKE_HOLD"
+        str(config.get("workstation_pass_label", "WORKSTATION_PASS"))
+        if config["mode"] == "workstation" and all_pass
+        else str(config.get("workstation_hold_label", "WORKSTATION_HOLD"))
+        if config["mode"] == "workstation"
+        else str(config.get("smoke_pass_label", "SMOKE_PASS"))
+        if invariants_pass and lifecycle_pass and directional_precursor_pass
+        else str(config.get("smoke_hold_label", "SMOKE_HOLD"))
     )
 
     contracts = {
-        "held_out_mach_not_stage25a_tuning_case_pass": float(config["mach"]) != 3.0,
+        str(config.get("case_contract_name", "case_definition_pass")): bool(
+            config.get("case_contract_pass", True)
+        ),
         "coarse_refined_profile_agreement_pass": reference_refinement_pass,
         "adaptive_physical_profile_accuracy_pass": profile_accuracy_pass,
         "synchronous_causal_cellwise_carrier_pass": lifecycle_pass,
+        "direction_aware_precursor_evidence_pass": directional_precursor_pass,
         "positivity_conservation_realizability_pass": invariants_pass,
         "kinetic_fraction_below_50_percent_pass": localization_pass,
         "measured_speedup_vs_coarse_full_dvm_pass": performance_pass,
@@ -480,6 +551,8 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
     metrics = {
         "causal_births": len(births),
         "kinetic_front_births": len(front_births),
+        "left_neighbor_front_births": len(left_neighbor_front_births),
+        "weighted_only_front_births": len(weighted_only_front_births),
         "releases": int(sum(int(item["releases"]) for item in adaptive_diagnostics)),
         "four_step_chatter_events": len(chatter),
         "mean_active_fraction_percent": 100.0 * float(np.mean(active_array)),
@@ -496,8 +569,8 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         "space_time_errors_percent": space_time_errors,
     }
     summary = {
-        "stage": "31",
-        "case": "held_out_normal_shock_ma2",
+        "stage": stage,
+        "case": case,
         "decision": decision,
         "scope": config["scope"],
         "configuration": {**config, "dt": dt, "final_time": steps * dt},
@@ -514,12 +587,12 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             "numpy": np.__version__,
         },
     }
-    with (output / "stage31_heldout_shock_summary.json").open(
+    with (output / f"{result_stem}_summary.json").open(
         "w", encoding="utf-8"
     ) as stream:
         json.dump(_jsonable(summary), stream, indent=2, allow_nan=False)
     np.savez_compressed(
-        output / "stage31_heldout_shock_profiles.npz",
+        output / f"{result_stem}_profiles.npz",
         x=xgrid.centers.astype(np.float32),
         dt=np.asarray(dt, dtype=np.float32),
         coarse_final_moments=coarse_array[-1].astype(np.float32),
@@ -530,10 +603,10 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         adaptive_final_M420=adaptive_tail_array[-1].astype(np.float32),
         adaptive_active=active_array,
     )
-    with (output / "stage31_heldout_shock_profiles.csv").open(
+    with (output / f"{result_stem}_profiles.csv").open(
         "w", newline="", encoding="utf-8"
     ) as stream:
-        writer = csv.writer(stream)
+        writer = csv.writer(stream, lineterminator="\n")
         writer.writerow(
             ["x"]
             + [f"{method}_{name}" for method in ("refined", "coarse", "adaptive") for name in PROFILE_NAMES]
@@ -547,16 +620,25 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
                     for name in PROFILE_NAMES
                 ]
             )
-    _plot(output, xgrid.centers, final_profiles, active_array, dt)
+    _plot(
+        output,
+        xgrid.centers,
+        final_profiles,
+        active_array,
+        dt,
+        filename=f"{result_stem}_profiles.png",
+        title=str(config.get("figure_title", "Normal shock adaptive gate")),
+    )
 
     adaptive_errors = full_errors["adaptive_vs_refined"]
     report = [
-        "# Stage 31 held-out Mach-2 normal-shock result",
+        f"# {config.get('report_title', 'Normal-shock adaptive result')}",
         "",
         f"- Decision: **{decision}**",
-        f"- Held-out case: Mach {shock.mach:g} (Stage 25A used Mach 3)",
+        f"- Case: {config.get('case_summary', f'Mach {shock.mach:g}')}",
         f"- Steps / final time: {steps} / {steps * dt:.6f} tau",
         f"- Causal births / front births / releases: {len(births)} / {len(front_births)} / {metrics['releases']}",
+        f"- Downstream / weighted-only front births: {len(left_neighbor_front_births)} / {len(weighted_only_front_births)}",
         f"- Mean/peak/final kinetic fraction: {metrics['mean_active_fraction_percent']:.3f}% / {metrics['peak_active_fraction_percent']:.3f}% / {metrics['final_active_fraction_percent']:.3f}%",
         f"- Full-profile adaptive errors rho/u/T: {adaptive_errors['rho']:.4f}% / {adaptive_errors['velocity_x']:.4f}% / {adaptive_errors['theta']:.4f}%",
         f"- Full-profile adaptive errors stress/heat flux: {adaptive_errors['stress_xx']:.4f}% / {adaptive_errors['heat_flux_x']:.4f}%",
@@ -565,11 +647,11 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         f"- Adaptive/coarse-DVM wall-time ratio: {wall_ratio:.3f}x ({metrics['measured_speedup_factor']:.3f}x speedup)",
         f"- Maximum balance / micro-macro sync residual: {maximum_balance:.3e} / {maximum_sync:.3e}",
         "",
-        "This is a held-out numerical cross-case test of the implemented cubic",
+        "This is a numerical development/cross-case test of the implemented cubic",
         "Fokker-Planck model. It is not independent DSMC or experimental",
         "validation of the collision operator's physical fidelity.",
     ]
-    (output / "STAGE31_HELDOUT_SHOCK_RESULT.md").write_text(
+    (output / str(config.get("report_filename", "SHOCK_GATE_RESULT.md"))).write_text(
         "\n".join(report) + "\n", encoding="utf-8"
     )
     return summary

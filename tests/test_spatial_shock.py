@@ -10,6 +10,7 @@ import numpy as np
 from hyqmom_fp import (
     AdaptiveSpatialState,
     DVMGrid,
+    DVMState,
     SpatialDVMState,
     SpatialGrid1D,
     dvm_upwind_transport_step,
@@ -28,7 +29,7 @@ from hyqmom_fp.mixture_closure import (
     fit_equal_variance_marginal,
     fit_location_scale_marginal,
 )
-from hyqmom_fp.spatial_shock import _activate_from_donor
+from hyqmom_fp.spatial_shock import _activate_from_donor, _kinetic_front_signals
 from riemann35_patch.stage25a.run_normal_shock import (
     _restore_checkpoint,
     _write_checkpoint,
@@ -443,6 +444,169 @@ def test_kinetic_front_uses_the_target_cells_known_positive_carrier() -> None:
     assert diagnostics.activation_sources == ("left_neighbor",)
     assert diagnostics.activation_carrier_used == (True,)
     assert diagnostics.front_sensor_evaluations == 2
+    assert np.array_equal(np.flatnonzero(final.active), [center, center + 1])
+
+
+def _tail_sensitive_front_pair() -> tuple[DVMGrid, DVMState, DVMState]:
+    grid = DVMGrid(
+        lower=(-3.0, -2.0, -1.5),
+        upper=(4.0, 3.0, 1.5),
+        shape=(15, 11, 7),
+    )
+    carrier, _ = initialize_diagonal_gaussian_mixture(
+        grid,
+        [(1.0, (0.5, 0.0, 0.0), 0.25 * np.eye(3))],
+        match_exact_moments=True,
+    )
+    nodes = grid.centers()
+    positive = np.flatnonzero(nodes[:, 0] > 0.0)
+    source = int(positive[np.argmax(carrier.masses[positive])])
+    tail_weight = nodes[positive, 0] ** 4 * nodes[positive, 1] ** 2
+    tail = int(positive[np.argmax(tail_weight)])
+    shifted = carrier.masses.copy()
+    epsilon = min(5.0e-3, 0.2 * float(shifted[source]))
+    shifted[source] -= epsilon
+    shifted[tail] += epsilon
+    return grid, carrier, DVMState(grid, shifted)
+
+
+def test_weighted_front_signal_detects_a_small_incoming_tail() -> None:
+    _, carrier, donor = _tail_sensitive_front_pair()
+    signals = _kinetic_front_signals(
+        donor,
+        carrier,
+        "left_neighbor",
+        observables=("mass", "stress_xx", "heat_flux_x", "M420"),
+    )
+
+    assert all(0.0 <= value <= 2.0 for value in signals.values())
+    assert signals["mass"] < stage25_hysteresis().tail_on
+    assert max(signals[name] for name in ("stress_xx", "heat_flux_x", "M420")) >= (
+        stage25_hysteresis().tail_on
+    )
+
+
+def test_weighted_precursor_birth_is_directional_and_causal() -> None:
+    grid, carrier, donor = _tail_sensitive_front_pair()
+    xgrid = SpatialGrid1D(-3.5, 3.5, 7)
+    center = xgrid.cells // 2
+    moments = np.repeat(carrier.moments()[None, :], xgrid.cells, axis=0)
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[center] = True
+    masses = np.zeros((xgrid.cells, grid.size))
+    masses[center] = donor.masses
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=grid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=1,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    mass_only, mass_diagnostics = adaptive_shock_step(
+        state,
+        0.001,
+        1.0,
+        carrier,
+        carrier,
+        sensor_interval_steps=100,
+        birth_carrier=carrier,
+        kinetic_front_on=stage25_hysteresis().tail_on,
+    )
+    weighted, weighted_diagnostics = adaptive_shock_step(
+        state,
+        0.001,
+        1.0,
+        carrier,
+        carrier,
+        sensor_interval_steps=100,
+        birth_carrier=carrier,
+        kinetic_front_on=stage25_hysteresis().tail_on,
+        kinetic_front_observables=("mass", "stress_xx", "heat_flux_x", "M420"),
+    )
+
+    assert np.array_equal(np.flatnonzero(mass_only.active), [center])
+    assert mass_diagnostics.activations == 0
+    assert weighted_diagnostics.activation_cells == (center + 1,)
+    assert weighted_diagnostics.activation_sources == ("left_neighbor",)
+    assert weighted_diagnostics.activation_donor_cells == (center,)
+    assert weighted_diagnostics.activation_carrier_used == (True,)
+    assert np.array_equal(np.flatnonzero(weighted.active), [center, center + 1])
+
+
+def test_directional_lookahead_uses_only_rising_downstream_evidence() -> None:
+    grid, carrier, tail_donor = _tail_sensitive_front_pair()
+    donor = None
+    current_signal = 0.0
+    for fraction in np.geomspace(1.0e-5, 1.0, 101):
+        candidate = DVMState(
+            grid,
+            (1.0 - fraction) * carrier.masses + fraction * tail_donor.masses,
+        )
+        signals = _kinetic_front_signals(
+            candidate,
+            carrier,
+            "left_neighbor",
+            observables=("mass", "stress_xx", "heat_flux_x", "M420"),
+        )
+        weighted_signal = max(
+            signals[name] for name in ("stress_xx", "heat_flux_x", "M420")
+        )
+        if 0.08 < weighted_signal < 0.30 and signals["mass"] < 0.40:
+            donor = candidate
+            current_signal = weighted_signal
+            break
+    assert donor is not None
+
+    xgrid = SpatialGrid1D(-3.5, 3.5, 7)
+    center = xgrid.cells // 2
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[center] = True
+    masses = np.zeros((xgrid.cells, grid.size))
+    masses[center] = donor.masses
+    previous = np.zeros(xgrid.cells)
+    previous[center + 1] = max(current_signal - 0.03, 0.0)
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=grid,
+        moments=np.repeat(carrier.moments()[None, :], xgrid.cells, axis=0),
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=1,
+        transition_count=1,
+        blocked_births=0,
+        front_signal_history=previous,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.001,
+        1.0,
+        carrier,
+        carrier,
+        sensor_interval_steps=100,
+        birth_carrier=carrier,
+        kinetic_front_on=stage25_hysteresis().tail_on,
+        kinetic_front_observables=("mass", "stress_xx", "heat_flux_x", "M420"),
+        directional_front_lookahead_steps=20,
+    )
+
+    assert diagnostics.activation_cells == (center + 1,)
+    assert diagnostics.activation_sources == ("left_neighbor",)
+    assert diagnostics.activation_front_direction_aligned == (True,)
+    assert diagnostics.activation_front_components[0]["mass"] < 0.40
+    assert max(
+        diagnostics.activation_front_components[0][name]
+        for name in ("stress_xx", "heat_flux_x", "M420")
+    ) < 0.40
+    assert diagnostics.activation_front_predicted_signals[0] >= 0.40
     assert np.array_equal(np.flatnonzero(final.active), [center, center + 1])
 
 

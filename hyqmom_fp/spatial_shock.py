@@ -541,10 +541,13 @@ class AdaptiveSpatialStepDiagnostics:
     activation_reasons: tuple[str, ...]
     activation_front_signals: tuple[float | None, ...]
     releases: int
+    release_cells: tuple[int, ...]
     blocked_births: int
     blocked_cells: tuple[int, ...]
     sensor_evaluated: bool
+    release_sensor_evaluated: bool
     activation_sensor_evaluations: int
+    activation_sensor_skips_no_donor: int
     release_sensor_evaluations: int
     front_sensor_evaluations: int
     macro_equilibrium_shortcuts: int
@@ -705,9 +708,11 @@ def adaptive_shock_step(
     hysteresis: ActivationHysteresis | None = None,
     prandtl: float = 2.0 / 3.0,
     sensor_interval_steps: int = 1,
+    release_sensor_interval_steps: int | None = None,
     macro_equilibrium_tolerance: float = 0.0,
     birth_carrier: DVMState | None = None,
     kinetic_front_on: float | None = None,
+    causal_activation_candidates_only: bool = False,
 ) -> tuple[AdaptiveSpatialState, AdaptiveSpatialStepDiagnostics]:
     """Advance one causal hybrid shock interval with shared conservative fluxes.
 
@@ -717,6 +722,10 @@ def adaptive_shock_step(
     are held fixed; transport and collision continue normally.  Release hold
     counts therefore remain counts of verified safe sensor observations, not
     extrapolated unevaluated steps.
+
+    ``release_sensor_interval_steps`` may audit active-cell release at a
+    different cadence.  Omitting it uses ``sensor_interval_steps`` for both
+    decisions and preserves the earlier lifecycle exactly.
 
     A positive ``macro_equilibrium_tolerance`` enables a cheap fixed-point
     shortcut for inactive cells whose transported 35 moments already match
@@ -732,11 +741,24 @@ def adaptive_shock_step(
     incoming half-range DVM flux from an active donor differs sufficiently
     from ``birth_carrier``.  This is a cheap causal front detector evaluated
     from retained kinetic memory, not an algebraic tail closure.
+
+    ``causal_activation_candidates_only`` skips the expensive retained-moment
+    activation sensor in inactive cells that have neither kinetic inflow nor
+    a neighbour active at the beginning of the step.  Such cells cannot be
+    born under the causal donor rule.  The default remains the dense audit
+    used by earlier stages.
     """
 
     policy = stage25_hysteresis() if hysteresis is None else hysteresis
     if sensor_interval_steps < 1:
         raise ValueError("sensor_interval_steps must be positive")
+    release_interval = (
+        sensor_interval_steps
+        if release_sensor_interval_steps is None
+        else release_sensor_interval_steps
+    )
+    if release_interval < 1:
+        raise ValueError("release_sensor_interval_steps must be positive")
     if (
         not np.isfinite(macro_equilibrium_tolerance)
         or macro_equilibrium_tolerance < 0.0
@@ -777,22 +799,18 @@ def adaptive_shock_step(
     activation_reasons: list[str] = []
     activation_front_signals: list[float | None] = []
     releases = 0
+    release_cells: list[int] = []
     blocked = 0
     blocked_cells: list[int] = []
 
     sensor_evaluated = state.global_step % sensor_interval_steps == 0
+    release_sensor_evaluated = state.global_step % release_interval == 0
     activation_sensor_evaluations = 0
+    activation_sensor_skips_no_donor = 0
     release_sensor_evaluations = 0
     front_sensor_evaluations = 0
     macro_equilibrium_shortcuts = 0
     for cell in np.flatnonzero(~active_at_step_start):
-        moment_request = False
-        if sensor_evaluated:
-            reading = kinetic_activation_sensor(
-                state.moments[cell], tau=tau, prandtl=prandtl
-            )
-            activation_sensor_evaluations += 1
-            moment_request = policy.requests_activation(reading)
         donor = None
         donor_cell: int | None = None
         source = ""
@@ -810,6 +828,17 @@ def adaptive_shock_step(
         elif cell == nx - 1:
             source = "right_inflow"
             donor = right_inflow
+
+        moment_request = False
+        if sensor_evaluated:
+            if causal_activation_candidates_only and donor is None:
+                activation_sensor_skips_no_donor += 1
+            else:
+                reading = kinetic_activation_sensor(
+                    state.moments[cell], tau=tau, prandtl=prandtl
+                )
+                activation_sensor_evaluations += 1
+                moment_request = policy.requests_activation(reading)
 
         front_signal: float | None = None
         front_request = False
@@ -985,7 +1014,7 @@ def adaptive_shock_step(
                     speed_cap=np.inf,
                 )
 
-    if sensor_evaluated:
+    if release_sensor_evaluated:
         for cell in np.flatnonzero(active):
             reading = kinetic_activation_sensor(
                 updated_moments[cell], tau=tau, prandtl=prandtl
@@ -1004,6 +1033,7 @@ def adaptive_shock_step(
                 active_steps[cell] = 0
                 release_counter[cell] = 0
                 releases += 1
+                release_cells.append(int(cell))
 
     margins = np.asarray([realizability_margin_35(item) for item in updated_moments])
     if float(np.min(margins)) < -2.0e-12:
@@ -1044,10 +1074,13 @@ def adaptive_shock_step(
         activation_reasons=tuple(activation_reasons),
         activation_front_signals=tuple(activation_front_signals),
         releases=releases,
+        release_cells=tuple(release_cells),
         blocked_births=blocked,
         blocked_cells=tuple(blocked_cells),
         sensor_evaluated=sensor_evaluated,
+        release_sensor_evaluated=release_sensor_evaluated,
         activation_sensor_evaluations=activation_sensor_evaluations,
+        activation_sensor_skips_no_donor=activation_sensor_skips_no_donor,
         release_sensor_evaluations=release_sensor_evaluations,
         front_sensor_evaluations=front_sensor_evaluations,
         macro_equilibrium_shortcuts=macro_equilibrium_shortcuts,

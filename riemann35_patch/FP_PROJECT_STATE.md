@@ -3,7 +3,49 @@
 This file is the durable handoff record for future work.  Update it whenever a
 stage changes the selected method or the next scientific decision.
 
-## Current accepted state: Stage 29 (local qualification)
+## Current accepted state: Stage 30 (local qualification)
+
+Stage 30 closes the complete moving-front lifecycle gate.  It doubles the
+Stage-29 horizon to 48 steps and observes both positive causal kinetic birth
+ahead of the advecting four-delta pocket and retirement of kinetic memory
+behind it.  Release retains the frozen Stage-25 off thresholds, eight verified
+safe observations, and twenty-step minimum dwell.
+
+The lifecycle now permits separate activation and release sensor cadences.
+Stage 30 audits inactive-cell activation every eight steps and active-cell
+release every four steps.  An opt-in causal-candidate filter skips the
+expensive activation closure in inactive cells without kinetic inflow or a
+neighbour active at the beginning of the step; those cells cannot legally be
+born.  Skips are counted explicitly, and all earlier stages retain their dense
+default audit.
+
+The full 48-cell, 48-step workstation qualification is archived under
+`stage30/reference_results/local_validated_20260814`.
+
+Accepted local quantitative result:
+
+- all numerical, causal, lifecycle, localization, accuracy, and measured-
+  performance gates passed;
+- ten causal kinetic-front births and four releases occurred; cell 17 was
+  released behind the leading cell at step 29 and stayed inactive for the
+  required four-step audit window;
+- mean kinetic fraction was 19.13%, and peak/final fractions were 25.00%;
+- final adaptive errors against the refined positive DVM were 0.4487% for
+  `M400` and 0.9273% for predictive `M420`;
+- space-time errors were 0.2109% (`M400`) and 0.7310% (`M420`);
+- 210 impossible no-donor activation sensors were skipped and only 135
+  expensive closure sensors were evaluated;
+- adaptive wall time was 0.8609 times the same-grid coarse Full-DVM wall time,
+  a measured 1.162x speedup;
+- maximum finite-volume balance residual was `1.73e-12`, maximum micro/macro
+  synchronization residual was `5.89e-11`, and all DVM masses stayed positive.
+
+This is local numerical validation of the implemented cubic FP operator.  A
+Unity reproduction remains useful for portable cluster timing but is not a
+scientific blocker.  No independent MD/DSMC physical validation has yet been
+performed.
+
+## Previous accepted state: Stage 29
 
 Stage 29 closes the moving-front gate proposed after Stage 28.  A localized
 regularized four-delta pocket with unit positive x velocity is advected through
@@ -146,9 +188,10 @@ Accepted quantitative result:
 
 ## Next scientific step
 
-Extend the moving-pocket experiment long enough to exercise the complete
-front-following lifecycle: causal birth ahead of the pocket and verified
-release behind it, while retaining sub-50% kinetic support, the 3% `M400` and
-`M420` accuracy gates, and measured speedup.  A Unity reproduction remains an
-optional portability/timing check.  Independent MD/DSMC validation remains
-necessary later for physical fidelity.
+Apply the now-frozen complete lifecycle to a held-out one-dimensional normal
+shock case that was not used to tune its thresholds.  Compare density,
+velocity, temperature, stress, heat-flux, `M400`, and predictive `M420`
+profiles against positive coarse/refined Full-DVM references while preserving
+causality, positivity, conservation, localized support, and measured speedup.
+A Unity reproduction remains an optional portability/timing check.
+Independent DSMC validation remains necessary later for physical fidelity.

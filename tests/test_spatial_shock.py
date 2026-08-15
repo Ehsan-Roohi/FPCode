@@ -240,6 +240,20 @@ def test_spatial_sensor_cadence_rejects_nonpositive_interval() -> None:
     else:  # pragma: no cover - defensive assertion
         raise AssertionError("nonpositive sensor cadence must be rejected")
 
+    try:
+        adaptive_shock_step(
+            state,
+            0.005,
+            1.0,
+            left,
+            right,
+            release_sensor_interval_steps=0,
+        )
+    except ValueError as error:
+        assert "release_sensor_interval_steps" in str(error)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("nonpositive release cadence must be rejected")
+
 
 def test_inactive_maxwellian_cells_use_opt_in_equilibrium_shortcut() -> None:
     xgrid, vgrid = _small_grids()
@@ -367,6 +381,119 @@ def test_kinetic_front_sensor_activates_only_immediate_causal_neighbours() -> No
     assert diagnostics.front_sensor_evaluations == 2
     assert np.array_equal(np.flatnonzero(final.active), [3, 4, 5])
     assert np.min(final.micro_masses[final.active]) > 0.0
+
+
+def test_release_diagnostics_identify_the_exact_retired_cell() -> None:
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    _, equilibrium, _ = initialize_normal_shock_dvm(xgrid, vgrid, shock)
+    moments = np.repeat(equilibrium.moments()[None, :], xgrid.cells, axis=0)
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[xgrid.cells // 2] = True
+    masses = np.zeros((xgrid.cells, vgrid.size))
+    masses[active] = equilibrium.masses
+    policy = stage25_hysteresis()
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.where(active, policy.minimum_active_steps, 0),
+        release_counter=np.where(active, policy.release_hold_steps - 1, 0),
+        global_step=0,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state, 0.005, 1.0, equilibrium, equilibrium
+    )
+
+    assert diagnostics.releases == 1
+    assert diagnostics.release_cells == (xgrid.cells // 2,)
+    assert not np.any(final.active)
+
+
+def test_release_sensor_cadence_is_independent_and_explicit() -> None:
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    _, equilibrium, _ = initialize_normal_shock_dvm(xgrid, vgrid, shock)
+    moments = np.repeat(equilibrium.moments()[None, :], xgrid.cells, axis=0)
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[xgrid.cells // 2] = True
+    masses = np.zeros((xgrid.cells, vgrid.size))
+    masses[active] = equilibrium.masses
+    policy = stage25_hysteresis()
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.where(active, policy.minimum_active_steps, 0),
+        release_counter=np.where(active, policy.release_hold_steps - 1, 0),
+        global_step=4,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.005,
+        1.0,
+        equilibrium,
+        equilibrium,
+        sensor_interval_steps=8,
+        release_sensor_interval_steps=4,
+    )
+
+    assert not diagnostics.sensor_evaluated
+    assert diagnostics.release_sensor_evaluated
+    assert diagnostics.activation_sensor_evaluations == 0
+    assert diagnostics.release_sensor_evaluations == 1
+    assert diagnostics.release_cells == (xgrid.cells // 2,)
+    assert not np.any(final.active)
+
+
+def test_activation_sensor_can_skip_cells_without_a_causal_donor() -> None:
+    xgrid, vgrid = _small_grids()
+    shock = normal_shock_rankine_hugoniot(3.0)
+    _, equilibrium, _ = initialize_normal_shock_dvm(xgrid, vgrid, shock)
+    moments = np.repeat(equilibrium.moments()[None, :], xgrid.cells, axis=0)
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[xgrid.cells // 2] = True
+    masses = np.zeros((xgrid.cells, vgrid.size))
+    masses[active] = equilibrium.masses
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=0,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.005,
+        1.0,
+        equilibrium,
+        equilibrium,
+        causal_activation_candidates_only=True,
+    )
+
+    # Two boundaries have inflow donors and two cells neighbour the active
+    # centre.  Every other inactive cell cannot be born this step.
+    assert diagnostics.activation_sensor_evaluations == 4
+    assert diagnostics.activation_sensor_skips_no_donor == int(
+        np.sum(~active) - diagnostics.activation_sensor_evaluations
+    )
+    assert np.array_equal(final.active, active)
 
 
 def test_narrow_marginal_branch_is_scale_invariant() -> None:

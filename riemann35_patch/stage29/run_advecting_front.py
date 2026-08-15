@@ -174,6 +174,7 @@ def _plot(
     adaptive_tail: np.ndarray,
     active_history: np.ndarray,
     activation_counts: np.ndarray,
+    title: str = "Stage 29 advecting causal kinetic front",
 ) -> None:
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     axes[0, 0].plot(x, refined_moments[-1, :, M400], "k-", label="refined DVM")
@@ -208,7 +209,7 @@ def _plot(
         xlabel="time",
         ylabel="cumulative new cells",
     )
-    fig.suptitle("Stage 29 advecting causal kinetic front")
+    fig.suptitle(title)
     fig.savefig(output / "stage29_advecting_front.png", dpi=180)
     plt.close(fig)
 
@@ -293,11 +294,19 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             coarse_background,
             prandtl=prandtl,
             sensor_interval_steps=int(config["sensor_interval_steps"]),
+            release_sensor_interval_steps=(
+                int(config["release_sensor_interval_steps"])
+                if "release_sensor_interval_steps" in config
+                else None
+            ),
             macro_equilibrium_tolerance=float(
                 config["macro_equilibrium_tolerance"]
             ),
             birth_carrier=coarse_background,
             kinetic_front_on=float(config["kinetic_front_on"]),
+            causal_activation_candidates_only=bool(
+                config.get("causal_activation_candidates_only", False)
+            ),
         )
         timing["adaptive"] += time.perf_counter() - started
 
@@ -314,12 +323,20 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         print(
             json.dumps(
                 _jsonable({
-                    "event": "STAGE29_PROGRESS",
+                    "event": str(config.get("progress_event", "STAGE29_PROGRESS")),
                     "step": step,
                     "steps": steps,
                     "active_cells": int(np.sum(adaptive.active)),
                     "activation_cells": adaptive_diag.activation_cells,
                     "activation_reasons": adaptive_diag.activation_reasons,
+                    "release_cells": adaptive_diag.release_cells,
+                    "activation_sensor_evaluated": adaptive_diag.sensor_evaluated,
+                    "release_sensor_evaluated": (
+                        adaptive_diag.release_sensor_evaluated
+                    ),
+                    "activation_sensor_skips_no_donor": (
+                        adaptive_diag.activation_sensor_skips_no_donor
+                    ),
                 })
             ),
             flush=True,
@@ -425,6 +442,12 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             for item in adaptive_diagnostics
         )
     )
+    activation_sensor_skips_no_donor = int(
+        sum(
+            int(item["activation_sensor_skips_no_donor"])
+            for item in adaptive_diagnostics
+        )
+    )
     front_sensor_evaluations = int(
         sum(int(item["front_sensor_evaluations"]) for item in adaptive_diagnostics)
     )
@@ -485,6 +508,9 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
             ),
             "final_active_fraction_percent": 100.0 * float(np.mean(active_array[-1])),
             "expensive_sensor_evaluations": expensive_sensor_evaluations,
+            "activation_sensor_skips_no_donor": (
+                activation_sensor_skips_no_donor
+            ),
             "front_sensor_evaluations": front_sensor_evaluations,
             "adaptive_over_coarse_dvm_wall_time": wall_ratio,
             "measured_speedup_factor": 1.0 / max(wall_ratio, 1.0e-30),
@@ -504,6 +530,13 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
                 "activation_donor_fractions": item["activation_donor_fractions"],
                 "activation_reasons": item["activation_reasons"],
                 "activation_front_signals": item["activation_front_signals"],
+                "releases": item["releases"],
+                "release_cells": item["release_cells"],
+                "activation_sensor_evaluated": item["sensor_evaluated"],
+                "release_sensor_evaluated": item["release_sensor_evaluated"],
+                "activation_sensor_skips_no_donor": item[
+                    "activation_sensor_skips_no_donor"
+                ],
             }
             for step, item in enumerate(adaptive_diagnostics, start=1)
         ],
@@ -544,6 +577,9 @@ def run(config: dict[str, object], output: Path) -> dict[str, object]:
         adaptive_tail_array,
         active_array,
         activation_counts,
+        title=str(
+            config.get("plot_title", "Stage 29 advecting causal kinetic front")
+        ),
     )
     report = [
         "# Stage 29 advecting causal kinetic-front result",

@@ -58,3 +58,29 @@ FP_PINN_STAGE2_JOB62899999_HEAT_FLUX_COMPLETE.zip
 The archive contains all case outputs, the particle reference, portable
 weights, CSV histories, validation figures, metrics, Slurm logs when available,
 and `run_metadata.json` with the exact Git commit and job identifiers.
+
+
+## Rotating-panel continuation after job 62868926
+
+Job `62868926_2` reduced the active `Qx` relative L2 error to 13.45% and
+eliminated transverse heat flux to numerical precision.  Its single fixed
+quadrature cloud was nevertheless overfit: the training weak-moment defect was
+small while independent validation still decayed too rapidly, and maximum
+energy drift rose to 3.34%.
+
+The next run therefore:
+
+- evaluates every checkpoint from the previous root-level ZIP and resumes the
+  best balanced checkpoint automatically;
+- cycles four independent fixed antithetic quadrature panels;
+- reduces the heat-flux weight and strengthens mass/energy conservation;
+- independently evaluates every new checkpoint and writes
+  `checkpoint_sweep.csv`, `checkpoint_sweep.json`, and
+  `stage2_best.weights.h5`; and
+- creates the complete root-level ZIP even when the run exits early.
+
+Run from the repository root:
+
+```bash
+FP_TEST=/project/pi_roohie_umass_edu/github_sync/FPCode-pinn-test; cd "$FP_TEST" && git fetch origin && (git switch fp-pinn-heatflux-v2 2>/dev/null || git switch -c fp-pinn-heatflux-v2 --track origin/agent/fp-pinn-heatflux-v2) && git pull --ff-only origin agent/fp-pinn-heatflux-v2 && mkdir -p slurm_logs && sbatch --array=2 --nodes=1 --ntasks=1 --gres=gpu:1 --exclude=gypsum-gpu001,gypsum-gpu011,gypsum-gpu012,gypsum-gpu013,gypsum-gpu015 --export=ALL,FP_RESUME_ARCHIVE="$FP_TEST/FP_PINN_STAGE2_JOB62868926_HEAT_FLUX_COMPLETE.zip",FP_STAGE2_EPOCHS=10000,FP_STAGE2_LEARNING_RATE=3.0e-5,FP_STAGE2_LR_DECAY_STEPS=5000,FP_STAGE2_LR_DECAY_RATE=0.5,FP_N_TIME_BATCH=12,FP_N_VELOCITY_PER_TIME=4096,FP_PDE_WEIGHT=1,FP_HEAT_FLUX_WEIGHT=12,FP_MASS_WEIGHT=50,FP_MOMENTUM_WEIGHT=30,FP_ENERGY_WEIGHT=50,FP_TAIL_FRACTION=0.20,FP_TAIL_VARIANCE=4.0,FP_FIXED_VELOCITY_QUADRATURE=1,FP_QUADRATURE_PANELS=4,FP_CHECKPOINT_EVERY=2000,FP_CHECKPOINT_SWEEP=1,FP_REFERENCE_PARTICLES=500000,FP_REFERENCE_DT=0.0025,FP_REFERENCE_SAVE_EVERY=20,FP_EVALUATION_SAMPLES=131072 --output="$FP_TEST/slurm_logs/fp-pinn-stage2-%A_%a.out" --error="$FP_TEST/slurm_logs/fp-pinn-stage2-%A_%a.err" FP_PINN/pinn/cubic_homogeneous_3d/slurm/run_stage2_array.sbatch
+```

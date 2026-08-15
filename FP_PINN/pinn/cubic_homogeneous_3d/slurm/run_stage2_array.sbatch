@@ -36,6 +36,45 @@ echo "Slurm submit directory: $SUBMIT_DIR"
 echo "Repository root: $REPO_ROOT"
 echo "Stage-2 directory: $STAGE2_DIR"
 
+RUN_ROOT="${FP_OUTPUT_ROOT:-outputs/stage2-${SLURM_ARRAY_JOB_ID}}"
+CASE_OUTPUT="$RUN_ROOT/$CASE_NAME"
+REFERENCE_OUTPUT="$CASE_OUTPUT/reference_particle"
+mkdir -p "$REFERENCE_OUTPUT"
+
+package_on_exit() {
+    local run_status=$?
+    local package_status=0
+    trap - EXIT
+    if [[ "${FP_PACKAGE_RESULTS:-1}" == "1" ]]; then
+        local archive="$REPO_ROOT/FP_PINN_STAGE2_JOB${SLURM_ARRAY_JOB_ID}_${CASE_NAME^^}_COMPLETE.zip"
+        local job_record
+        local log_key
+        local log_path
+        local -a log_args=()
+        job_record="$(scontrol show job -o "$SLURM_JOB_ID" 2>/dev/null || true)"
+        for log_key in StdOut StdErr; do
+            log_path="$(sed -n "s/.* ${log_key}=\([^ ]*\).*/\1/p" <<<"$job_record")"
+            if [[ -n "$log_path" && -f "$log_path" ]]; then
+                log_args+=(--log "$log_path")
+            fi
+        done
+        python package_stage2.py \
+            --case-output "$CASE_OUTPUT" \
+            --archive "$archive" \
+            --repo-root "$REPO_ROOT" \
+            --job-id "$SLURM_JOB_ID" \
+            --array-job-id "$SLURM_ARRAY_JOB_ID" \
+            --task-id "$SLURM_ARRAY_TASK_ID" \
+            --case "$CASE_NAME" \
+            "${log_args[@]}" || package_status=$?
+        if (( run_status == 0 && package_status != 0 )); then
+            run_status=$package_status
+        fi
+    fi
+    exit "$run_status"
+}
+trap package_on_exit EXIT
+
 module load conda/latest
 
 UNITY_CONDA_ENV="${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}"
@@ -65,11 +104,6 @@ PY
 
 python -m unittest discover -s "$STAGE2_DIR/tests" -t "$STAGE2_DIR" -v
 
-RUN_ROOT="${FP_OUTPUT_ROOT:-outputs/stage2-${SLURM_ARRAY_JOB_ID}}"
-CASE_OUTPUT="$RUN_ROOT/$CASE_NAME"
-REFERENCE_OUTPUT="$CASE_OUTPUT/reference_particle"
-mkdir -p "$REFERENCE_OUTPUT"
-
 python -u reference_particle.py \
     --case "$CASE_NAME" \
     --output-dir "$REFERENCE_OUTPUT" \
@@ -78,6 +112,17 @@ python -u reference_particle.py \
     --tmax "${FP_TMAX:-1.0}" \
     --save-every "${FP_REFERENCE_SAVE_EVERY:-10}" \
     --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
+
+if [[ -n "${FP_RESUME_ARCHIVE:-}" && -n "${FP_RESUME_WEIGHTS:-}" ]]; then
+    echo "ERROR: set only one of FP_RESUME_ARCHIVE or FP_RESUME_WEIGHTS" >&2
+    exit 2
+fi
+if [[ -n "${FP_RESUME_ARCHIVE:-}" ]]; then
+    python -u prepare_stage2_resume.py \
+        --archive "$FP_RESUME_ARCHIVE" \
+        --case-output "$CASE_OUTPUT"
+    FP_RESUME_WEIGHTS="$CASE_OUTPUT/resume_input.weights.h5"
+fi
 
 TRAIN_ARGS=(
     --case "$CASE_NAME"
@@ -91,11 +136,17 @@ TRAIN_ARGS=(
     --learning-rate "${FP_STAGE2_LEARNING_RATE:-5.0e-4}"
     --lr-decay-steps "${FP_STAGE2_LR_DECAY_STEPS:-10000}"
     --lr-decay-rate "${FP_STAGE2_LR_DECAY_RATE:-0.3}"
+    --pde-weight "${FP_PDE_WEIGHT:-1.0}"
+    --mass-weight "${FP_MASS_WEIGHT:-30.0}"
+    --momentum-weight "${FP_MOMENTUM_WEIGHT:-20.0}"
+    --energy-weight "${FP_ENERGY_WEIGHT:-20.0}"
     --heat-flux-weight "${FP_HEAT_FLUX_WEIGHT:-10.0}"
     --heat-flux-scale "${FP_HEAT_FLUX_SCALE:-0.25}"
     --tail-fraction "${FP_TAIL_FRACTION:-0.20}"
     --tail-variance "${FP_TAIL_VARIANCE:-4.0}"
     --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
+    --checkpoint-every "${FP_CHECKPOINT_EVERY:-2500}"
+    --quadrature-panels "${FP_QUADRATURE_PANELS:-1}"
     --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
 )
 
@@ -123,26 +174,11 @@ fi
 
 python -u train_stage2.py "${TRAIN_ARGS[@]}"
 
+if [[ "$CASE_NAME" == "heat_flux" && "${FP_CHECKPOINT_SWEEP:-1}" == "1" ]]; then
+    python -u evaluate_stage2_checkpoints.py \
+        --case-output "$CASE_OUTPUT" \
+        --reference "$REFERENCE_OUTPUT/reference.npz"
+fi
+
 echo "Stage-2 case completed: $CASE_NAME"
 echo "Artifacts: $STAGE2_DIR/$CASE_OUTPUT"
-
-if [[ "${FP_PACKAGE_RESULTS:-1}" == "1" ]]; then
-    ARCHIVE="$REPO_ROOT/FP_PINN_STAGE2_JOB${SLURM_ARRAY_JOB_ID}_${CASE_NAME^^}_COMPLETE.zip"
-    LOG_ARGS=()
-    JOB_RECORD="$(scontrol show job -o "$SLURM_JOB_ID" 2>/dev/null || true)"
-    for LOG_KEY in StdOut StdErr; do
-        LOG_PATH="$(sed -n "s/.* ${LOG_KEY}=\([^ ]*\).*/\1/p" <<<"$JOB_RECORD")"
-        if [[ -n "$LOG_PATH" && -f "$LOG_PATH" ]]; then
-            LOG_ARGS+=(--log "$LOG_PATH")
-        fi
-    done
-    python package_stage2.py \
-        --case-output "$CASE_OUTPUT" \
-        --archive "$ARCHIVE" \
-        --repo-root "$REPO_ROOT" \
-        --job-id "$SLURM_JOB_ID" \
-        --array-job-id "$SLURM_ARRAY_JOB_ID" \
-        --task-id "$SLURM_ARRAY_TASK_ID" \
-        --case "$CASE_NAME" \
-        "${LOG_ARGS[@]}"
-fi

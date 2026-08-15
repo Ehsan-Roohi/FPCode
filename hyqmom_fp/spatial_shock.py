@@ -710,7 +710,7 @@ def adaptive_shock_step(
     sensor_interval_steps: int = 1,
     release_sensor_interval_steps: int | None = None,
     macro_equilibrium_tolerance: float = 0.0,
-    birth_carrier: DVMState | None = None,
+    birth_carrier: DVMState | SpatialDVMState | None = None,
     kinetic_front_on: float | None = None,
     causal_activation_candidates_only: bool = False,
 ) -> tuple[AdaptiveSpatialState, AdaptiveSpatialStepDiagnostics]:
@@ -732,10 +732,12 @@ def adaptive_shock_step(
     their local Maxwellian to that relative tolerance.  Zero disables the
     shortcut and preserves the earlier implementation exactly.
 
-    ``birth_carrier`` may provide a known positive background/inflow state for
-    interior neighbour births.  Such births use a convex carrier--donor
-    proposal before entropy projection.  Omitting it preserves the Stage-27
-    donor-only rule.
+    ``birth_carrier`` may provide either one known positive background state
+    or a positive cellwise carrier field for interior neighbour births.  The
+    latter is useful when the known equilibrium background differs across a
+    shock.  Such births use the target cell's convex carrier--donor proposal
+    before entropy projection.  Omitting it preserves the Stage-27 donor-only
+    rule.
 
     ``kinetic_front_on`` optionally activates an inactive neighbour when the
     incoming half-range DVM flux from an active donor differs sufficiently
@@ -764,8 +766,16 @@ def adaptive_shock_step(
         or macro_equilibrium_tolerance < 0.0
     ):
         raise ValueError("macro_equilibrium_tolerance must be finite and nonnegative")
-    if birth_carrier is not None and birth_carrier.grid != state.velocity_grid:
-        raise ValueError("birth carrier grid must match the adaptive velocity grid")
+    if isinstance(birth_carrier, DVMState):
+        if birth_carrier.grid != state.velocity_grid:
+            raise ValueError("birth carrier grid must match the adaptive velocity grid")
+    elif isinstance(birth_carrier, SpatialDVMState):
+        if birth_carrier.velocity_grid != state.velocity_grid:
+            raise ValueError("birth carrier grid must match the adaptive velocity grid")
+        if birth_carrier.spatial_grid != state.spatial_grid:
+            raise ValueError("cellwise birth carrier must match the adaptive spatial grid")
+    elif birth_carrier is not None:
+        raise TypeError("birth carrier must be a DVMState or SpatialDVMState")
     if kinetic_front_on is not None:
         if not np.isfinite(kinetic_front_on) or kinetic_front_on < 0.0:
             raise ValueError("kinetic_front_on must be finite and nonnegative")
@@ -802,6 +812,11 @@ def adaptive_shock_step(
     release_cells: list[int] = []
     blocked = 0
     blocked_cells: list[int] = []
+
+    def carrier_for_cell(cell: int) -> DVMState | None:
+        if isinstance(birth_carrier, SpatialDVMState):
+            return DVMState(state.velocity_grid, birth_carrier.masses[cell])
+        return birth_carrier
 
     sensor_evaluated = state.global_step % sensor_interval_steps == 0
     release_sensor_evaluated = state.global_step % release_interval == 0
@@ -842,13 +857,14 @@ def adaptive_shock_step(
 
         front_signal: float | None = None
         front_request = False
+        local_carrier = carrier_for_cell(cell)
         if (
             kinetic_front_on is not None
             and donor is not None
             and donor_cell is not None
         ):
             front_signal = _kinetic_front_signal(
-                donor, birth_carrier, source  # type: ignore[arg-type]
+                donor, local_carrier, source  # type: ignore[arg-type]
             )
             front_sensor_evaluations += 1
             front_request = front_signal >= kinetic_front_on
@@ -861,8 +877,8 @@ def adaptive_shock_step(
             continue
         try:
             carrier = (
-                birth_carrier
-                if birth_carrier is not None and donor_cell is not None
+                local_carrier
+                if local_carrier is not None and donor_cell is not None
                 else None
             )
             born, donor_fraction = _activate_from_donor(

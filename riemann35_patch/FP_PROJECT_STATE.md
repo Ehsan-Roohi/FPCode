@@ -3,7 +3,45 @@
 This file is the durable handoff record for future work.  Update it whenever a
 stage changes the selected method or the next scientific decision.
 
-## Current accepted state: Stage 30 (local qualification)
+## Current scientific result: Stage 31 (held-out hold)
+
+Stage 31 applied the complete frozen Stage-30 lifecycle to a Mach-2 normal
+shock that was not used in the Stage-25A Mach-3 threshold campaign.  The
+shock uses the frozen Stage-25A two-cell initial interface half-width and the
+Stage-30 activation/release cadences and thresholds.  A new cellwise positive
+carrier field supplies the known upstream or downstream Maxwellian belonging
+to each target cell; it is fixed at the initial time and does not import
+future information.
+
+The 48-cell, 48-step workstation result is archived under
+`stage31/reference_results/local_hold_20260814`.  The decision is
+**WORKSTATION_HOLD** and must not be described as a passed qualification.
+
+Quantitative result:
+
+- causal provenance, cellwise carrier use, positivity, conservation,
+  realizability, reference refinement, localization, and measured performance
+  all passed;
+- six causal kinetic-front births and three releases occurred, with no
+  four-step release/rebirth chatter;
+- mean, peak, and final kinetic fractions were 13.78%, 16.67%, and 16.67%;
+- adaptive wall time was 0.7297 times the same-grid coarse Full-DVM time, a
+  measured 1.370x local speedup;
+- density, velocity, temperature, `M300`, retained `M400`, and full-profile
+  predictive `M420` errors were below 3%;
+- normal-stress and heat-flux errors were 5.97% and 10.07%, and the shock-core
+  predictive `M420` error was 4.40%, so the physical-profile gate failed;
+- the coarse/refined Full-DVM profile errors were all below 1.84%;
+- maximum finite-volume balance and micro/macro synchronization residuals
+  were `8.37e-14` and `4.30e-12`, and all DVM masses remained positive.
+
+The failure is directional: every qualified front birth propagated into the
+upstream/left side, while the downstream heat-flux/stress layer remained
+outside kinetic support.  Repeating the run or widening initial support does
+not address that blind spot.  Do not lower the frozen 0.40 threshold to make
+this same held-out history pass.
+
+## Previous accepted state: Stage 30 (local qualification)
 
 Stage 30 closes the complete moving-front lifecycle gate.  It doubles the
 Stage-29 horizon to 48 steps and observes both positive causal kinetic birth
@@ -188,10 +226,11 @@ Accepted quantitative result:
 
 ## Next scientific step
 
-Apply the now-frozen complete lifecycle to a held-out one-dimensional normal
-shock case that was not used to tune its thresholds.  Compare density,
-velocity, temperature, stress, heat-flux, `M400`, and predictive `M420`
-profiles against positive coarse/refined Full-DVM references while preserving
-causality, positivity, conservation, localized support, and measured speedup.
-A Unity reproduction remains an optional portability/timing check.
-Independent DSMC validation remains necessary later for physical fidelity.
+Treat the Stage-31 Mach-2 shock as a development case for a direction-aware
+causal precursor that can identify its missed downstream stress/heat-flux
+layer from already-active positive kinetic data.  Preserve the Stage-25/30
+thresholds and birth provenance; do not create a tail from the target cell's
+35 moments.  Freeze the new rule before testing it on another untouched shock
+Mach number.  A Unity reproduction is not useful until the physical-profile
+hold is resolved.  Independent DSMC validation remains necessary later for
+physical fidelity.

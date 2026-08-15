@@ -383,6 +383,69 @@ def test_kinetic_front_sensor_activates_only_immediate_causal_neighbours() -> No
     assert np.min(final.micro_masses[final.active]) > 0.0
 
 
+def test_kinetic_front_uses_the_target_cells_known_positive_carrier() -> None:
+    xgrid = SpatialGrid1D(-3.5, 3.5, 7)
+    vgrid = DVMGrid(
+        lower=(-3.0, -2.5, -1.5),
+        upper=(3.0, 2.5, 1.5),
+        shape=(15, 13, 9),
+    )
+    background, _ = initialize_diagonal_gaussian_mixture(
+        vgrid,
+        [(1.0, (0.0, 0.0, 0.0), 0.3 * np.eye(3))],
+        match_exact_moments=True,
+    )
+    donor, _ = initialize_diagonal_gaussian_mixture(
+        vgrid,
+        [
+            (0.72, (1.20, 0.55, 0.0), np.diag([0.08, 0.06, 0.05])),
+            (0.28, (-0.25, -1.00, 0.0), np.diag([0.05, 0.07, 0.05])),
+        ],
+        match_exact_moments=True,
+    )
+    center = xgrid.cells // 2
+    carrier_masses = np.repeat(background.masses[None, :], xgrid.cells, axis=0)
+    carrier_masses[center - 1] = donor.masses
+    carriers = SpatialDVMState(xgrid, vgrid, carrier_masses)
+    moments = carriers.moments()
+    moments[center] = donor.moments()
+    active = np.zeros(xgrid.cells, dtype=bool)
+    active[center] = True
+    masses = np.zeros_like(carrier_masses)
+    masses[center] = donor.masses
+    state = AdaptiveSpatialState(
+        spatial_grid=xgrid,
+        velocity_grid=vgrid,
+        moments=moments,
+        micro_masses=masses,
+        active=active,
+        active_steps=np.zeros(xgrid.cells, dtype=int),
+        release_counter=np.zeros(xgrid.cells, dtype=int),
+        global_step=1,
+        transition_count=1,
+        blocked_births=0,
+    )
+
+    final, diagnostics = adaptive_shock_step(
+        state,
+        0.002,
+        1.0,
+        background,
+        background,
+        sensor_interval_steps=100,
+        birth_carrier=carriers,
+        kinetic_front_on=0.10,
+    )
+
+    # The left target's local carrier equals the donor, so its front signal is
+    # zero.  The right target sees the distinct background and is born.
+    assert diagnostics.activation_cells == (center + 1,)
+    assert diagnostics.activation_sources == ("left_neighbor",)
+    assert diagnostics.activation_carrier_used == (True,)
+    assert diagnostics.front_sensor_evaluations == 2
+    assert np.array_equal(np.flatnonzero(final.active), [center, center + 1])
+
+
 def test_release_diagnostics_identify_the_exact_retired_cell() -> None:
     xgrid, vgrid = _small_grids()
     shock = normal_shock_rankine_hugoniot(3.0)

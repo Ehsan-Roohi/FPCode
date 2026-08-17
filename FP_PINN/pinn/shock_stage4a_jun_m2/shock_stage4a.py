@@ -434,75 +434,156 @@ def plot_results(
     states: dict[str, float],
     fluxes: dict[str, float],
 ) -> None:
-    plt.rcParams.update({"font.size": 11, "axes.grid": True, "grid.alpha": 0.22, "figure.dpi": 120})
+    """Create publication-ready validation figures without retraining the model."""
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "font.size": 10.5,
+            "axes.labelsize": 11.5,
+            "axes.titlesize": 11.5,
+            "axes.titleweight": "normal",
+            "axes.linewidth": 0.9,
+            "axes.grid": True,
+            "axes.axisbelow": True,
+            "grid.alpha": 0.42,
+            "grid.color": "#D8DEE8",
+            "grid.linewidth": 0.65,
+            "xtick.direction": "in",
+            "ytick.direction": "in",
+            "xtick.major.size": 4.0,
+            "ytick.major.size": 4.0,
+            "xtick.minor.size": 2.2,
+            "ytick.minor.size": 2.2,
+            "legend.fontsize": 10.0,
+            "figure.dpi": 140,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
+    )
     x = ref["x_mfp"]
-    colors = {"pinn": "#376EA6", "dvm": "#C06C2E", "anchor": "#2A9D78"}
+    colors = {
+        "pinn": "#2F6DAE",
+        "dvm": "#C16A2B",
+        "anchor": "#238B78",
+        "mass": "#355F8D",
+        "momentum": "#D07C2C",
+        "energy": "#2F8F68",
+    }
 
-    fig, axes = plt.subplots(3, 1, figsize=(8.0, 9.0), sharex=True)
+    def polish_axis(ax: plt.Axes) -> None:
+        ax.minorticks_on()
+        ax.tick_params(which="both", top=True, right=True, width=0.8)
+        ax.tick_params(which="major", width=0.9)
+        for spine in ax.spines.values():
+            spine.set_color("#3E4650")
+
+    def save_publication_figure(fig: plt.Figure, stem: str) -> None:
+        fig.savefig(out / f"{stem}.png", dpi=300)
+        fig.savefig(out / f"{stem}.pdf")
+        plt.close(fig)
+
+    fig, axes = plt.subplots(3, 1, figsize=(8.0, 9.35), sharex=True)
     for ax, key, label in zip(axes, ("rho", "ux", "T"), (r"$\rho/\rho_0$", r"$u_x/\sqrt{RT_0}$", r"$T/T_0$")):
-        ax.plot(x, ref[key], "--", lw=2.2, color=colors["dvm"], label="DVM-BGK reference")
-        ax.plot(x, pred[key], lw=2.0, color=colors["pinn"], label="conservative PINN")
-        ax.scatter(x[macro_anchor_idx], ref[key][macro_anchor_idx], s=17, color=colors["anchor"], zorder=4, label="17 train anchors")
+        ax.plot(x, ref[key], "--", lw=2.25, color=colors["dvm"], label="DVM-BGK reference")
+        ax.plot(x, pred[key], lw=2.15, color=colors["pinn"], label="Conservative PINN")
+        ax.scatter(
+            x[macro_anchor_idx],
+            ref[key][macro_anchor_idx],
+            s=25,
+            facecolors="white",
+            edgecolors=colors["anchor"],
+            linewidths=1.05,
+            zorder=4,
+            label="Training anchors (17)",
+        )
         ax.set_ylabel(label)
-    axes[0].legend(ncol=3, frameon=False, loc="best")
+        polish_axis(ax)
     axes[-1].set_xlabel(r"$x/\lambda_0$")
-    fig.suptitle("Jun–Zhang AIAA benchmark: Mach-2 normal shock")
-    fig.tight_layout()
-    fig.savefig(out / "fig01_macroscopic_profiles.png", dpi=240)
-    plt.close(fig)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.suptitle("Jun–Zhang AIAA benchmark: Mach-2 normal shock", y=0.992, fontsize=15.0, fontweight="bold")
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.952), ncol=3, frameon=False)
+    fig.subplots_adjust(top=0.865, bottom=0.075, left=0.13, right=0.975, hspace=0.12)
+    save_publication_figure(fig, "fig01_macroscopic_profiles")
 
-    fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.6), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(8.0, 6.9), sharex=True)
     for ax, key, label in zip(axes, ("qx", "sigma_xx"), (r"$q_x/[\rho_0(RT_0)^{3/2}]$", r"$\sigma_{xx}/(\rho_0RT_0)$")):
         ax.plot(x, ref[key], "--", lw=2.3, color=colors["dvm"], label="DVM-BGK reference")
-        ax.plot(x, pred[key], lw=2.1, color=colors["pinn"], label="PINN (hard flux constraints)")
-        ax.scatter(x[macro_anchor_idx], ref[key][macro_anchor_idx], s=17, color=colors["anchor"], zorder=4)
+        ax.plot(x, pred[key], lw=2.15, color=colors["pinn"], label="Conservative PINN")
+        ax.scatter(
+            x[macro_anchor_idx],
+            ref[key][macro_anchor_idx],
+            s=25,
+            facecolors="white",
+            edgecolors=colors["anchor"],
+            linewidths=1.05,
+            zorder=4,
+            label="Training anchors (17)",
+        )
         ax.set_ylabel(label)
-        ax.legend(frameon=False)
+        polish_axis(ax)
     axes[-1].set_xlabel(r"$x/\lambda_0$")
-    fig.suptitle("Nonequilibrium transport: heat flux and normal stress")
-    fig.tight_layout()
-    fig.savefig(out / "fig02_heat_flux_and_stress.png", dpi=240)
-    plt.close(fig)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.suptitle("Nonequilibrium transport: heat flux and normal stress", y=0.992, fontsize=15.0, fontweight="bold")
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.937), ncol=3, frameon=False)
+    fig.subplots_adjust(top=0.825, bottom=0.105, left=0.14, right=0.975, hspace=0.12)
+    save_publication_figure(fig, "fig02_heat_flux_and_stress")
 
     jm = pred["rho"] * pred["ux"]
     jp = pred["rho"] * pred["ux"] ** 2 + pred["rho"] * pred["T"] + pred["sigma_xx"]
     je = pred["ux"] * (0.5 * pred["rho"] * pred["ux"] ** 2 + 2.5 * pred["rho"] * pred["T"] + pred["sigma_xx"]) + pred["qx"]
-    fig, ax = plt.subplots(figsize=(8.0, 4.4))
-    for values, target, label in ((jm, fluxes["mass"], "mass"), (jp, fluxes["momentum"], "momentum"), (je, fluxes["energy"], "energy")):
-        ax.plot(x, (values - target) / target, lw=1.9, label=label)
+    fig, ax = plt.subplots(figsize=(8.0, 4.9))
+    for values, target, label, color in (
+        (jm, fluxes["mass"], "Mass flux", colors["mass"]),
+        (jp, fluxes["momentum"], "Momentum flux", colors["momentum"]),
+        (je, fluxes["energy"], "Energy flux", colors["energy"]),
+    ):
+        drift = np.maximum(np.abs((values - target) / target), 1.0e-12)
+        ax.plot(x, drift, lw=1.85, color=color, label=label)
     ax.set_xlabel(r"$x/\lambda_0$")
-    ax.set_ylabel("relative flux drift")
-    ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-    ax.legend(frameon=False, ncol=3)
-    ax.set_title("Conservation audit (hard constraints)")
-    fig.tight_layout()
-    fig.savefig(out / "fig03_flux_invariants.png", dpi=240)
-    plt.close(fig)
+    ax.set_ylabel("Absolute relative flux drift")
+    ax.set_yscale("log")
+    polish_axis(ax)
+    handles, labels = ax.get_legend_handles_labels()
+    fig.suptitle("Conservation audit (hard constraints)", y=0.988, fontsize=14.5, fontweight="bold")
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.902), ncol=3, frameon=False)
+    fig.subplots_adjust(top=0.765, bottom=0.16, left=0.145, right=0.975)
+    save_publication_figure(fig, "fig03_flux_invariants")
 
-    fig, axes = plt.subplots(1, len(line_rows), figsize=(15.0, 3.4), sharey=True)
+    fig, axes = plt.subplots(1, len(line_rows), figsize=(15.5, 4.05), sharey=True)
     vx = micro_data["vx_line"]
     for panel, (ax, row) in enumerate(zip(axes, line_rows)):
-        ax.plot(vx, micro_data["f_line"][row], "--", lw=2.0, color=colors["dvm"], label="DVM")
-        ax.plot(vx, line_pred[panel], lw=1.9, color=colors["pinn"], label="PINN")
-        ax.set_title(rf"$x/\lambda_0={micro_data['x_anchor'][row]:.1f}$")
+        x_station = float(micro_data["x_anchor"][row])
+        if abs(x_station) < 5.0e-8:
+            x_station = 0.0
+        ax.plot(vx, micro_data["f_line"][row], "--", lw=2.1, color=colors["dvm"], label="DVM-BGK reference")
+        ax.plot(vx, line_pred[panel], lw=2.0, color=colors["pinn"], label="Conservative PINN")
+        ax.set_title(rf"$x/\lambda_0={x_station:.1f}$")
         ax.set_xlabel(r"$v_x/\sqrt{{RT_0}}$")
+        polish_axis(ax)
     axes[0].set_ylabel(r"$f(v_x,0,0)$")
-    axes[0].legend(frameon=False)
-    fig.suptitle("Held-out distribution slices (not used in microscopic training)")
-    fig.tight_layout()
-    fig.savefig(out / "fig04_distribution_slices_heldout.png", dpi=240)
-    plt.close(fig)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.suptitle("Held-out distribution slices (not used in microscopic training)", y=0.992, fontsize=15.0, fontweight="bold")
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.902), ncol=2, frameon=False)
+    fig.subplots_adjust(top=0.745, bottom=0.17, left=0.065, right=0.99, wspace=0.16)
+    save_publication_figure(fig, "fig04_distribution_slices_heldout")
 
-    fig, axes = plt.subplots(5, 1, figsize=(8.0, 11.0), sharex=True)
+    error_labels = {
+        "rho": r"$\rho$ error",
+        "ux": r"$u_x$ error",
+        "T": r"$T$ error",
+        "qx": r"$q_x$ error",
+        "sigma_xx": r"$\sigma_{xx}$ error",
+    }
+    fig, axes = plt.subplots(5, 1, figsize=(8.0, 11.4), sharex=True)
     for ax, key in zip(axes, PROFILE_KEYS):
         scale = max(float(np.max(np.abs(ref[key]))), 1.0e-12)
         ax.plot(x, np.abs(pred[key] - ref[key]) / scale, color=colors["pinn"], lw=1.8)
-        ax.set_ylabel(key)
+        ax.set_ylabel(error_labels[key])
+        polish_axis(ax)
     axes[-1].set_xlabel(r"$x/\lambda_0$")
-    fig.suptitle("Pointwise absolute error normalized by reference peak")
-    fig.tight_layout()
-    fig.savefig(out / "fig05_pointwise_errors.png", dpi=240)
-    plt.close(fig)
+    fig.suptitle("Pointwise absolute error normalized by reference peak", y=0.993, fontsize=15.0, fontweight="bold")
+    fig.subplots_adjust(top=0.94, bottom=0.065, left=0.14, right=0.975, hspace=0.12)
+    save_publication_figure(fig, "fig05_pointwise_errors")
 
 
 def run(args: argparse.Namespace) -> None:

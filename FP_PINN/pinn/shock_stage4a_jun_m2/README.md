@@ -22,8 +22,10 @@ parameter needed for an exact independent reproduction.
 - 17 sparse macro locations plus three scalar diagnostic locks (phase,
   thickness slope, and asymmetry), with a complete 1600-cell validation grid;
 - five velocity slices withheld from microscopic training;
-- line plots only (no bar charts), CSV tables, checkpoint, raw predictions,
-  checksums, and an automatic pass/fail marker.
+- line plots only (no bar charts), with one shared legend outside the data
+  region and both 300-dpi PNG and vector-PDF outputs;
+- CSV tables, checkpoint, raw predictions, checksums, and an automatic
+  pass/fail marker.
 
 ## One-line local run
 

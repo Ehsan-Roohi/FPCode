@@ -19,6 +19,8 @@ class ResumeArchiveTests(unittest.TestCase):
             "checkpoints_h5/epoch-002500.weights.h5": Path(
                 "checkpoints_h5/epoch-002500.weights.h5"
             ),
+            "resume_input.weights.h5": Path("resume_input.weights.h5"),
+            "prefix/stage2_best.weights.h5": Path("stage2_best.weights.h5"),
             "prefix/stage2_final.weights.h5": Path("stage2_final.weights.h5"),
         }
         for member, relative in expected.items():

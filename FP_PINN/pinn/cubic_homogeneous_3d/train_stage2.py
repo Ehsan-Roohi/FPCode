@@ -28,8 +28,15 @@ import numpy as np
 import tensorflow as tf
 
 from cubic_operator import (
-    CASE_NAMES,
+    ALL_CASE_NAMES,
+    case_has_heat_flux,
+    case_has_stress,
+    case_is_axisymmetric_heat_flux,
+    case_spec,
     equilibrium_logpdf,
+    heat_flux_mixture_parameters,
+    heat_flux_relaxation_rate,
+    initial_heat_flux_qx,
     initial_logpdf,
     moments_from_samples,
     proposal_logpdf,
@@ -73,6 +80,7 @@ class Config:
     print_every: int = 250
     checkpoint_every: int = 2500
     evaluation_samples: int = 65_536
+    evaluation_quadrature_order: int = 0
     marginal_quadrature_order: int = 18
     seed: int = 20260808
     resume_weights: str | None = None
@@ -82,7 +90,7 @@ class Config:
 
 def parse_args() -> Config:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=CASE_NAMES, required=True)
+    parser.add_argument("--case", choices=ALL_CASE_NAMES, required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--reference", required=True)
     parser.add_argument("--epochs", type=int, default=30_000)
@@ -105,7 +113,7 @@ def parse_args() -> Config:
         help="Weight of the particle-free weak third-moment residual",
     )
     parser.add_argument(
-        "--heat-flux-scale", type=float, default=0.25,
+        "--heat-flux-scale", type=float, default=None,
         help="Reference scale used to nondimensionalize the weak heat-flux residual",
     )
     parser.add_argument(
@@ -143,6 +151,15 @@ def parse_args() -> Config:
     parser.add_argument("--print-every", type=int, default=250)
     parser.add_argument("--checkpoint-every", type=int, default=2500)
     parser.add_argument("--evaluation-samples", type=int, default=65_536)
+    parser.add_argument(
+        "--evaluation-quadrature-order",
+        type=int,
+        default=0,
+        help=(
+            "Use deterministic tensor Gauss-Hermite moments at this order; "
+            "zero retains legacy Monte Carlo moment evaluation"
+        ),
+    )
     parser.add_argument("--marginal-quadrature-order", type=int, default=18)
     parser.add_argument("--seed", type=int, default=20260808)
     parser.add_argument("--resume-weights")
@@ -151,7 +168,12 @@ def parse_args() -> Config:
         "--strict-gate", action="store_true",
         help="Return exit status 2 when a numerical validation gate fails",
     )
-    config = Config(**vars(parser.parse_args()))
+    values = vars(parser.parse_args())
+    if values["heat_flux_scale"] is None:
+        values["heat_flux_scale"] = max(
+            abs(initial_heat_flux_qx(values["case"])), 0.25
+        )
+    config = Config(**values)
     if not 0.0 < config.tail_fraction < 1.0:
         parser.error("--tail-fraction must lie strictly between zero and one")
     if config.tail_variance <= 1.0:
@@ -160,16 +182,18 @@ def parse_args() -> Config:
         parser.error("--heat-flux-scale must be positive")
     if config.quadrature_panels < 1:
         parser.error("--quadrature-panels must be at least one")
+    if config.evaluation_quadrature_order not in (0,) and config.evaluation_quadrature_order < 4:
+        parser.error("--evaluation-quadrature-order must be zero or at least four")
     if config.quadrature_panels > 1 and not config.fixed_velocity_quadrature:
         parser.error("--quadrature-panels > 1 requires --fixed-velocity-quadrature")
     if (
-        config.case == "heat_flux"
+        case_has_heat_flux(config.case)
         and config.antithetic_heat_flux_quadrature
         and config.n_velocity_per_time % 4
     ):
         parser.error("--n-velocity-per-time must be divisible by four for antithetic heat-flux quadrature")
     if (
-        config.case == "heat_flux"
+        case_has_heat_flux(config.case)
         and config.antithetic_heat_flux_quadrature
         and config.evaluation_samples % 4
     ):
@@ -192,25 +216,25 @@ def tf_equilibrium_logpdf(c: tf.Tensor) -> tf.Tensor:
 
 
 def tf_initial_logpdf(case: str, c: tf.Tensor) -> tf.Tensor:
-    if case == "equilibrium":
-        return tf_equilibrium_logpdf(c)
-    if case == "stress":
-        variances = tf.constant([1.6, 0.9, 0.5], dtype=c.dtype)
+    spec = case_spec(case)
+    variances = tf.constant(spec.variances, dtype=c.dtype)
+    if not case_has_heat_flux(case):
         return tf.reduce_sum(
             -0.5 * (
                 tf.math.log(tf.cast(2.0 * np.pi, c.dtype) * variances)
                 + tf.square(c) / variances
             ), axis=-1, keepdims=True,
         )
-    log_a = _tf_normal_logpdf(c[:, 0:1], 1.0, 0.5) + tf.math.log(
-        tf.cast(1.0 / 3.0, c.dtype)
+    weight, mean_a, mean_b, variance_x = heat_flux_mixture_parameters(case)
+    log_a = _tf_normal_logpdf(c[:, 0:1], mean_a, variance_x) + tf.math.log(
+        tf.cast(weight, c.dtype)
     )
-    log_b = _tf_normal_logpdf(c[:, 0:1], -0.5, 0.5) + tf.math.log(
-        tf.cast(2.0 / 3.0, c.dtype)
+    log_b = _tf_normal_logpdf(c[:, 0:1], mean_b, variance_x) + tf.math.log(
+        tf.cast(1.0 - weight, c.dtype)
     )
     log_x = tf.reduce_logsumexp(tf.concat([log_a, log_b], axis=1), axis=1, keepdims=True)
-    return log_x + _tf_normal_logpdf(c[:, 1:2], 0.0, 1.0) + _tf_normal_logpdf(
-        c[:, 2:3], 0.0, 1.0
+    return log_x + _tf_normal_logpdf(c[:, 1:2], 0.0, spec.variances[1]) + _tf_normal_logpdf(
+        c[:, 2:3], 0.0, spec.variances[2]
     )
 
 
@@ -265,7 +289,7 @@ class DensityModel(tf.keras.Model):
         c = tf.cast(c, tf.float32)
         r2 = tf.reduce_sum(tf.square(c), axis=1, keepdims=True)
         velocity_features = c / 3.0
-        if self.config.case == "heat_flux" and self.config.axisymmetric_heat_flux:
+        if case_is_axisymmetric_heat_flux(self.config.case) and self.config.axisymmetric_heat_flux:
             # The positive skew initial state and the homogeneous FP operator
             # are invariant under every rotation in the transverse y-z plane.
             # Keep the legacy five-feature shape so existing H5 weights remain
@@ -326,7 +350,8 @@ def sample_tf_proposal(
     times = tf.sort(times, axis=0)
     if velocity_grid is None:
         antithetic = (
-            config.case == "heat_flux" and config.antithetic_heat_flux_quadrature
+            case_is_axisymmetric_heat_flux(config.case)
+            and config.antithetic_heat_flux_quadrature
         )
         sample_total = total // 4 if antithetic else total
         selector = tf.random.uniform((sample_total, 1))
@@ -339,18 +364,28 @@ def sample_tf_proposal(
         tail = tf.sqrt(tf.cast(config.tail_variance, tf.float32)) * tf.random.normal(
             (sample_total, 3)
         )
-        if config.case == "equilibrium":
-            initial = tf.random.normal((sample_total, 3))
-        elif config.case == "stress":
+        spec = case_spec(config.case)
+        if not case_has_heat_flux(config.case):
             initial = tf.random.normal((sample_total, 3)) * tf.sqrt(
-                tf.constant([1.6, 0.9, 0.5], dtype=tf.float32)
+                tf.constant(spec.variances, dtype=tf.float32)
             )
         else:
-            choose_a = tf.random.uniform((sample_total, 1)) < (1.0 / 3.0)
-            x_mean = tf.where(choose_a, 1.0, -0.5)
+            weight, mean_a, mean_b, variance_x = heat_flux_mixture_parameters(
+                config.case
+            )
+            choose_a = tf.random.uniform((sample_total, 1)) < weight
+            x_mean = tf.where(choose_a, mean_a, mean_b)
             initial = tf.concat(
-                [x_mean + tf.sqrt(0.5) * tf.random.normal((sample_total, 1)),
-                 tf.random.normal((sample_total, 2))], axis=1,
+                [
+                    x_mean
+                    + tf.sqrt(tf.cast(variance_x, tf.float32))
+                    * tf.random.normal((sample_total, 1)),
+                    tf.sqrt(tf.cast(spec.variances[1], tf.float32))
+                    * tf.random.normal((sample_total, 1)),
+                    tf.sqrt(tf.cast(spec.variances[2], tf.float32))
+                    * tf.random.normal((sample_total, 1)),
+                ],
+                axis=1,
             )
         c = tf.where(choose_initial, initial, tf.where(choose_equilibrium, equilibrium, tail))
         if antithetic:
@@ -412,6 +447,73 @@ def moment_tensors(c: tf.Tensor, ratio: tf.Tensor) -> dict[str, tf.Tensor]:
         "mass": mass, "mean": mean, "pij": pij, "q": q, "m3": m3,
         "m4": m4, "m5": m5, "dm2": dm2, "dm4": dm4,
     }
+
+
+def gauss_hermite_velocity_quadrature(
+    order: int,
+) -> tuple[tf.Tensor, tf.Tensor]:
+    """Tensor-product whole-space quadrature for deterministic FP moments.
+
+    ``numpy.hermgauss`` integrates against ``exp(-x^2)``.  The returned
+    logarithmic weights include the change of variables ``c=sqrt(2)*x`` and
+    remove that Gaussian weight, so ``sum(exp(log_w)*g(c))`` approximates the
+    ordinary three-dimensional integral of ``g`` over all velocity space.
+    """
+    if order < 4:
+        raise ValueError("Gauss-Hermite order must be at least four")
+    nodes, weights = np.polynomial.hermite.hermgauss(order)
+    scaled = np.sqrt(2.0) * nodes
+    x, y, z = np.meshgrid(scaled, scaled, scaled, indexing="ij")
+    velocity = np.stack([x.ravel(), y.ravel(), z.ravel()], axis=1)
+    product = np.einsum("i,j,k->ijk", weights, weights, weights).ravel()
+    log_weights = (
+        1.5 * np.log(2.0)
+        + np.log(product)
+        + 0.5 * np.sum(velocity * velocity, axis=1)
+    )
+    return (
+        tf.constant(velocity, dtype=tf.float32),
+        tf.constant(log_weights, dtype=tf.float64),
+    )
+
+
+def deterministic_moment_tensors(
+    model: DensityModel,
+    times: tf.Tensor,
+    velocity: tf.Tensor,
+    log_integration_weights: tf.Tensor,
+) -> dict[str, tf.Tensor]:
+    """Evaluate normalized moments on a deterministic whole-space grid."""
+    times = tf.reshape(tf.cast(times, tf.float32), (-1, 1))
+    velocity = tf.cast(velocity, tf.float32)
+    count_time = tf.shape(times)[0]
+    count_velocity = tf.shape(velocity)[0]
+    time_grid = tf.repeat(times[:, None, :], repeats=count_velocity, axis=1)
+    velocity_grid = tf.repeat(velocity[None, :, :], repeats=count_time, axis=0)
+    log_density = model.log_density(
+        tf.reshape(time_grid, (-1, 1)), tf.reshape(velocity_grid, (-1, 3))
+    )
+    log_density = tf.reshape(
+        tf.cast(log_density, tf.float64), (count_time, count_velocity, 1)
+    )
+    log_weights = tf.reshape(
+        tf.cast(log_integration_weights, tf.float64), (1, count_velocity, 1)
+    )
+    # moment_tensors defines mass as mean(ratio), so multiply the quadrature
+    # contributions by N to recover their sum.
+    ratio = tf.exp(log_density + log_weights) * tf.cast(count_velocity, tf.float64)
+    tf.debugging.assert_all_finite(ratio, "Non-finite deterministic moment quadrature")
+    return moment_tensors(tf.cast(velocity_grid, tf.float64), ratio)
+
+
+def exact_heat_flux_target(
+    times: tf.Tensor, nu: float = 1.0, initial_qx: float = 0.25
+) -> tf.Tensor:
+    """Particle-free target implied exactly by the canonical closure."""
+    times = tf.reshape(times, (-1, 1))
+    rate = tf.cast(heat_flux_relaxation_rate(nu=nu), times.dtype)
+    active = tf.cast(initial_qx, times.dtype) * tf.exp(-rate * times)
+    return tf.concat([active, tf.zeros((tf.shape(times)[0], 2), times.dtype)], axis=1)
 
 
 def closure_tf(m: dict[str, tf.Tensor], config: Config) -> tuple[tf.Tensor, tf.Tensor]:
@@ -610,7 +712,7 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 importance * tf.square(delta) *
                 (tf.sqrt(1.0+tf.square(relative_residual/delta))-1.0)
             )
-            if config.case == "heat_flux":
+            if case_has_heat_flux(config.case):
                 heat_loss = weak_heat_flux_loss(
                     c_grid, ratio, relative_residual, moments["mean"],
                     config.heat_flux_scale,
@@ -676,7 +778,10 @@ def _evaluation_proposal(config: Config, rng: np.random.Generator) -> np.ndarray
     Pairing is a quadrature variance reduction only.  It does not introduce
     particle-reference information into training or evaluation.
     """
-    if config.case != "heat_flux" or not config.antithetic_heat_flux_quadrature:
+    if (
+        not case_is_axisymmetric_heat_flux(config.case)
+        or not config.antithetic_heat_flux_quadrature
+    ):
         return sample_proposal(config.case, config.evaluation_samples, rng)
     base = sample_proposal(config.case, config.evaluation_samples // 4, rng)
     signs = np.array(
@@ -691,17 +796,34 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     reference = np.load(config.reference)
     times = reference["time"]
     rng = np.random.default_rng(config.seed + 9001)
-    proposal = _evaluation_proposal(config, rng)
-    log_q = proposal_logpdf(config.case, proposal)
+    deterministic_evaluation = config.evaluation_quadrature_order > 0
+    if deterministic_evaluation:
+        velocity_tf, log_weights_tf = gauss_hermite_velocity_quadrature(
+            config.evaluation_quadrature_order
+        )
+        proposal = velocity_tf.numpy().astype(np.float64)
+        log_integration_weights = log_weights_tf.numpy()
+        log_q = None
+    else:
+        proposal = _evaluation_proposal(config, rng)
+        log_q = proposal_logpdf(config.case, proposal)
     model_mass, model_mean, model_dm2, model_pij, model_q = [], [], [], [], []
     minimum_density = np.inf
     for time_value in times:
         log_f = _predict_log_density(model,float(time_value),proposal)
         density = np.exp(log_f)
-        ratio = np.exp(np.clip(log_f-log_q,-100.0,100.0))
-        weights = ratio / proposal.shape[0]
+        if deterministic_evaluation:
+            weights = np.exp(
+                np.clip(log_f + log_integration_weights, -745.0, 700.0)
+            )
+            mass_value = float(np.sum(weights))
+        else:
+            assert log_q is not None
+            ratio = np.exp(np.clip(log_f-log_q,-100.0,100.0))
+            weights = ratio / proposal.shape[0]
+            mass_value = float(np.mean(ratio))
         moments = moments_from_samples(proposal,weights=weights)
-        model_mass.append(float(np.mean(ratio)))
+        model_mass.append(mass_value)
         model_mean.append(moments.mean)
         model_dm2.append(moments.dm2)
         model_pij.append(moments.pij)
@@ -721,7 +843,7 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     active_heat_error=heat_error
     transverse_heat_flux_relative=0.0
     reference_transverse_heat_flux_relative=0.0
-    if config.case == "heat_flux":
+    if case_has_heat_flux(config.case):
         active_heat_error=float(
             np.linalg.norm(model_q[:,0]-ref_q[:,0])
             / max(np.linalg.norm(ref_q[:,0]),1.0e-12)
@@ -752,14 +874,23 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     initial_prediction=np.exp(_predict_log_density(model,0.0,initial_points))
     initial_exact=np.exp(initial_logpdf(config.case,initial_points))
     initial_linf=float(np.max(np.abs(initial_prediction-initial_exact)))
-    relevant_error = stress_error if config.case == "stress" else active_heat_error
-    relevant_threshold = 0.20 if config.case == "heat_flux" else 0.15
-    if config.case == "equilibrium":
+    has_heat_flux = case_has_heat_flux(config.case)
+    has_stress = case_has_stress(config.case)
+    if has_heat_flux and has_stress:
+        relevant_error = max(stress_error, active_heat_error)
+        relevant_threshold = 0.20
+    elif has_heat_flux:
+        relevant_error = active_heat_error
+        relevant_threshold = 0.20
+    elif has_stress:
+        relevant_error = stress_error
+        relevant_threshold = 0.15
+    else:
         relevant_error=max(float(np.max(np.linalg.norm(pred_dev,axis=1))),
                            float(np.max(np.linalg.norm(model_q,axis=1))))
         relevant_threshold=0.06
     checks={
-        "marginal_relative_l2": marginal_error < (0.15 if config.case=="heat_flux" else 0.12),
+        "marginal_relative_l2": marginal_error < (0.15 if has_heat_flux else 0.12),
         "max_mass_error": float(np.max(np.abs(model_mass-1.0))) < 0.03,
         "max_momentum_norm": float(np.max(np.linalg.norm(model_mean,axis=1))) < 0.03,
         "max_energy_error": float(np.max(np.abs(model_dm2-3.0))) < 0.04,
@@ -767,10 +898,16 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "initial_condition_linf": initial_linf < 2.0e-6,
         "positive_density": minimum_density >= 0.0,
     }
-    if config.case == "heat_flux":
+    if has_heat_flux:
         checks["transverse_heat_flux_symmetry"] = transverse_heat_flux_relative < 0.02
     metrics: dict[str,Any]={
         "case":config.case,"marginal_relative_l2":marginal_error,
+        "moment_evaluation_method": (
+            "tensor_gauss_hermite" if deterministic_evaluation else "importance_monte_carlo"
+        ),
+        "moment_evaluation_quadrature_order": (
+            config.evaluation_quadrature_order if deterministic_evaluation else None
+        ),
         "stress_history_relative_l2":stress_error,"heat_flux_history_relative_l2":heat_error,
         "case_relaxation_error":relevant_error,
         "max_mass_error":float(np.max(np.abs(model_mass-1.0))),
@@ -779,11 +916,16 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "minimum_density":minimum_density,"initial_condition_linf":initial_linf,
         "gate_checks":checks,"gate_passed":bool(all(checks.values())),
     }
-    if config.case == "heat_flux":
+    if has_heat_flux:
         metrics.update({
             "heat_flux_active_axis_relative_l2":active_heat_error,
             "max_transverse_heat_flux_relative":transverse_heat_flux_relative,
             "reference_transverse_heat_flux_relative":reference_transverse_heat_flux_relative,
+            "particle_data_used_in_training":False,
+            "publication_target_qx_l2":0.05,
+            "publication_target_passed":bool(
+                active_heat_error < 0.05 and all(checks.values())
+            ),
         })
 
     np.savez_compressed(
@@ -817,14 +959,22 @@ def make_validation_plot(
         axes[0,0].plot(centers,reference[row],"--",lw=1.0,label=fr"particle $t={times[index]:.2f}$")
     axes[0,0].set(xlabel=r"$c_x$",ylabel=r"marginal $f_x$",title="Distribution relaxation")
     axes[0,0].legend(fontsize=6,ncol=2)
-    if config.case=="stress":
+    if case_has_heat_flux(config.case):
+        axes[0,1].plot(times,q[:,0],label="PINN")
+        axes[0,1].plot(times,ref_q[:,0],"--",label="particle")
+        axes[0,1].plot(
+            times,
+            initial_heat_flux_qx(config.case)
+            * np.exp(-heat_flux_relaxation_rate(config.nu) * times),
+            ":",
+            lw=1.4,
+            label="exact moment law",
+        )
+        axes[0,1].set(ylabel=r"$Q_x=2q_x/\rho$",title="Heat-flux relaxation")
+    elif case_has_stress(config.case):
         axes[0,1].plot(times,pij[:,0]-pij[:,3],label="PINN")
         axes[0,1].plot(times,ref_pij[:,0]-ref_pij[:,3],"--",label="particle")
         axes[0,1].set(ylabel=r"$P_{xx}-P_{yy}$",title="Stress relaxation")
-    elif config.case=="heat_flux":
-        axes[0,1].plot(times,q[:,0],label="PINN")
-        axes[0,1].plot(times,ref_q[:,0],"--",label="particle")
-        axes[0,1].set(ylabel=r"$Q_x=2q_x/\rho$",title="Heat-flux relaxation")
     else:
         dev=np.sqrt((pij[:,0]-1)**2+(pij[:,3]-1)**2+(pij[:,5]-1)**2+2*(pij[:,1]**2+pij[:,2]**2+pij[:,4]**2))
         axes[0,1].semilogy(times,np.maximum(dev,1e-12),label="stress norm")
@@ -836,7 +986,7 @@ def make_validation_plot(
     axes[1,0].semilogy(times,np.maximum(np.abs(dm2-3),1e-12),label="energy")
     axes[1,0].set(xlabel=r"$t/\tau$",ylabel="absolute error",title="Conservation audit")
     axes[1,0].legend()
-    if config.case=="heat_flux":
+    if case_has_heat_flux(config.case):
         axes[1,1].semilogy(times,np.maximum(np.abs(q[:,1]),1e-12),label=r"PINN $|Q_y|$")
         axes[1,1].semilogy(times,np.maximum(np.abs(q[:,2]),1e-12),label=r"PINN $|Q_z|$")
         axes[1,1].semilogy(times,np.maximum(np.linalg.norm(ref_q[:,1:3],axis=1),1e-12),

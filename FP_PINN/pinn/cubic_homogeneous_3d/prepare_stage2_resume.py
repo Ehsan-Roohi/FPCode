@@ -37,8 +37,12 @@ def allowed_relative_path(name: str) -> Path | None:
             and suffix[1].endswith(".weights.h5")
         ):
             return Path(*suffix)
-        if suffix == ("stage2_final.weights.h5",):
-            return Path("stage2_final.weights.h5")
+        if suffix in (
+            ("resume_input.weights.h5",),
+            ("stage2_best.weights.h5",),
+            ("stage2_final.weights.h5",),
+        ):
+            return Path(suffix[0])
     return None
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent particle reference for the three homogeneous Stage-2 cases."""
+"""Independent particle reference for homogeneous Stage-2/V4 cases."""
 
 from __future__ import annotations
 
@@ -12,7 +12,9 @@ import time
 import numpy as np
 
 from cubic_operator import (
-    CASE_NAMES,
+    ALL_CASE_NAMES,
+    analytic_initial_summary,
+    case_default_nu,
     moments_from_samples,
     ou_cubic_step,
     sample_initial,
@@ -22,7 +24,7 @@ from cubic_operator import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=CASE_NAMES, required=True)
+    parser.add_argument("--case", choices=ALL_CASE_NAMES, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--particles", type=int, default=250_000)
     parser.add_argument("--dt", type=float, default=0.005)
@@ -136,6 +138,10 @@ def run_reference(args: argparse.Namespace) -> dict[str, float | bool | str]:
     finite = bool(all(np.all(np.isfinite(value)) for value in arrays.values()))
     metrics: dict[str, float | bool | str] = {
         "case": args.case,
+        "case_default_nu": case_default_nu(args.case),
+        "analytic_initial_heat_flux_qx": float(
+            analytic_initial_summary(args.case)["q"][0]
+        ),
         "particles": args.particles,
         "dt": args.dt,
         "saved_times": int(arrays["time"].size),

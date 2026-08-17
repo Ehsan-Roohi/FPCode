@@ -20,13 +20,89 @@ Here Q=<c |c|^2>=2q/rho.  The last two centered terms preserve momentum.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Mapping, Tuple
 
 import numpy as np
 
 
 CASE_NAMES: Tuple[str, ...] = ("equilibrium", "stress", "heat_flux")
+OOD_SUITE_CASES: Tuple[str, ...] = (
+    "heat_flux",
+    "ood_hf_q0125",
+    "ood_hf_q0400",
+    "ood_hf_shape_w020",
+    "ood_hf_nu050",
+    "ood_hf_nu200",
+    "ood_stress_mild",
+    "ood_stress_strong",
+    "ood_coupled_axisym",
+)
 SQRT_2PI = np.sqrt(2.0 * np.pi)
+
+
+@dataclass(frozen=True)
+class InitialConditionSpec:
+    """Fully specified positive initial state for one robustness case."""
+
+    name: str
+    family: str
+    variances: Tuple[float, float, float]
+    heat_flux_qx: float = 0.0
+    mixture_weight: float = 1.0 / 3.0
+    nu: float = 1.0
+    description: str = ""
+
+
+_CASE_SPECS: Mapping[str, InitialConditionSpec] = {
+    "equilibrium": InitialConditionSpec(
+        "equilibrium", "equilibrium", (1.0, 1.0, 1.0),
+        description="unit-temperature Maxwellian invariant",
+    ),
+    "stress": InitialConditionSpec(
+        "stress", "stress", (1.6, 0.9, 0.5),
+        description="legacy anisotropic-stress benchmark",
+    ),
+    "heat_flux": InitialConditionSpec(
+        "heat_flux", "heat_flux", (1.0, 1.0, 1.0), heat_flux_qx=0.25,
+        description="legacy heat-flux control",
+    ),
+    "ood_hf_q0125": InitialConditionSpec(
+        "ood_hf_q0125", "heat_flux", (1.0, 1.0, 1.0), heat_flux_qx=0.125,
+        description="half-amplitude heat flux",
+    ),
+    "ood_hf_q0400": InitialConditionSpec(
+        "ood_hf_q0400", "heat_flux", (1.0, 1.0, 1.0), heat_flux_qx=0.4,
+        description="strong heat flux",
+    ),
+    "ood_hf_shape_w020": InitialConditionSpec(
+        "ood_hf_shape_w020", "heat_flux", (1.0, 1.0, 1.0),
+        heat_flux_qx=0.25, mixture_weight=0.2,
+        description="same heat flux with a different positive-mixture shape",
+    ),
+    "ood_hf_nu050": InitialConditionSpec(
+        "ood_hf_nu050", "heat_flux", (1.0, 1.0, 1.0),
+        heat_flux_qx=0.25, nu=0.5,
+        description="slow collision-rate heat flux",
+    ),
+    "ood_hf_nu200": InitialConditionSpec(
+        "ood_hf_nu200", "heat_flux", (1.0, 1.0, 1.0),
+        heat_flux_qx=0.25, nu=2.0,
+        description="fast collision-rate heat flux",
+    ),
+    "ood_stress_mild": InitialConditionSpec(
+        "ood_stress_mild", "stress", (1.3, 1.0, 0.7),
+        description="mild anisotropic stress",
+    ),
+    "ood_stress_strong": InitialConditionSpec(
+        "ood_stress_strong", "stress", (2.0, 0.75, 0.25),
+        description="strong anisotropic stress",
+    ),
+    "ood_coupled_axisym": InitialConditionSpec(
+        "ood_coupled_axisym", "coupled", (1.6, 0.7, 0.7), heat_flux_qx=0.2,
+        description="axisymmetric stress and heat-flux relaxation",
+    ),
+}
+ALL_CASE_NAMES: Tuple[str, ...] = tuple(_CASE_SPECS)
 
 
 @dataclass(frozen=True)
@@ -66,9 +142,61 @@ def _logaddexp_weighted(log_a: np.ndarray, weight_a: float,
 
 
 def validate_case(case: str) -> str:
-    if case not in CASE_NAMES:
-        raise ValueError(f"Unknown case {case!r}; choose one of {CASE_NAMES}")
+    if case not in ALL_CASE_NAMES:
+        raise ValueError(f"Unknown case {case!r}; choose one of {ALL_CASE_NAMES}")
     return case
+
+
+def case_spec(case: str) -> InitialConditionSpec:
+    validate_case(case)
+    return _CASE_SPECS[case]
+
+
+def case_has_heat_flux(case: str) -> bool:
+    return abs(case_spec(case).heat_flux_qx) > 0.0
+
+
+def case_has_stress(case: str) -> bool:
+    return not np.allclose(case_spec(case).variances, (1.0, 1.0, 1.0))
+
+
+def case_is_axisymmetric_heat_flux(case: str) -> bool:
+    spec = case_spec(case)
+    return case_has_heat_flux(case) and np.isclose(spec.variances[1], spec.variances[2])
+
+
+def case_default_nu(case: str) -> float:
+    return float(case_spec(case).nu)
+
+
+def initial_heat_flux_qx(case: str) -> float:
+    return float(case_spec(case).heat_flux_qx)
+
+
+def heat_flux_mixture_parameters(case: str) -> Tuple[float, float, float, float]:
+    """Return ``(weight, positive_mean, negative_mean, component_variance)``.
+
+    The two components share a variance.  Their means enforce zero momentum,
+    while the separation is chosen so the requested third central moment is
+    exactly ``Q_x``.  The component variance then enforces the requested
+    x-direction second moment.
+    """
+    spec = case_spec(case)
+    if not case_has_heat_flux(case):
+        raise ValueError(f"Case {case!r} has no heat-flux mixture")
+    weight = float(spec.mixture_weight)
+    if not 0.0 < weight < 0.5:
+        raise ValueError("heat-flux mixture weight must lie between zero and one half")
+    coefficient = weight * (1.0 - 2.0 * weight) / (1.0 - weight) ** 2
+    positive_mean = (spec.heat_flux_qx / coefficient) ** (1.0 / 3.0)
+    negative_mean = -weight * positive_mean / (1.0 - weight)
+    component_variance = (
+        spec.variances[0]
+        - weight * positive_mean**2 / (1.0 - weight)
+    )
+    if component_variance <= 0.0:
+        raise ValueError(f"Case {case!r} has a non-positive mixture variance")
+    return weight, positive_mean, negative_mean, component_variance
 
 
 def equilibrium_logpdf(c: np.ndarray) -> np.ndarray:
@@ -84,24 +212,21 @@ def initial_logpdf(case: str, c: np.ndarray) -> np.ndarray:
     if c.shape[-1] != 3:
         raise ValueError("c must have final dimension three")
 
-    if case == "equilibrium":
-        return equilibrium_logpdf(c)
-
-    if case == "stress":
-        # Trace(covariance)=3, hence theta=1, but the stress is anisotropic.
-        variances = np.array([1.6, 0.9, 0.5], dtype=np.float64)
+    spec = case_spec(case)
+    variances = np.asarray(spec.variances, dtype=np.float64)
+    if not case_has_heat_flux(case):
+        # Every tabulated covariance has trace three, hence theta=1.
         return np.sum(
             -0.5 * (np.log(2.0 * np.pi * variances) + c * c / variances),
             axis=-1,
         )
 
-    # Positive skew two-Gaussian mixture in c_x.  Its exact moments are
-    # <c_x>=0, <c_x^2>=1, <c_x^3>=1/4.  The transverse components are N(0,1).
-    log_x_a = _normal_logpdf(c[..., 0], mean=1.0, variance=0.5)
-    log_x_b = _normal_logpdf(c[..., 0], mean=-0.5, variance=0.5)
-    log_x = _logaddexp_weighted(log_x_a, 1.0 / 3.0, log_x_b, 2.0 / 3.0)
-    return log_x + _normal_logpdf(c[..., 1], 0.0, 1.0) + _normal_logpdf(
-        c[..., 2], 0.0, 1.0
+    weight, mean_a, mean_b, variance_x = heat_flux_mixture_parameters(case)
+    log_x_a = _normal_logpdf(c[..., 0], mean=mean_a, variance=variance_x)
+    log_x_b = _normal_logpdf(c[..., 0], mean=mean_b, variance=variance_x)
+    log_x = _logaddexp_weighted(log_x_a, weight, log_x_b, 1.0 - weight)
+    return log_x + _normal_logpdf(c[..., 1], 0.0, variances[1]) + _normal_logpdf(
+        c[..., 2], 0.0, variances[2]
     )
 
 
@@ -117,15 +242,16 @@ def sample_initial(case: str, size: int, rng: np.random.Generator) -> np.ndarray
     validate_case(case)
     if size <= 0:
         raise ValueError("size must be positive")
-    if case == "equilibrium":
-        return rng.normal(size=(size, 3))
-    if case == "stress":
-        return rng.normal(size=(size, 3)) * np.sqrt([1.6, 0.9, 0.5])
+    spec = case_spec(case)
+    variances = np.asarray(spec.variances, dtype=np.float64)
+    if not case_has_heat_flux(case):
+        return rng.normal(size=(size, 3)) * np.sqrt(variances)
 
-    component_a = rng.random(size) < (1.0 / 3.0)
-    means = np.where(component_a, 1.0, -0.5)
-    result = rng.normal(size=(size, 3))
-    result[:, 0] = means + np.sqrt(0.5) * rng.normal(size=size)
+    weight, mean_a, mean_b, variance_x = heat_flux_mixture_parameters(case)
+    component_a = rng.random(size) < weight
+    means = np.where(component_a, mean_a, mean_b)
+    result = rng.normal(size=(size, 3)) * np.sqrt(variances)
+    result[:, 0] = means + np.sqrt(variance_x) * rng.normal(size=size)
     return result
 
 
@@ -140,15 +266,10 @@ def sample_proposal(case: str, size: int, rng: np.random.Generator) -> np.ndarra
 
 def analytic_initial_summary(case: str) -> Dict[str, np.ndarray | float]:
     validate_case(case)
-    if case == "equilibrium":
-        pij = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
-        q = np.zeros(3)
-    elif case == "stress":
-        pij = np.array([1.6, 0.0, 0.0, 0.9, 0.0, 0.5])
-        q = np.zeros(3)
-    else:
-        pij = np.array([1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
-        q = np.array([0.25, 0.0, 0.0])
+    spec = case_spec(case)
+    vx, vy, vz = spec.variances
+    pij = np.array([vx, 0.0, 0.0, vy, 0.0, vz])
+    q = np.array([spec.heat_flux_qx, 0.0, 0.0])
     return {"mass": 1.0, "mean": np.zeros(3), "dm2": 3.0, "pij": pij, "q": q}
 
 
@@ -218,6 +339,46 @@ def cubic_lambda(moments: Moments, nu: float = 1.0) -> float:
     return -deviatoric_stress_norm_squared(moments) * float(nu) / denominator
 
 
+def heat_flux_relaxation_rate(
+    nu: float = 1.0, nubol: float | None = None
+) -> float:
+    """Return the exact homogeneous relaxation rate of ``Q=<c |c|^2>``.
+
+    The last three rows of the canonical closure system make the nonlinear
+    drift contribution equal to ``(3*nu - 2*nubol/3) Q``.  The linear OU
+    drift contributes ``-3*nu Q``, while the diffusion contribution vanishes
+    for zero peculiar-velocity mean.  Consequently
+
+        dQ/dt = -(2/3) * nubol * Q.
+
+    FPCode uses ``nubol=2*nu``, hence the Stage-2 benchmark has the exact rate
+    ``4*nu/3``.  This identity is an operator consequence, not information
+    inferred from the independent particle validation history.
+    """
+    if nubol is None:
+        nubol = 2.0 * nu
+    if nu <= 0.0 or nubol <= 0.0:
+        raise ValueError("nu and nubol must be positive")
+    return (2.0 / 3.0) * float(nubol)
+
+
+def analytic_heat_flux_history(
+    time: np.ndarray | float,
+    initial_q: np.ndarray | float = 0.25,
+    nu: float = 1.0,
+    nubol: float | None = None,
+) -> np.ndarray:
+    """Exact heat-flux moment history implied by the closure equations."""
+    values = np.asarray(time, dtype=np.float64)
+    if np.any(values < 0.0):
+        raise ValueError("time must be nonnegative")
+    return np.asarray(initial_q, dtype=np.float64) * np.exp(
+        -heat_flux_relaxation_rate(nu=nu, nubol=nubol) * values[..., None]
+        if np.ndim(initial_q) > 0
+        else -heat_flux_relaxation_rate(nu=nu, nubol=nubol) * values
+    )
+
+
 def build_closure_system(
     moments: Moments, nu: float = 1.0, nubol: float | None = None
 ) -> Tuple[np.ndarray, np.ndarray, float]:
@@ -268,7 +429,7 @@ def build_closure_system(
     rhs[6] = -lam * (3*m5[0]-d2*q[0]-2*(p[0]*q[0]+p[1]*q[1]+p[2]*q[2]))
     rhs[7] = -lam * (3*m5[1]-d2*q[1]-2*(p[1]*q[0]+p[3]*q[1]+p[4]*q[2]))
     rhs[8] = -lam * (3*m5[2]-d2*q[2]-2*(p[2]*q[0]+p[4]*q[1]+p[5]*q[2]))
-    rhs[6:] += (3.0*nu - (2.0/3.0)*nubol) * q
+    rhs[6:] += (3.0 * nu - heat_flux_relaxation_rate(nu, nubol)) * q
     return lhs, rhs, lam
 
 

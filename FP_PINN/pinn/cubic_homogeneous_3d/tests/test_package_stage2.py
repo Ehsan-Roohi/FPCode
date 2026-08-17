@@ -19,6 +19,7 @@ class PackageStage2Tests(unittest.TestCase):
             case_output = temp / "case"
             case_output.mkdir()
             (case_output / "metrics.json").write_text('{"gate_passed": true}\n')
+            (case_output / "run_metadata.json").write_text('{"stale": true}\n')
             nested = case_output / "reference_particle"
             nested.mkdir()
             (nested / "reference_metrics.json").write_text("{}\n")
@@ -49,6 +50,7 @@ class PackageStage2Tests(unittest.TestCase):
                 )
                 self.assertIn("slurm_logs/slurm.out", bundle.namelist())
                 metadata = json.loads(bundle.read("run_metadata.json"))
+                self.assertEqual(bundle.namelist().count("run_metadata.json"), 1)
             self.assertEqual(metadata["array_job_id"], "42")
             self.assertEqual(metadata["case"], "heat_flux")
 

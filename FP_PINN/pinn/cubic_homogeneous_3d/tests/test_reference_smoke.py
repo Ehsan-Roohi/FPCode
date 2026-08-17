@@ -9,12 +9,15 @@ import unittest
 import numpy as np
 
 HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE))
+
+from cubic_operator import OOD_SUITE_CASES, case_default_nu
 
 
 class ReferenceSmokeTests(unittest.TestCase):
     def test_all_cases_write_finite_reference(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            for case in ("equilibrium", "stress", "heat_flux"):
+            for case in OOD_SUITE_CASES:
                 destination = Path(temp) / case
                 subprocess.run(
                     [
@@ -22,6 +25,7 @@ class ReferenceSmokeTests(unittest.TestCase):
                         "--case", case, "--output-dir", str(destination),
                         "--particles", "4000", "--dt", "0.01", "--tmax", "0.02",
                         "--save-every", "1", "--print-every", "10",
+                        "--nu", str(case_default_nu(case)),
                     ],
                     check=True,
                     cwd=HERE,
@@ -35,4 +39,3 @@ class ReferenceSmokeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

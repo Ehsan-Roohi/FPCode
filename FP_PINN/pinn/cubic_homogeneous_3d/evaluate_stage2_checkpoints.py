@@ -60,6 +60,31 @@ def load_config(case_output: Path, reference: Path) -> Config:
     return Config(**values)
 
 
+def discover_checkpoints(case_output: Path) -> list[Path]:
+    """Return every portable candidate, including the incoming baseline.
+
+    Continuation runs used to rank only newly written epoch checkpoints.  That
+    allowed a degraded continuation checkpoint to replace a better
+    ``resume_input.weights.h5``.  Root candidates are now part of the same
+    global sweep and duplicate paths are removed.
+    """
+    candidates = [
+        case_output / "resume_input.weights.h5",
+        case_output / "stage2_best.weights.h5",
+        case_output / "stage2_final.weights.h5",
+        *sorted((case_output / "checkpoints_h5").glob("epoch-*.weights.h5")),
+        *sorted((case_output / "checkpoints_h5").glob("projection-step-*.weights.h5")),
+    ]
+    result: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if candidate.is_file() and resolved not in seen:
+            seen.add(resolved)
+            result.append(candidate)
+    return result
+
+
 def write_table(path: Path, rows: list[dict[str, Any]]) -> None:
     columns = [
         "checkpoint", "smoke_admissible", "selection_score",
@@ -81,11 +106,7 @@ def main() -> None:
     if config.case != "heat_flux":
         raise SystemExit("Checkpoint sweep is currently defined for the heat_flux case")
 
-    checkpoints = sorted((case_output / "checkpoints_h5").glob("epoch-*.weights.h5"))
-    if not checkpoints:
-        final = case_output / "stage2_final.weights.h5"
-        if final.is_file():
-            checkpoints = [final]
+    checkpoints = discover_checkpoints(case_output)
     if not checkpoints:
         raise SystemExit(f"No portable checkpoint found under {case_output}")
 
@@ -96,7 +117,8 @@ def main() -> None:
     rows: list[dict[str, Any]] = []
 
     for checkpoint in checkpoints:
-        label = checkpoint.name.removesuffix(".weights.h5")
+        label = checkpoint.relative_to(case_output).as_posix().removesuffix(".weights.h5")
+        label = label.replace("/", "__")
         destination = sweep_root / label
         destination.mkdir(parents=True, exist_ok=True)
         try:
@@ -141,7 +163,8 @@ def main() -> None:
     )
     best_source = case_output / str(best["checkpoint"])
     best_target = case_output / "stage2_best.weights.h5"
-    shutil.copy2(best_source, best_target)
+    if best_source.resolve() != best_target.resolve():
+        shutil.copy2(best_source, best_target)
     summary = {
         "selection_rule": (
             "smoke-admissible first; then minimum qx/marginal/conservation composite"

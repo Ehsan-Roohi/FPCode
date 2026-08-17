@@ -12,8 +12,11 @@ sys.path.insert(0, str(HERE))
 from cubic_operator import (  # noqa: E402
     CASE_NAMES,
     analytic_initial_summary,
+    analytic_heat_flux_history,
     build_closure_system,
     cubic_lambda,
+    full_drift,
+    heat_flux_relaxation_rate,
     maxwellian_log_residual,
     moments_from_samples,
     nonlinear_drift,
@@ -105,6 +108,27 @@ class CubicOperatorTests(unittest.TestCase):
             )
             self.assertLess(relative, 1.0e-8)
 
+    def test_closure_enforces_exact_heat_flux_relaxation(self) -> None:
+        rng = np.random.default_rng(20260816)
+        values = sample_initial("heat_flux", 300_000, rng)
+        moments = moments_from_samples(values)
+        closure = solve_closure(moments)
+        peculiar = values - moments.mean
+        radius_squared = np.sum(peculiar * peculiar, axis=1)
+        drift = full_drift(values, moments, closure)
+        generator_q = np.mean(
+            drift * radius_squared[:, None]
+            + 2.0 * peculiar * np.sum(peculiar * drift, axis=1)[:, None],
+            axis=0,
+        )
+        rate = heat_flux_relaxation_rate()
+        np.testing.assert_allclose(
+            generator_q, -rate * moments.q, rtol=2.0e-9, atol=2.0e-10
+        )
+        self.assertAlmostEqual(rate, 4.0 / 3.0)
+        history = analytic_heat_flux_history(np.array([0.0, 1.0]))
+        np.testing.assert_allclose(history, [0.25, 0.25 * np.exp(-rate)])
+
     def test_particle_projection_preserves_momentum_and_energy(self) -> None:
         rng = np.random.default_rng(67)
         values = sample_initial("heat_flux", 100_000, rng)
@@ -122,4 +146,3 @@ class CubicOperatorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

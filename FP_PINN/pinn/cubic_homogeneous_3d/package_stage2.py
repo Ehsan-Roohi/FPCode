@@ -61,7 +61,13 @@ def main() -> None:
     ) as bundle:
         for path in sorted(case_output.rglob("*")):
             if path.is_file():
-                bundle.write(path, path.relative_to(case_output).as_posix())
+                relative = path.relative_to(case_output).as_posix()
+                # The packager owns the canonical archive-level metadata.
+                # A local runner may already have written a case-level record;
+                # omitting it avoids duplicate ZIP members with the same name.
+                if relative == "run_metadata.json":
+                    continue
+                bundle.write(path, relative)
         for raw_log in args.log:
             log = Path(raw_log)
             if log.is_file():

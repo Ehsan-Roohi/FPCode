@@ -59,6 +59,31 @@ The archive contains all case outputs, the particle reference, portable
 weights, CSV histories, validation figures, metrics, Slurm logs when available,
 and `run_metadata.json` with the exact Git commit and job identifiers.
 
+## V3 correction: exact operator-moment projection
+
+The rotating-panel continuation revealed that its weak Monte Carlo projection
+could decrease on a training cloud while independent `Qx` accuracy degraded.
+The closure equations themselves provide a stronger particle-free identity:
+
+```text
+dQ/dt = -(4/3) nu Q,  Q(0) = (0.25, 0, 0).
+```
+
+`calibrate_stage2_heat_flux.py` now projects the best portable checkpoint onto
+this identity with order-16 tensor Gauss-Hermite integration.  Checkpoint
+selection uses different times and order-20 quadrature.  The particle archive
+is opened only after optimization for final validation.  Reported model
+moments use a converged order-48 quadrature, removing the seed sensitivity of
+the former Monte Carlo evaluator.  `audit_stage2_residual.py` then checks the
+strong residual on a fresh random panel.
+
+The dedicated Slurm runner always creates one complete ZIP in the repository
+root:
+
+```bash
+sbatch --export=ALL,FP_RESUME_ARCHIVE="$PWD/FP_PINN_STAGE2_JOB62947852_HEAT_FLUX_COMPLETE.zip" FP_PINN/pinn/cubic_homogeneous_3d/slurm/run_stage2_heatflux_v3.sbatch
+```
+
 
 ## Rotating-panel continuation after job 62868926
 

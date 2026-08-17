@@ -60,6 +60,11 @@ Particle histories are never used in the training loss.  The independent
 particle solver is used only after training for stress/heat-flux histories,
 one-dimensional marginals, and numerical gates.
 
+For the heat-flux continuation, the canonical closure also gives the exact
+integrated law `dQ/dt=-(4/3)nu Q`.  The V3 projection enforces this operator
+identity with deterministic whole-space quadrature and selects checkpoints on
+a separate quadrature/time panel.  Particle data remain validation-only.
+
 ## Files
 
 - `cubic_operator.py`: canonical moments, 9×9 closure, cubic drift, and three
@@ -72,6 +77,21 @@ one-dimensional marginals, and numerical gates.
   cases.
 - `summarize_stage2.py`: one-line numerical summary of the triad.
 - `tests/`: analytic, indexing, closure, restart, and TensorFlow smoke tests.
+
+## V4 robustness suite
+
+After the validated V3 heat-flux correction, `OOD_V4.md` defines the next
+controlled milestone: nine independently trained cases spanning heat-flux
+amplitude and mixture shape, collision rate, anisotropic stress, and a coupled
+stress/heat-flux state.  Submit the complete suite from the repository root:
+
+```bash
+bash FP_PINN/pinn/cubic_homogeneous_3d/slurm/submit_stage2_ood_v4.sh
+```
+
+An automatic dependent collector puts the aggregate figure/table and every
+reproducibility artifact into one atomic
+`FP_PINN_STAGE2_V4_OOD_JOB<id>_COMPLETE.zip` at the repository root.
 
 ## Unity: update and run
 

@@ -18,6 +18,18 @@ except ModuleNotFoundError:  # The repository's lightweight CPU test environment
 
 @unittest.skipIf(tf is None, "TensorFlow is tested inside the Unity dsmc-gpu environment")
 class TensorFlowPathTests(unittest.TestCase):
+    def test_tensorflow_initial_density_matches_numpy_for_ood_suite(self) -> None:
+        from cubic_operator import OOD_SUITE_CASES, initial_logpdf
+        from train_stage2 import tf_initial_logpdf
+
+        rng = np.random.default_rng(271828)
+        values = rng.normal(size=(64, 3)).astype(np.float32)
+        for case in OOD_SUITE_CASES:
+            with self.subTest(case=case):
+                actual = tf_initial_logpdf(case, tf.constant(values)).numpy()[:, 0]
+                expected = initial_logpdf(case, values)
+                np.testing.assert_allclose(actual, expected, rtol=2.0e-6, atol=2.0e-6)
+
     def test_heat_flux_model_is_axisymmetric_with_legacy_weight_shape(self) -> None:
         from train_stage2 import Config, DensityModel
 
@@ -114,6 +126,37 @@ class TensorFlowPathTests(unittest.TestCase):
         mean = tf.zeros((1, 3), tf.float32)
         loss = weak_heat_flux_loss(c, ratio, residual, mean, scale=0.25)
         self.assertEqual(float(loss.numpy()), 0.0)
+
+    def test_deterministic_quadrature_recovers_exact_initial_moments(self) -> None:
+        from train_stage2 import (
+            Config,
+            DensityModel,
+            deterministic_moment_tensors,
+            exact_heat_flux_target,
+            gauss_hermite_velocity_quadrature,
+        )
+
+        config = Config(
+            case="heat_flux", output_dir="unused", reference="unused",
+            width=16, depth=2,
+        )
+        model = DensityModel(config)
+        velocity, log_weights = gauss_hermite_velocity_quadrature(16)
+        moments = deterministic_moment_tensors(
+            model, tf.constant([[0.0]], tf.float32), velocity, log_weights
+        )
+        self.assertAlmostEqual(float(moments["mass"].numpy()[0]), 1.0, places=6)
+        self.assertAlmostEqual(float(moments["dm2"].numpy()[0]), 3.0, places=5)
+        self.assertAlmostEqual(float(moments["q"].numpy()[0, 0]), 0.25, places=5)
+        np.testing.assert_allclose(moments["mean"].numpy(), 0.0, atol=2.0e-6)
+        target = exact_heat_flux_target(tf.constant([[0.0], [1.0]]))
+        self.assertAlmostEqual(float(target.numpy()[1, 0]), 0.25 * np.exp(-4.0 / 3.0))
+        custom = exact_heat_flux_target(
+            tf.constant([[0.0], [1.0]]), nu=0.5, initial_qx=0.4
+        )
+        self.assertAlmostEqual(
+            float(custom.numpy()[1, 0]), 0.4 * np.exp(-2.0 / 3.0)
+        )
 
     def test_tensorflow_closure_matches_numpy(self) -> None:
         from cubic_operator import moments_from_samples, sample_initial, solve_closure

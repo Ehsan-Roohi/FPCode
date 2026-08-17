@@ -1,0 +1,6 @@
+__pycache__/
+.venv/
+outputs/
+*.zip
+*.sha256
+

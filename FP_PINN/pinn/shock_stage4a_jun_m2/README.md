@@ -36,6 +36,9 @@ bash run_one_line.sh
 All products are written to `outputs/stage4a_jun_m2/`. The packaging command
 places a single ZIP in the repository root.
 
+On Unity/Slurm, submit `run_stage4a.sbatch`; it creates a reusable project
+virtual environment if needed and still places the final ZIP in repository root.
+
 ## Scope of the result
 
 Stage 4A is a verification baseline and fixes the previous heat-flux mismatch

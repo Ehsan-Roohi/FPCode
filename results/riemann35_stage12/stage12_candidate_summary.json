@@ -1,0 +1,100 @@
+{
+  "schema": "riemann35-stage12-high-skew-candidate-audit-v1",
+  "case": "rare_beam_ma20",
+  "controls": {
+    "dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "particle_reference": "Stage 11, 16 x 100000 particles",
+    "accuracy_gate_M400": 0.03
+  },
+  "candidates": {
+    "algebraic_base": {
+      "candidate": "algebraic_base",
+      "elapsed_seconds": 15.499661397996533,
+      "minimum_realizability_margin": 0.0007124701964840507,
+      "limited_steps": 0,
+      "minimum_lambda": 1.0,
+      "all_35_dimensionless_history_relative_l2": 0.18873693898129107,
+      "all_35_relaxation_change_relative_l2": 0.31618105691679016,
+      "fourth_order_componentwise_dimensionless_rmse": 2.307833389151433,
+      "fourth_order_dimensionless_history_relative_l2": 0.19139454708286047,
+      "M400_history_relative_l2": 0.18990213336550552,
+      "M300_history_relative_l2": 0.004688356147772272,
+      "heat_flux_history_relative_l2": 0.004443912401199047,
+      "passes_3pct_M400_gate": false
+    },
+    "algebraic_residual": {
+      "candidate": "algebraic_residual",
+      "elapsed_seconds": 16.208980406998307,
+      "minimum_realizability_margin": 9.994450962909782e-13,
+      "limited_steps": 87,
+      "minimum_lambda": 0.513859169925459,
+      "all_35_dimensionless_history_relative_l2": 0.22058224506545712,
+      "all_35_relaxation_change_relative_l2": 0.36952982155119174,
+      "fourth_order_componentwise_dimensionless_rmse": 2.6962245807838428,
+      "fourth_order_dimensionless_history_relative_l2": 0.22360482559035277,
+      "M400_history_relative_l2": 0.21579406053292507,
+      "M300_history_relative_l2": 0.037758474321429716,
+      "heat_flux_history_relative_l2": 0.04091202291743547,
+      "passes_3pct_M400_gate": false
+    },
+    "persistent_two_population": {
+      "candidate": "persistent_two_population",
+      "elapsed_seconds": 0.9513572360010585,
+      "minimum_realizability_margin": 0.0007125878784511694,
+      "limited_steps": 0,
+      "minimum_lambda": 1.0,
+      "all_35_dimensionless_history_relative_l2": 0.18756318191443544,
+      "all_35_relaxation_change_relative_l2": 0.3142147235007398,
+      "fourth_order_componentwise_dimensionless_rmse": 2.2877526863658786,
+      "fourth_order_dimensionless_history_relative_l2": 0.18972920285445416,
+      "M400_history_relative_l2": 0.18867898885574724,
+      "M300_history_relative_l2": 0.08398491232323722,
+      "heat_flux_history_relative_l2": 0.09259277429091532,
+      "passes_3pct_M400_gate": false
+    },
+    "dynamic_m6": {
+      "candidate": "dynamic_m6",
+      "elapsed_seconds": 30.68781046100048,
+      "minimum_realizability_margin": 0.0007124701964840507,
+      "limited_steps": 0,
+      "minimum_lambda": 1.0,
+      "all_35_dimensionless_history_relative_l2": 0.1673526504169252,
+      "all_35_relaxation_change_relative_l2": 0.2803570841630249,
+      "fourth_order_componentwise_dimensionless_rmse": 2.04639141656657,
+      "fourth_order_dimensionless_history_relative_l2": 0.16971249318479803,
+      "M400_history_relative_l2": 0.16832344246557532,
+      "M300_history_relative_l2": 0.0032937691349745678,
+      "heat_flux_history_relative_l2": 0.004443912404379685,
+      "passes_3pct_M400_gate": false
+    },
+    "dynamic_m8": {
+      "candidate": "dynamic_m8",
+      "elapsed_seconds": 64.59038857600535,
+      "minimum_realizability_margin": 0.0007124701964840564,
+      "limited_steps": 0,
+      "minimum_lambda": 1.0,
+      "all_35_dimensionless_history_relative_l2": 0.15087186429418753,
+      "all_35_relaxation_change_relative_l2": 0.252747690881388,
+      "fourth_order_componentwise_dimensionless_rmse": 1.844881899251785,
+      "fourth_order_dimensionless_history_relative_l2": 0.1530007916466163,
+      "M400_history_relative_l2": 0.15193311736619763,
+      "M300_history_relative_l2": 0.00300303816131344,
+      "heat_flux_history_relative_l2": 0.00444391240597442,
+      "passes_3pct_M400_gate": false
+    }
+  },
+  "instantaneous_source_diagnostic": {
+    "schema": "riemann35-stage12-rare-beam-source-diagnostic-v1",
+    "particles_per_seed": 100000,
+    "independent_seeds": 16,
+    "dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "m400_source_history_relative_errors": {
+      "stage9": 0.47737647868746985,
+      "grad": 0.8236354346876588,
+      "two_population_base": 0.6171238578223863,
+      "two_population_residual": 0.7612498170426317
+    }
+  }
+}

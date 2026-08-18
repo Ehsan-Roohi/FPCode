@@ -1,0 +1,221 @@
+# Stage 0: positive OU Fokker–Planck PINN
+
+This is the first, deliberately small verification problem for the FP-PINN
+work. It solves
+
+```text
+f_t = (v f)_v + f_vv
+```
+
+for a symmetric bimodal initial distribution on `v in [-6,6]`. The associated
+SDE is `dV = -V dt + sqrt(2) dW`. An analytic solution is available, so a bad
+sign, a missing factor of two, or an incorrect second derivative is exposed
+before the project moves to the cubic 3-D velocity operator.
+
+The neural density is positive by construction and satisfies the initial
+condition exactly. The loss contains the strong FP residual, zero-flux velocity
+boundary conditions, unit mass, and the analytic second-moment evolution.
+
+## CPU reference test
+
+From the repository root:
+
+```bash
+cd FP_PINN/pinn/ou_1d
+python -m unittest discover -s tests -v
+```
+
+This test uses only NumPy and does not train a network.
+
+## First Unity GPU run
+
+Check whether the existing `dsmc-gpu` environment contains TensorFlow:
+
+```bash
+module load conda/latest
+conda activate dsmc-gpu
+python -c 'import tensorflow as tf; print(tf.__version__)'
+```
+
+If it is available, submit from the `FPCode` repository root:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_quick.sbatch
+```
+
+If a separate environment is preferred, create it once and pass its absolute
+path when submitting:
+
+```bash
+module load conda/latest
+conda env create \
+  --prefix /project/pi_roohie_umass_edu/envs/fp-pinn \
+  --file FP_PINN/pinn/ou_1d/environment.yml
+
+FP_CONDA_ENV=/project/pi_roohie_umass_edu/envs/fp-pinn \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_quick.sbatch
+```
+
+Monitor the run with:
+
+```bash
+squeue -u "$USER"
+tail -F fp-pinn-ou-JOBID.out
+```
+
+Results are written under `FP_PINN/pinn/ou_1d/outputs/quick-JOBID/`. The most
+important files are `metrics.json`, `ou_pinn_validation.png`,
+`solution_tfinal.csv`, and `loss_history.csv`.
+
+For a longer run after the quick job is healthy:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_quick.sbatch \
+  --epochs 5000 --n-interior 8192 --n-velocity-quad 513
+```
+
+## Interpretation
+
+This is a sign/factor/autodiff/positivity test, not yet the final cubic-FP
+solver. The next stage will retain the positive distribution representation,
+replace the OU drift by the cubic drift `A_i(C, Gamma, q, rho, epsilon)`, and
+couple a differentiable `9 x 9` moment closure to the residual. That step needs
+the curated legacy Couette source to be present on GitHub so its exact moment
+ordering and coefficient conventions can be reused without guessing.
+
+
+
+## Stage-1 convergence gate
+
+The quick job is only an installation and sign-convention smoke test. A
+scientifically useful next step is the Stage-1 gate:
+
+- the analytic density is not used in the training loss;
+- the hard ansatz imposes positivity and the initial density exactly;
+- the loss combines the strong FP residual with a support-weighted
+  log-density residual;
+- mass conservation and the OU first- and second-moment ODEs are enforced;
+- an exponentially decaying learning rate and gradient clipping stabilize the
+  30,000-epoch optimization;
+- the exact solution is used only after training for independent validation.
+
+Submit it from the repository root:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1.sbatch
+```
+
+The default job uses one RTX 2080 Ti, 30,000 epochs, 8,192 interior points per
+epoch, 513 velocity quadrature points, and a (96\times5) tanh network. Results
+are written under `FP_PINN/pinn/ou_1d/outputs/stage1-JOBID/`.
+
+The terminal log prints either `STAGE1_GATE PASS` or `STAGE1_GATE FAIL`.
+Passing requires global and final-time relative L2 errors below 5%, maximum
+mass and first-moment errors below 1%, maximum second-moment error below 3%,
+an exact initial condition to (10^{-6}), and nonnegative density. The gate
+thresholds and every individual check are also stored in `metrics.json`.
+Failure is retained as a completed computational job so all diagnostics remain
+available; it means the method must be improved before moving to the cubic
+3-D operator.
+
+Useful files are `stage1_validation.png`, `metrics.json`,
+`metrics_by_time.csv`, `loss_history.csv`, `solution_grid.npz`, and the
+TensorFlow checkpoint.
+
+
+The trainer saves a rolling checkpoint every 2,500 epochs. If a Slurm job is
+interrupted, resume into the same result directory instead of starting over:
+
+```bash
+FP_OUTPUT_DIR=outputs/stage1-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1.sbatch --resume
+```
+
+
+## Stage-1B causal/RAR refinement
+
+The first Stage-1 result (job 62639364) passed positivity, initial-condition,
+mass, first-moment, second-moment, and final-time accuracy gates, but its global
+relative L2 error was 10.17%. Time-resolved validation localized the maximum
+error (about 16%) to (t=0.275\)--(0.30): the learned density filled the
+central valley between the two initial peaks too slowly.
+
+Stage-1B keeps the analytic density out of the training loss and refines the
+Stage-1 checkpoint using:
+
+- causal time slabs with full-interval replay;
+- extra sampling in (0.15<t<0.60);
+- central, thermal, peak, and uniform velocity samples;
+- a unit-variance equilibrium Maxwellian as a support floor, preventing an
+  underpredicted central density from down-weighting its own PDE residual;
+- residual-adaptive refinement (RAR) for 25% of each interior batch;
+- a fresh Adam schedule, while restoring only the Stage-1 network weights.
+
+Submit from the repository root with the completed Stage-1 checkpoint:
+
+```bash
+FP_INIT_CHECKPOINT="$PWD/FP_PINN/pinn/ou_1d/outputs/stage1-62639364/checkpoints/ckpt-30000" \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch
+```
+
+Results are written to `outputs/stage1b-JOBID/` and the log prints
+`STAGE1B_GATE PASS` or `STAGE1B_GATE FAIL`. The default refinement has
+20,000 epochs and checkpoints every 2,000 epochs.
+
+Resume an interrupted refinement with:
+
+```bash
+FP_STAGE1B_RESUME=1 \
+FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch --resume
+```
+
+
+If a refinement job stops after writing checkpoints, evaluate its latest
+checkpoint without performing another training epoch:
+
+```bash
+FP_STAGE1B_RESUME=1 \
+FP_OUTPUT_DIR=outputs/stage1b-OLD_JOBID \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1b.sbatch --evaluate-only
+```
+
+RAR scoring is graph-compiled and runs every ten epochs by default, using
+12.5% adaptive points and 4,096 candidates. This bounds host-memory growth
+while retaining adaptive coverage. The Unity runner requests 32 GB host RAM.
+
+
+## Stage-1C stable restart
+
+The TensorFlow object checkpoints from the first Stage-1 run did not reproduce
+the in-memory validation result when restored, including checkpoints at epochs
+25,000, 27,500, and 30,000. Stage-1C therefore starts from scratch and treats
+portable Keras H5 weights as the primary restart artifact.
+
+Stage-1C also reduces the intermediate-time optimization difficulty by using
+an exactly even (v^2)-based correction network, paired (+v/-v) collocation,
+and a mass-one bridge between the prescribed initial density and the stationary
+OU Maxwellian. The bridge is not the analytic transient solution; training
+still uses only the FP residual, boundary flux, and moment equations.
+
+Submit from the repository root:
+
+```bash
+sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1c.sbatch
+```
+
+The default run uses 40,000 epochs and writes to
+`outputs/stage1c-JOBID/`. Every 2,500 epochs it writes a
+`checkpoints_h5/epoch-XXXXXX.weights.h5` file, immediately loads that file
+into a fresh model, and aborts if the density does not agree to (10^{-7}).
+The final file `stage1c_final.weights.h5` is independently reloaded and
+re-evaluated before the gate can pass.
+
+Resume from an audited portable checkpoint with a fresh optimizer:
+
+```bash
+FP_OUTPUT_DIR=outputs/stage1c-OLD_JOBID \
+FP_STAGE1C_RESUME_WEIGHTS="$PWD/FP_PINN/pinn/ou_1d/outputs/stage1c-OLD_JOBID/checkpoints_h5/epoch-025000.weights.h5" \
+FP_STAGE1C_START_EPOCH=25000 \
+  sbatch FP_PINN/pinn/ou_1d/slurm/run_stage1c.sbatch
+```

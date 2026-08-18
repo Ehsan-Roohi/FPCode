@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+
+# Transient local smoke runs; publication audit outputs remain tracked.
+results/*_smoke/
+results/*_smoke_*/
+
+# Scheduler logs are reproducible and may be large.
+*.out
+*.err

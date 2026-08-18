@@ -1,0 +1,71 @@
+name: Riemann35 cubic FP Stage 1
+
+on:
+  push:
+    branches:
+      - main
+      - agent/hyqmom-fp-hybrid
+    paths:
+      - "riemann35_patch/**"
+      - ".github/workflows/riemann35-fp-stage1.yml"
+  pull_request:
+    paths:
+      - "riemann35_patch/**"
+      - ".github/workflows/riemann35-fp-stage1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fp-collision-test:
+    name: Julia 1.11 focused collision test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HYQMOM_SKIP_PLOTTING: "true"
+      CI: "true"
+
+    steps:
+      - name: Check out FPCode branch
+        uses: actions/checkout@v4
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.11"
+          arch: x64
+
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
+        with:
+          cache-name: riemann35-fp-stage1
+
+      - name: Clone pinned Riemann35 and apply Stage 1 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/comp-physics/Riemann35.jl.git Riemann35-stage1
+          git -C Riemann35-stage1 checkout --detach 3ec8735
+          PATCH="$GITHUB_WORKSPACE/riemann35_patch/0001-Add-provisional-cubic-FP-collision-source.patch"
+          git -C Riemann35-stage1 apply --check "$PATCH"
+          git -C Riemann35-stage1 apply "$PATCH"
+          git -C Riemann35-stage1 diff --check
+
+      - name: Instantiate Riemann35
+        working-directory: Riemann35-stage1
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            julia --project=. -e 'using Pkg; Pkg.instantiate()' && exit 0
+            echo "Julia package instantiate attempt ${attempt} failed; retrying"
+            sleep 15
+          done
+          JULIA_PKG_SERVER="" julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Run focused cubic FP tests
+        working-directory: Riemann35-stage1
+        run: >-
+          julia --project=. -e
+          'using Riemann35; include("test/test_fp_collision35.jl")'

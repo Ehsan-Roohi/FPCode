@@ -1,0 +1,13 @@
+{
+  "schema": "riemann35-stage12-rare-beam-source-diagnostic-v1",
+  "particles_per_seed": 100000,
+  "independent_seeds": 16,
+  "dt_over_tau": 0.0025,
+  "final_time_over_tau": 1.0,
+  "m400_source_history_relative_errors": {
+    "stage9": 0.47737647868746985,
+    "grad": 0.8236354346876588,
+    "two_population_base": 0.6171238578223863,
+    "two_population_residual": 0.7612498170426317
+  }
+}

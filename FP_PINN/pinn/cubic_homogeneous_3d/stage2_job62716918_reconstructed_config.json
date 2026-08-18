@@ -1,0 +1,65 @@
+{
+  "evidence_level": "high_confidence_reconstruction_from_saved_submission_and_source_defaults",
+  "runtime_git_hash_recorded": false,
+  "source_branch": "codex/fp-pinn-cubic-stage2",
+  "source_commit": "418c82a26fa6d9644938a784500cb156f455476b",
+  "source_path": "FP_PINN/pinn/cubic_homogeneous_3d",
+  "slurm": {
+    "job_id": "62716918",
+    "array": "0-2%3",
+    "partition": "gpu",
+    "time_override": "02:00:00",
+    "cpus_per_task": 4,
+    "memory": "16G",
+    "gpus_per_task": 1,
+    "tasks": {
+      "0": "equilibrium",
+      "1": "stress",
+      "2": "heat_flux"
+    }
+  },
+  "explicit_submission_overrides": {
+    "epochs": 30000,
+    "reference_particles": 500000,
+    "evaluation_samples": 65536
+  },
+  "trainer_defaults": {
+    "n_time_batch": 8,
+    "n_velocity_per_time": 1024,
+    "width": 128,
+    "depth": 5,
+    "learning_rate": 0.0005,
+    "lr_decay_steps": 10000,
+    "lr_decay_rate": 0.3,
+    "gradient_clip_norm": 5.0,
+    "correction_cap": 12.0,
+    "bridge_rate": 1.0,
+    "pde_weight": 1.0,
+    "mass_weight": 30.0,
+    "momentum_weight": 20.0,
+    "energy_weight": 20.0,
+    "closure_regularization": 1e-7,
+    "nu": 1.0,
+    "tmax": 1.0,
+    "print_every": 250,
+    "checkpoint_every": 2500,
+    "marginal_quadrature_order": 18
+  },
+  "reference_defaults": {
+    "dt": 0.005,
+    "tmax": 1.0,
+    "save_every": 10
+  },
+  "heat_flux_task_seed": 20260810,
+  "historical_heat_flux_final_metric": {
+    "name": "heat_flux_history_relative_l2_vs_particle",
+    "value": 0.12210977614349633
+  },
+  "not_present_in_historical_run": [
+    "weak_heat_flux_loss",
+    "analytic_heat_flux_rate_loss",
+    "broad_tail_training_proposal",
+    "rotating_quadrature_panels",
+    "analytic_primary_gate"
+  ]
+}

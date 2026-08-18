@@ -1,0 +1,120 @@
+From c02ed8610b5bbb545e2572ce3e8f5c0bc418c7ee Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Mon, 10 Aug 2026 10:08:02 +0900
+Subject: [PATCH] Cancel CHyQMOM residual in finite FP map
+
+---
+ docs/design/cubic-fp-collision.md | 11 ++++++++---
+ src/numerics/fp_collision35.jl    | 19 ++++++++++++++++++-
+ test/test_fp_collision35.jl       | 11 +++++++++++
+ 3 files changed, 37 insertions(+), 4 deletions(-)
+
+diff --git a/docs/design/cubic-fp-collision.md b/docs/design/cubic-fp-collision.md
+index 32e3bc3..04028fa 100644
+--- a/docs/design/cubic-fp-collision.md
++++ b/docs/design/cubic-fp-collision.md
+@@ -101,9 +101,14 @@ nodes. The stochastic increment is integrated analytically: each mapped node
+ becomes an isotropic Gaussian with the FPCode noise variance, and its raw
+ moments through degree four are accumulated exactly. A final isotropic affine
+ map is the deterministic moment counterpart of the homogeneous particle
+-validator's recenter/rescale. This is the appropriate algorithm-to-algorithm
+-comparison; the continuous bounded source remains available only as a recorded
+-negative result.
++validator's recenter/rescale. Because the conditional CHyQMOM inversion
++deliberately truncates six retained high-order cross moments, the code applies
++the difference between the mapped and unmapped quadrature moments to the exact
++incoming state. This residual-cancelled increment makes the finite map
++continuous at `dt = 0` instead of resetting those moments at every positive
++step. This is the appropriate algorithm-to-algorithm comparison; the
++continuous bounded source remains available only as a recorded negative
++result.
+ 
+ ## Acceptance gates before solver wiring
+ 
+diff --git a/src/numerics/fp_collision35.jl b/src/numerics/fp_collision35.jl
+index 4a478ee..a3ebd08 100644
+--- a/src/numerics/fp_collision35.jl
++++ b/src/numerics/fp_collision35.jl
+@@ -392,6 +392,7 @@ function fp_collision_step35_bounded(
+         diagnostics = (
+             alpha=1.0, alpha_squared=1.0, affine_scale=1.0,
+             mean_n2=0.0, mean_cn=0.0, maximum_c2_over_theta=0.0,
++            quadrature_residual_norm=0.0, collision_increment_norm=0.0,
+         )
+         return with_diagnostics ? (result, diagnostics) : result
+     end
+@@ -453,10 +454,16 @@ function fp_collision_step35_bounded(
+     noise_variance = theta*(1.0-relaxation2)/(alpha*alpha)
+     noise_variance >= 0.0 || error("finite FP map produced negative noise variance")
+ 
++    reconstructed = zeros(Float64, 35)
+     updated = zeros(Float64, 35)
+     @inbounds for q in eachindex(weights)
+         node_weight = weight_scale*weights[q]
+         node_weight == 0.0 && continue
++        reconstructed .+= InitializeM4_35(
++            node_weight,
++            nodes[q,1], nodes[q,2], nodes[q,3],
++            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
++        )
+         mean_velocity = ntuple(direction ->
+             u[direction] + (
+                 relaxation*peculiar[q,direction] +
+@@ -478,7 +485,15 @@ function fp_collision_step35_bounded(
+         direction -> Float64(u[direction] - affine_scale*mapped_state.velocity[direction]),
+         3,
+     )
+-    corrected = _fp_affine_isotropic35(updated, affine_scale, affine_shift)
++    mapped = _fp_affine_isotropic35(updated, affine_scale, affine_shift)
++
++    # CHyQMOM's conditional closure deliberately truncates six retained
++    # high-order cross moments.  Replacing M directly by `mapped` would
++    # therefore introduce an O(1) reconstruction jump for every dt > 0, even
++    # though the physical collision map approaches the identity as dt -> 0.
++    # Apply only the finite collision increment represented by the quadrature;
++    # the common reconstruction residual then cancels exactly.
++    corrected = Float64.(M) .+ (mapped .- reconstructed)
+ 
+     # Pin collision invariants after the affine map; these assignments remove
+     # only floating-point roundoff from an already conservative transformation.
+@@ -503,6 +518,8 @@ function fp_collision_step35_bounded(
+         mean_n2=mean_n2,
+         mean_cn=mean_cn,
+         maximum_c2_over_theta=maximum_c2/theta,
++        quadrature_residual_norm=norm(reconstructed .- M),
++        collision_increment_norm=norm(mapped .- reconstructed),
+     )
+     return with_diagnostics ? (corrected, diagnostics) : corrected
+ end
+diff --git a/test/test_fp_collision35.jl b/test/test_fp_collision35.jl
+index bd559db..e884dda 100644
+--- a/test/test_fp_collision35.jl
++++ b/test/test_fp_collision35.jl
+@@ -125,6 +125,8 @@ end
+         @test diagnostics.alpha_squared > 0.0
+         @test diagnostics.affine_scale > 0.0
+         @test diagnostics.maximum_c2_over_theta > 0.0
++        @test diagnostics.quadrature_residual_norm >= 0.0
++        @test diagnostics.collision_increment_norm > 0.0
+         @test updated[IJK_INDEX[(0,0,0)]] == M[IJK_INDEX[(0,0,0)]]
+         @test updated[IJK_INDEX[(1,0,0)]] == M[IJK_INDEX[(1,0,0)]]
+         @test updated[IJK_INDEX[(0,1,0)]] == M[IJK_INDEX[(0,1,0)]]
+@@ -141,6 +143,15 @@ end
+             maxwellian, 2.5e-4, 0.6; Pr=1.0,
+         )
+         @test maximum(abs.(equilibrium - maxwellian)) <= 2e-11
++
++        # The finite map must approach the identity continuously. CHyQMOM does
++        # not reproduce six retained high-order cross moments exactly, so this
++        # guards against reintroducing their O(1) reconstruction residual.
++        step1 = fp_collision_step35_bounded(M, 1.0e-6, 0.9; Pr=2/3)
++        step2 = fp_collision_step35_bounded(M, 5.0e-7, 0.9; Pr=2/3)
++        increment_ratio = norm(step1-M) / norm(step2-M)
++        @test 1.8 <= increment_ratio <= 2.2
++        @test norm(step1-M) <= 1.0e-3
+     end
+ 
+     @testset "small validation step stays realizable and conservative" begin
+-- 
+2.51.1
+

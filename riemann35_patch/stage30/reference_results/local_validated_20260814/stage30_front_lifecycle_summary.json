@@ -1,0 +1,2069 @@
+{
+  "stage": "30",
+  "case": "complete_advecting_kinetic_front_lifecycle",
+  "decision": "WORKSTATION_PASS",
+  "scope": "numerical qualification, not independent MD/DSMC physical validation",
+  "configuration": {
+    "mode": "workstation",
+    "x_lower": -12.0,
+    "x_upper": 12.0,
+    "spatial_cells": 48,
+    "pocket_center": -2.0,
+    "pocket_half_width": 1.0,
+    "initial_buffer_cells": 1,
+    "bulk_velocity_x": 1.0,
+    "velocity_lower": [
+      -2.5,
+      -2.5,
+      -1.5
+    ],
+    "velocity_upper": [
+      3.5,
+      2.5,
+      1.5
+    ],
+    "coarse_velocity_shape": [
+      19,
+      15,
+      11
+    ],
+    "refined_velocity_shape": [
+      21,
+      17,
+      13
+    ],
+    "regularization_fraction": 0.12,
+    "cfl": 0.15,
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "steps": 48,
+    "sensor_interval_steps": 8,
+    "macro_equilibrium_tolerance": 1e-12,
+    "kinetic_front_on": 0.4,
+    "release_sensor_interval_steps": 4,
+    "causal_activation_candidates_only": true,
+    "release_persistence_steps": 4,
+    "plot_title": "Stage 30 complete front-following lifecycle",
+    "progress_event": "STAGE30_PROGRESS",
+    "dt": 0.022340425531914895,
+    "final_time": 1.0723404255319149
+  },
+  "reference": "positive guided DVM on coarse and refined velocity grids",
+  "primary_metrics": {
+    "causal_births": 10,
+    "kinetic_front_births": 10,
+    "right_moving_front_births": 6,
+    "mean_active_fraction_percent": 19.132653061224488,
+    "peak_active_fraction_percent": 25.0,
+    "final_active_fraction_percent": 25.0,
+    "expensive_sensor_evaluations": 135,
+    "activation_sensor_skips_no_donor": 210,
+    "front_sensor_evaluations": 118,
+    "adaptive_over_coarse_dvm_wall_time": 0.8608517127548581,
+    "measured_speedup_factor": 1.161640251373661,
+    "final_errors": {
+      "coarse_vs_refined_M400_percent": 0.11992977869957407,
+      "coarse_vs_refined_M420_percent": 0.1391039966250411,
+      "adaptive_vs_refined_M400_percent": 0.4486960807955722,
+      "adaptive_vs_refined_M420_percent": 0.9273367118244318
+    },
+    "space_time_errors": {
+      "adaptive_vs_refined_M400_percent": 0.21088269626944361,
+      "adaptive_vs_refined_M420_percent": 0.7309976450573791
+    },
+    "total_releases": 4,
+    "persistent_trailing_releases": 1
+  },
+  "contracts": {
+    "synchronous_causal_provenance_pass": true,
+    "nontrivial_kinetic_front_birth_pass": true,
+    "numerical_accuracy_and_invariants_pass": true,
+    "kinetic_fraction_below_50_percent_pass": true,
+    "measured_speedup_vs_coarse_full_dvm_pass": true,
+    "all_qualification_gates_pass": true,
+    "minimum_dvm_mass": 7.787407118257804e-16,
+    "minimum_adaptive_active_mass": 2.4189329716023764e-85,
+    "minimum_realizability_margin": 0.0032006572721583497,
+    "maximum_balance_residual": 1.7313576465526493e-12,
+    "maximum_projection_residual": 1.2216682795579767e-10,
+    "maximum_collision_invariant_drift": 9.329759187437503e-11,
+    "maximum_micro_macro_sync_residual": 5.893615971738245e-11,
+    "persistent_trailing_release_pass": true,
+    "complete_front_following_lifecycle_pass": true,
+    "smoke_gates_pass": null
+  },
+  "activation_history": [
+    {
+      "step": 1,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 38
+    },
+    {
+      "step": 2,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 3,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [
+        23
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        22
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.0827571840047585
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4243333311172688
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 4,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 5,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 6,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 7,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 8,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 9,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 37
+    },
+    {
+      "step": 10,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [
+        24
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        23
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.271396279580308
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.40854794900434555
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 11,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 12,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 13,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 14,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 15,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 16,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [
+        16
+      ],
+      "activation_sources": [
+        "right_neighbor"
+      ],
+      "activation_donor_cells": [
+        17
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.5953393163632198
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4205167975787391
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 17,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 35
+    },
+    {
+      "step": 18,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 19,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [
+        25
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        24
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.6019488679265582
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4086837531799289
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 20,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 21,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 22,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 23,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 24,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 25,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 34
+    },
+    {
+      "step": 26,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 27,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 28,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 29,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 1,
+      "release_cells": [
+        17
+      ],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 30,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [
+        26
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        25
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.8693044013841312
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.41300340208773595
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 31,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 32,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 33,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 33
+    },
+    {
+      "step": 34,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 35,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 36,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 37,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 1,
+      "release_cells": [
+        21
+      ],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 38,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [
+        21
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        20
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.41571176094485723
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        1.013723723303017
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 39,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 40,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 41,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        25,
+        26
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 1,
+      "release_cells": [
+        24
+      ],
+      "activation_sensor_evaluated": true,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 33
+    },
+    {
+      "step": 42,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        25,
+        26
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [
+        24,
+        27
+      ],
+      "activation_sources": [
+        "left_neighbor",
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        23,
+        26
+      ],
+      "activation_carrier_used": [
+        true,
+        true
+      ],
+      "activation_donor_fractions": [
+        1.0,
+        0.9970204487465343
+      ],
+      "activation_reasons": [
+        "kinetic_front",
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        1.03528838495887,
+        0.4017405854143878
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 43,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 44,
+      "active_cells_before": [
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [
+        15
+      ],
+      "activation_sources": [
+        "right_neighbor"
+      ],
+      "activation_donor_cells": [
+        16
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.865998345132367
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.410213614559357
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 45,
+      "active_cells_before": [
+        15,
+        16,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        15,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 1,
+      "release_cells": [
+        16
+      ],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": true,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 46,
+      "active_cells_before": [
+        15,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [
+        17
+      ],
+      "activation_sources": [
+        "right_neighbor"
+      ],
+      "activation_donor_cells": [
+        18
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.8820533012092701
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        1.7157055866292539
+      ],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 47,
+      "active_cells_before": [
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    },
+    {
+      "step": 48,
+      "active_cells_before": [
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "active_cells_after": [
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": [],
+      "releases": 0,
+      "release_cells": [],
+      "activation_sensor_evaluated": false,
+      "release_sensor_evaluated": false,
+      "activation_sensor_skips_no_donor": 0
+    }
+  ],
+  "timing_seconds": {
+    "coarse_dvm": 113.312854101001,
+    "refined_dvm": 132.4276012320006,
+    "adaptive": 97.54556452998804,
+    "total": 343.28601986298963
+  },
+  "environment": {
+    "python": "3.12.13 (main, Aug  7 2026, 02:25:39) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+    "numpy": "2.3.5"
+  },
+  "release_history": [
+    {
+      "step": 29,
+      "cell": 17
+    },
+    {
+      "step": 37,
+      "cell": 21
+    },
+    {
+      "step": 41,
+      "cell": 24
+    },
+    {
+      "step": 45,
+      "cell": 16
+    }
+  ],
+  "qualified_trailing_releases": [
+    {
+      "step": 29,
+      "cell": 17,
+      "leading_cell_at_release": 25,
+      "verified_inactive_steps": 4
+    }
+  ]
+}

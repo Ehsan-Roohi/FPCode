@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-18",
+  "scope": "local CPU/source validation before Unity TensorFlow GPU production",
+  "unit_tests": {
+    "run": 23,
+    "passed": 16,
+    "failed": 0,
+    "skipped": 7,
+    "skip_reason": "TensorFlow tests require the Unity dsmc-gpu environment"
+  },
+  "static_checks": {
+    "python_compileall": "passed",
+    "slurm_bash_syntax": "passed",
+    "g0_submitter_bash_syntax": "passed",
+    "reconstructed_config_json_parse": "passed",
+    "git_diff_check": "passed"
+  },
+  "closure_identity_test": {
+    "passed": true,
+    "identity": "dQ/dt = -(4/3) nu Q",
+    "coverage": "OU baseline plus solved C/Gamma and explicit cubic-lambda contribution"
+  },
+  "particle_crosscheck": {
+    "role": "diagnostic_only_not_a_PINN_gate",
+    "case": "heat_flux",
+    "seed": 20260810,
+    "particles": 500000,
+    "dt": 0.0025,
+    "tmax": 1.0,
+    "saved_times": 21,
+    "particle_vs_analytic_relative_l2": 0.025914832851087644,
+    "particle_decay_rate": 1.3694819893817252,
+    "particle_effective_prandtl": 0.6847409946908626,
+    "particle_qx_initial": 0.2476102966309418,
+    "particle_qx_final": 0.06178878116257536,
+    "analytic_qx_final": 0.06589928452893169,
+    "max_energy_error": 8.881784197001252e-16
+  },
+  "production_status": "not_run_locally_requires_Unity_TensorFlow_GPU"
+}

@@ -1,0 +1,524 @@
+From 0b167d3186e28acd991cbfd16279d2697a0753f1 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Mon, 10 Aug 2026 05:34:30 +0900
+Subject: [PATCH] Add provisional cubic FP collision source
+
+---
+ docs/design/cubic-fp-collision.md |  87 ++++++++++
+ src/Riemann35.jl                  |   2 +
+ src/numerics/fp_collision35.jl    | 276 ++++++++++++++++++++++++++++++
+ test/runtests.jl                  |   1 +
+ test/test_fp_collision35.jl       |  92 ++++++++++
+ 5 files changed, 458 insertions(+)
+ create mode 100644 docs/design/cubic-fp-collision.md
+ create mode 100644 src/numerics/fp_collision35.jl
+ create mode 100644 test/test_fp_collision35.jl
+
+diff --git a/docs/design/cubic-fp-collision.md b/docs/design/cubic-fp-collision.md
+new file mode 100644
+index 0000000..259d571
+--- /dev/null
++++ b/docs/design/cubic-fp-collision.md
+@@ -0,0 +1,87 @@
++# Provisional cubic Fokker--Planck collision source
++
++## Scope
++
++The prototype in `src/numerics/fp_collision35.jl` projects FPCode's continuous
++cubic Fokker--Planck velocity generator onto Riemann35's existing 35 raw
++moments. It is intentionally CPU-only and is not wired into
++`simulation_runner` or the GPU kernels.
++
++The retained/evolved state is unchanged: all monomials through total degree
++four. This is not a sixth-order moment system. Degree-five and degree-six
++moments appear only as algebraic values needed to evaluate the collision
++source of the retained fourth-order moments.
++
++## Provisional tail model
++
++The lookup used by the source is
++
++| Degree | Source |
++|---|---|
++| 0--4 | exact retained Riemann35 state |
++| 5 | analytical `Moments5_3D` HyQMOM closure |
++| 6 | moments of the non-negative `chyqmom_nodes_3d` quadrature |
++
++The M6 choice is a diagnostic model, not a production claim. The conditional
++quadrature documents a structurally truncated subset of high-order cross
++constraints even at M4. For that reason it is used only to supply M6; it never
++overwrites the retained state or the analytical M5 closure.
++
++## Hyperbolicity and realizability boundary
++
++Because M6 is not transported, this prototype does not alter Riemann35's M5
++flux closure or its flux Jacobian. Transport hyperbolicity remains the
++responsibility of the existing Riemann35 method. The new risk is instead that
++a nonlinear collision-source update can move an M4 state outside the
++realizable cone.
++
++`fp_collision35` is therefore only a validation integrator. It retries an
++explicit step with successively finer substeps until every accepted state
++passes `is_realizable`. A production integration needs a measured source
++integrator and a device-compatible M6 closure; neither is claimed here.
++
++## Collision model and invariants
++
++In nondimensional units (`molecular mass = k_B = 1`), the peculiar-velocity
++drift is
++
++```text
++a(c) = -c/tau + C*c + Gamma*(|c|^2 - 5*theta)
++       + Beta*(|c|^2*c - 2*q/rho),
++```
++
++with isotropic velocity diffusion `theta/tau`. `C`, `Gamma`, and `Beta` use
++the analytical coefficient map in FPCode. The source is projected so that
++mass, all three momentum components, and the trace of the second raw moment
++are conserved to roundoff.
++
++This is the unclipped continuous-time polynomial model. It deliberately omits
++the particle implementation's `m2_lim` speed cutoff and finite-step alpha
++rescaling. Those operations are not polynomial moment closures; their effect
++must be measured in the direct FPCode particle comparison rather than silently
++folded into the first analytical source.
++
++## Acceptance gates before solver wiring
++
++1. Maxwellian stationarity in the Ornstein--Uhlenbeck limit (`Pr=1`).
++2. Exact collision invariants for a non-equilibrium Gaussian mixture.
++3. Realizability of accepted homogeneous source steps.
++4. Direct comparison against the existing FPCode particle reference.
++5. Sensitivity of M4 relaxation to the M6 model.
++6. Guidance/review of the algebraic M6 construction before crossing-jet runs.
++
++Only after these gates should a collision-model selector be added to the CPU
++solver. GPU work follows a CPU-validated, allocation-free tail implementation.
++
++## Focused validation command
++
++From the Riemann35 repository root on a machine with Julia installed:
++
++```bash
++HYQMOM_SKIP_PLOTTING=true CI=true julia --project=. -e \
++  'using Pkg; Pkg.instantiate(); using Riemann35; include("test/test_fp_collision35.jl")'
++```
++
++The focused test does not run a spatial solver. It checks the closure sizes,
++finite source values, Maxwellian stationarity, the five collision invariants,
++and realizability after one small homogeneous collision step.
+diff --git a/src/Riemann35.jl b/src/Riemann35.jl
+index acf6728..4062ddc 100644
+--- a/src/Riemann35.jl
++++ b/src/Riemann35.jl
+@@ -74,6 +74,7 @@ export realizability_margin, is_realizable
+ export closure_and_eigenvalues, eigenvalues6_hyperbolic_3D, eigenvalues6z_hyperbolic_3D
+ export Flux_closure35_and_realizable_3D, Flux_closure35_3D
+ export flux_HLL, pas_HLL, collision35
++export fp_macroscopic35, fp_collision_source35, fp_collision35
+ export moment_idx, M4_to_vars, M5_to_vars
+ export delta2star3D, delta2star3D_permutation, jacobian6, M4toC4_3D, C4toM4_3D, S4toC4_3D_r, C5toM5_3D
+ export reduce26_S, reduce26_residual, S_INDEX, DROPPED_KEYS
+@@ -216,6 +217,7 @@ include("numerics/highorder_flux.jl")
+ include("numerics/ssp_rk.jl")
+ include("numerics/highorder_3d.jl")
+ include("numerics/collision35.jl")
++include("numerics/fp_collision35.jl")
+ include("numerics/sponge.jl")
+ include("numerics/flux_HLL.jl")
+ include("numerics/pas_HLL.jl")
+diff --git a/src/numerics/fp_collision35.jl b/src/numerics/fp_collision35.jl
+new file mode 100644
+index 0000000..63c3cdc
+--- /dev/null
++++ b/src/numerics/fp_collision35.jl
+@@ -0,0 +1,276 @@
++"""
++    fp_collision35.jl — provisional CPU cubic Fokker--Planck source for M4/35.
++
++This is a bounded research prototype.  The evolved state remains Riemann35's
++35 raw moments through total degree four.  The projected cubic FP source needs
++algebraic tail moments through degree six:
++
++  * M0--M4 are read exactly from the retained state;
++  * M5 is supplied by Riemann35's analytical `Moments5_3D` closure;
++  * M6 is provisionally evaluated from `chyqmom_nodes_3d`.
++
++M6 is NOT an evolved variable and this file does not change the transport
++closure or flux Jacobian.  The CHyQMOM M6 model is deliberately isolated so it
++can be replaced after closure guidance/validation.  This first implementation
++is CPU-only because `chyqmom_nodes_3d` allocates and is not device compatible.
++
++The source is the unclipped continuous-time polynomial counterpart of FPCode's
++particle update.  It does not reproduce the particle-only `m2_lim` cutoff or
++the finite-step alpha rescaling; those effects belong in the particle-reference
++comparison and in the eventual source-integrator study.
++"""
++
++# Total-degree-five ordering returned by Moments5_3D.
++const _FP5_IJK = (
++    (5,0,0),(4,1,0),(3,2,0),(2,3,0),(1,4,0),
++    (4,0,1),(3,0,2),(2,0,3),(1,0,4),
++    (3,1,1),(2,2,1),(1,3,1),(2,1,2),(1,1,3),(1,2,2),
++    (0,5,0),(0,4,1),(0,3,2),(0,2,3),(0,1,4),(0,0,5),
++)
++const _FP5_INDEX = Dict{NTuple{3,Int},Int}(a => n for (n, a) in enumerate(_FP5_IJK))
++
++# All 28 total-degree-six monomials.  The ordering is internal only.
++const _FP6_IJK = Tuple(
++    (i, j, 6-i-j) for i in 6:-1:0 for j in (6-i):-1:0
++)
++const _FP6_INDEX = Dict{NTuple{3,Int},Int}(a => n for (n, a) in enumerate(_FP6_IJK))
++
++@inline _fp_add(a::NTuple{3,Int}, b::NTuple{3,Int}) =
++    (a[1] + b[1], a[2] + b[2], a[3] + b[3])
++
++@inline function _fp_shift(a::NTuple{3,Int}, d::Int, amount::Int)
++    d == 1 && return (a[1] + amount, a[2], a[3])
++    d == 2 && return (a[1], a[2] + amount, a[3])
++    return (a[1], a[2], a[3] + amount)
++end
++
++function _fp_m6_chyqmom(M::AbstractVector)
++    weights, nodes = chyqmom_nodes_3d(M)
++    M6 = zeros(Float64, length(_FP6_IJK))
++    @inbounds for (n, (i, j, k)) in enumerate(_FP6_IJK)
++        value = 0.0
++        for q in eachindex(weights)
++            value += weights[q] * nodes[q,1]^i * nodes[q,2]^j * nodes[q,3]^k
++        end
++        M6[n] = value
++    end
++    return M6
++end
++
++@inline function _fp_tail_value(
++    a::NTuple{3,Int}, M::AbstractVector, M5::AbstractVector, M6::AbstractVector,
++)
++    degree = sum(a)
++    degree <= 4 && return Float64(M[IJK_INDEX[a]])
++    degree == 5 && return Float64(M5[_FP5_INDEX[a]])
++    degree == 6 && return Float64(M6[_FP6_INDEX[a]])
++    throw(ArgumentError("cubic FP projection requested unsupported degree $degree moment $a"))
++end
++
++function _fp_central_retained(M::AbstractVector, a::NTuple{3,Int}, u::NTuple{3,Float64})
++    total = 0.0
++    @inbounds for i in 0:a[1], j in 0:a[2], k in 0:a[3]
++        raw = (i, j, k)
++        coefficient = binomial(a[1], i) * binomial(a[2], j) * binomial(a[3], k) *
++                      (-u[1])^(a[1]-i) * (-u[2])^(a[2]-j) * (-u[3])^(a[3]-k)
++        total += coefficient * M[IJK_INDEX[raw]]
++    end
++    return Float64(total)
++end
++
++function _fp_raw_times_central(
++    raw::NTuple{3,Int}, central::NTuple{3,Int}, u::NTuple{3,Float64}, lookup,
++)
++    total = 0.0
++    @inbounds for i in 0:central[1], j in 0:central[2], k in 0:central[3]
++        expanded = (i, j, k)
++        coefficient = binomial(central[1], i) * binomial(central[2], j) *
++                      binomial(central[3], k) *
++                      (-u[1])^(central[1]-i) * (-u[2])^(central[2]-j) *
++                      (-u[3])^(central[3]-k)
++        total += coefficient * lookup(_fp_add(raw, expanded))
++    end
++    return Float64(total)
++end
++
++"""
++    fp_macroscopic35(M)
++
++Return the density, velocity, temperature, pressure, FPCode-sign stress, and
++heat flux extracted from a Riemann35 raw-moment state.  Units are nondimensional
++with molecular mass and Boltzmann's constant equal to one.
++"""
++function fp_macroscopic35(M::AbstractVector)
++    length(M) == 35 || throw(ArgumentError("fp_macroscopic35 expects 35 moments"))
++    rho = Float64(M[1])
++    rho > 0.0 || throw(ArgumentError("M000 must be positive"))
++    u = (Float64(M[2]/rho), Float64(M[6]/rho), Float64(M[16]/rho))
++
++    C200 = _fp_central_retained(M, (2,0,0), u)
++    C020 = _fp_central_retained(M, (0,2,0), u)
++    C002 = _fp_central_retained(M, (0,0,2), u)
++    C110 = _fp_central_retained(M, (1,1,0), u)
++    C101 = _fp_central_retained(M, (1,0,1), u)
++    C011 = _fp_central_retained(M, (0,1,1), u)
++    theta = (C200 + C020 + C002) / (3.0*rho)
++    theta > 0.0 || throw(ArgumentError("FP temperature theta must be positive"))
++    pressure = rho*theta
++
++    stress = zeros(Float64, 3, 3)
++    stress[1,1] = -(C200-pressure)
++    stress[2,2] = -(C020-pressure)
++    stress[3,3] = -(C002-pressure)
++    stress[1,2] = stress[2,1] = -C110
++    stress[1,3] = stress[3,1] = -C101
++    stress[2,3] = stress[3,2] = -C011
++
++    C300 = _fp_central_retained(M, (3,0,0), u)
++    C120 = _fp_central_retained(M, (1,2,0), u)
++    C102 = _fp_central_retained(M, (1,0,2), u)
++    C210 = _fp_central_retained(M, (2,1,0), u)
++    C030 = _fp_central_retained(M, (0,3,0), u)
++    C012 = _fp_central_retained(M, (0,1,2), u)
++    C201 = _fp_central_retained(M, (2,0,1), u)
++    C021 = _fp_central_retained(M, (0,2,1), u)
++    C003 = _fp_central_retained(M, (0,0,3), u)
++    heat_flux = 0.5 .* [C300 + C120 + C102,
++                         C210 + C030 + C012,
++                         C201 + C021 + C003]
++
++    return (rho=rho, velocity=u, theta=theta, pressure=pressure,
++            stress=stress, heat_flux=heat_flux)
++end
++
++"""
++    fp_collision_source35(M, tau; Pr=2/3, gamma_scale=0.05)
++
++Project FPCode's continuous cubic Fokker--Planck generator onto Riemann35's
++retained M0--M4 state.  `tau` is the collision relaxation time; it is explicit
++here so a later solver integration can map Riemann35's `Kn` convention in one
++well-tested location.
++
++The source is projected onto the exact collision-invariant subspace: mass and
++all three momenta are zero, and the trace of the second-moment source is zero.
++"""
++function fp_collision_source35(
++    M::AbstractVector, tau::Real; Pr::Real=2/3, gamma_scale::Real=0.05,
++)
++    length(M) == 35 || throw(ArgumentError("fp_collision_source35 expects 35 moments"))
++    tau > 0.0 || throw(ArgumentError("tau must be positive"))
++    0.0 < Pr <= 1.0 || throw(ArgumentError("Pr must lie in (0,1]"))
++    all(isfinite, M) || throw(ArgumentError("moment state contains NaN or Inf"))
++
++    state = fp_macroscopic35(M)
++    rho = state.rho; u = state.velocity; theta = state.theta
++    invtau = 1.0/Float64(tau)
++    prfactor = (1.0-Float64(Pr))/Float64(Pr)
++    C = invtau .* state.stress ./ state.pressure
++    beta = invtau * prfactor / (10.0*theta^2)
++    qscale = rho*theta*sqrt(theta)
++    gamma = Float64(gamma_scale) * invtau * prfactor .* state.heat_flux ./
++            (qscale*theta)
++    diffusion = theta*invtau
++
++    M5, _, _ = Moments5_3D(M)
++    M6 = _fp_m6_chyqmom(M)
++    lookup(a) = _fp_tail_value(a, M, M5, M6)
++
++    source = zeros(Float64, 35)
++    @inbounds for (position, alpha) in enumerate(IJK)
++        value = 0.0
++        for direction in 1:3
++            exponent = alpha[direction]
++            exponent == 0 && continue
++            raw = _fp_shift(alpha, direction, -1)
++
++            cdir = ntuple(d -> d == direction ? 1 : 0, 3)
++            drift = -invtau * _fp_raw_times_central(raw, cdir, u, lookup)
++
++            for coupled in 1:3
++                clin = ntuple(d -> d == coupled ? 1 : 0, 3)
++                drift += C[direction,coupled] *
++                         _fp_raw_times_central(raw, clin, u, lookup)
++            end
++
++            if gamma[direction] != 0.0
++                quadratic = 0.0
++                for squared in 1:3
++                    c2 = ntuple(d -> d == squared ? 2 : 0, 3)
++                    quadratic += _fp_raw_times_central(raw, c2, u, lookup)
++                end
++                drift += gamma[direction] * (quadratic - 5.0*theta*lookup(raw))
++            end
++
++            if beta != 0.0
++                cubic = 0.0
++                for squared in 1:3
++                    c3 = ntuple(d -> (d == squared ? 2 : 0) +
++                                      (d == direction ? 1 : 0), 3)
++                    cubic += _fp_raw_times_central(raw, c3, u, lookup)
++                end
++                drift += beta * (cubic - 2.0*state.heat_flux[direction]/rho*lookup(raw))
++            end
++            value += exponent*drift
++
++            if exponent >= 2
++                lower = _fp_shift(alpha, direction, -2)
++                value += diffusion*exponent*(exponent-1)*lookup(lower)
++            end
++        end
++        source[position] = value
++    end
++
++    # Exact collision-invariant projection, matching the conservation contract
++    # used by the homogeneous FPCode validation reference.
++    source[IJK_INDEX[(0,0,0)]] = 0.0
++    source[IJK_INDEX[(1,0,0)]] = 0.0
++    source[IJK_INDEX[(0,1,0)]] = 0.0
++    source[IJK_INDEX[(0,0,1)]] = 0.0
++    eidx = (IJK_INDEX[(2,0,0)], IJK_INDEX[(0,2,0)], IJK_INDEX[(0,0,2)])
++    eleak = source[eidx[1]] + source[eidx[2]] + source[eidx[3]]
++    for n in eidx
++        source[n] -= eleak/3.0
++    end
++    return source
++end
++
++"""
++    fp_collision35(M, dt, tau; Pr=2/3, gamma_scale=0.05,
++                   lam_min=0, max_substeps=256)
++
++Advance the provisional nonlinear FP source with explicit Euler substeps.  If
++a trial leaves the retained M4 realizability cone, the step is retried with
++twice as many substeps.  This is a validation integrator, not the final
++production time discretization.
++"""
++function fp_collision35(
++    M::AbstractVector, dt::Real, tau::Real;
++    Pr::Real=2/3, gamma_scale::Real=0.05,
++    lam_min::Real=0.0, max_substeps::Int=256,
++)
++    dt >= 0.0 || throw(ArgumentError("dt must be non-negative"))
++    dt == 0.0 && return Float64.(M)
++    max_substeps >= 1 || throw(ArgumentError("max_substeps must be positive"))
++
++    nsub = 1
++    while nsub <= max_substeps
++        trial = Float64.(M)
++        h = Float64(dt)/nsub
++        accepted = true
++        for _ in 1:nsub
++            candidate = trial .+ h .* fp_collision_source35(
++                trial, tau; Pr=Pr, gamma_scale=gamma_scale,
++            )
++            if !is_realizable(candidate; lam_min=lam_min)
++                accepted = false
++                break
++            end
++            trial = candidate
++        end
++        accepted && return trial
++        nsub *= 2
++    end
++    throw(ErrorException(
++        "provisional FP collision step left the realizability cone after $max_substeps substeps",
++    ))
++end
+diff --git a/test/runtests.jl b/test/runtests.jl
+index 0b233e3..6928e2a 100644
+--- a/test/runtests.jl
++++ b/test/runtests.jl
+@@ -62,6 +62,7 @@ const TOL = 1e-10
+         include("test_moment_correction.jl")
+         include("test_face_bc.jl")   # direction-agnostic per-face BC + sponge (byte-identical presets)
+         include("test_esbgk.jl")     # ES-BGK + VHS transport (opt-in; defaults bitwise BGK)
++        include("test_fp_collision35.jl") # provisional CPU cubic-FP source; M6 is algebraic only
+         include("test_wall_bc.jl")   # Maxwell-accommodating wall ghost (opt-in :wall face)
+         include("test_wall_conservation.jl")  # a wall must pass ZERO net mass (see header)
+         include("test_body_force_dev.jl")     # device body force vs the CPU form
+diff --git a/test/test_fp_collision35.jl b/test/test_fp_collision35.jl
+new file mode 100644
+index 0000000..8d57f7d
+--- /dev/null
++++ b/test/test_fp_collision35.jl
+@@ -0,0 +1,92 @@
++using Test
++using Riemann35
++using LinearAlgebra
++
++function fp_test_mixture()
++    M1 = InitializeM4_35(
++        0.55, -0.35, 0.08, 0.02,
++        0.72, 0.04, 0.01, 0.48, -0.02, 0.39,
++    )
++    M2 = InitializeM4_35(
++        0.45, 0.55, -0.04, -0.01,
++        0.44, -0.03, 0.02, 0.58, 0.01, 0.36,
++    )
++    return M1 .+ M2
++end
++
++@testset "provisional cubic FP collision source" begin
++    @testset "macroscopic convention" begin
++        rho = 1.7
++        u = (0.3, -0.2, 0.1)
++        theta = 0.8
++        M = InitializeM4_35(
++            rho, u[1], u[2], u[3], theta, 0.0, 0.0, theta, 0.0, theta,
++        )
++        state = fp_macroscopic35(M)
++        @test state.rho ≈ rho atol=1e-14
++        @test collect(state.velocity) ≈ collect(u) atol=1e-14
++        @test state.theta ≈ theta atol=2e-14
++        @test norm(state.stress) <= 2e-13
++        @test norm(state.heat_flux) <= 2e-13
++
++        mixture_state = fp_macroscopic35(fp_test_mixture())
++        @test collect(mixture_state.velocity) ≈ [0.055, 0.026, 0.0065] atol=2e-14
++        @test mixture_state.theta ≈ 0.56658725 atol=2e-14
++        @test mixture_state.stress ≈ [
++            -0.22788775  0.01823   -0.0078175;
++             0.01823     0.03802325 0.005609;
++            -0.0078175   0.005609   0.1898645
++        ] atol=2e-13
++        @test mixture_state.heat_flux ≈ [
++            -0.07456222125, -0.0168923205, 0.002032482375,
++        ] atol=2e-13
++    end
++
++    @testset "OU limit keeps a Maxwellian stationary" begin
++        M = InitializeM4_35(
++            1.7, 0.3, -0.2, 0.1,
++            0.8, 0.0, 0.0, 0.8, 0.0, 0.8,
++        )
++        source = fp_collision_source35(M, 0.6; Pr=1.0)
++        @test maximum(abs.(source)) <= 5e-12
++    end
++
++    @testset "M5/M6 tail is finite and algebraic" begin
++        M = fp_test_mixture()
++        M5, _, _ = Moments5_3D(M)
++        M6 = Riemann35._fp_m6_chyqmom(M)
++        @test length(M5) == 21
++        @test length(M6) == 28
++        @test all(isfinite, M5)
++        @test all(isfinite, M6)
++        @test length(M) == 35  # no M5/M6 state variables are introduced
++    end
++
++    @testset "full cubic source conserves collision invariants" begin
++        M = fp_test_mixture()
++        source = fp_collision_source35(M, 0.9; Pr=2/3)
++        @test all(isfinite, source)
++        @test source[IJK_INDEX[(0,0,0)]] == 0.0
++        @test source[IJK_INDEX[(1,0,0)]] == 0.0
++        @test source[IJK_INDEX[(0,1,0)]] == 0.0
++        @test source[IJK_INDEX[(0,0,1)]] == 0.0
++        energy_source = source[IJK_INDEX[(2,0,0)]] +
++                        source[IJK_INDEX[(0,2,0)]] +
++                        source[IJK_INDEX[(0,0,2)]]
++        @test abs(energy_source) <= 5e-13
++    end
++
++    @testset "small validation step stays realizable and conservative" begin
++        M = fp_test_mixture()
++        @test is_realizable(M)
++        updated = fp_collision35(M, 1e-5, 0.9; Pr=2/3)
++        @test is_realizable(updated)
++        @test updated[1] == M[1]
++        @test updated[2] == M[2]
++        @test updated[6] == M[6]
++        @test updated[16] == M[16]
++        energy(Mv) = Mv[IJK_INDEX[(2,0,0)]] + Mv[IJK_INDEX[(0,2,0)]] +
++                     Mv[IJK_INDEX[(0,0,2)]]
++        @test energy(updated) ≈ energy(M) atol=5e-13 rtol=0
++    end
++end
+-- 
+2.51.1
+

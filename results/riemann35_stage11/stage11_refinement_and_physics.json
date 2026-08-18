@@ -1,0 +1,1703 @@
+{
+  "schema": "riemann35-cubic-fp-stage11-refined-interpretation-v1",
+  "controls": {
+    "cases": [
+      "stage9_correlated",
+      "rare_hot_anisotropic_w0.02_r25",
+      "counterstream_ma20",
+      "crossing_ma20",
+      "rare_beam_ma20",
+      "counterstream_ma100"
+    ],
+    "particles_per_seed": 100000,
+    "independent_seeds": 16,
+    "seed_values": [
+      20260810,
+      20365539,
+      20470268,
+      20574997,
+      20679726,
+      20784455,
+      20889184,
+      20993913,
+      21098642,
+      21203371,
+      21308100,
+      21412829,
+      21517558,
+      21622287,
+      21727016,
+      21831745
+    ],
+    "workers": 8,
+    "steps": 400,
+    "dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "sample_every_steps": 10,
+    "confidence_interval": "Student-t 95% interval over independent seed histories",
+    "particle_alignment": "paired change from each seed's own t=0 sample, shifted to the exact analytic initial moment vector"
+  },
+  "physical_metric_selection": {
+    "stage9_correlated": [
+      "M200",
+      "M300",
+      "M400",
+      "M110",
+      "M210",
+      "stress_norm",
+      "heat_flux_norm"
+    ],
+    "rare_hot_anisotropic_w0.02_r25": [
+      "M200",
+      "M400",
+      "stress_norm"
+    ],
+    "counterstream_ma20": [
+      "M200",
+      "M400",
+      "stress_norm"
+    ],
+    "crossing_ma20": [
+      "M200",
+      "M400",
+      "M110",
+      "stress_norm"
+    ],
+    "rare_beam_ma20": [
+      "M200",
+      "M300",
+      "M400",
+      "M110",
+      "M210",
+      "stress_norm",
+      "heat_flux_norm"
+    ],
+    "counterstream_ma100": [
+      "M200",
+      "M400",
+      "stress_norm"
+    ]
+  },
+  "cases": {
+    "stage9_correlated": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.00432428395564563,
+          "all_35_relaxation_change_relative_l2": 0.015457319666088636,
+          "fourth_order_componentwise_dimensionless_rmse": 0.006543215849479411,
+          "fourth_order_dimensionless_history_relative_l2": 0.004338807404200144,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00090757175434397,
+              "relaxation_change_relative_l2": 0.006193100637520279,
+              "final_relative_error": -0.00042023949187045304,
+              "final_seed_z_score": -0.2518435963082937,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.4347653040462466,
+              "particle_final_sem": 0.0007254722896810889,
+              "model_final": 0.4345825984957913
+            },
+            "M300": {
+              "history_relative_l2": 0.008542782800452332,
+              "relaxation_change_relative_l2": 0.0323341625989614,
+              "final_relative_error": 0.018384071249981104,
+              "final_seed_z_score": 2.962094616203383,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": -0.1341163639461683,
+              "particle_final_sem": 0.0008323855615844587,
+              "model_final": -0.13165075915559354
+            },
+            "M400": {
+              "history_relative_l2": 0.0043397557947914564,
+              "relaxation_change_relative_l2": 0.01611256040293461,
+              "final_relative_error": -0.006590296618134113,
+              "final_seed_z_score": -1.8880879094189562,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": 0.5717939522099817,
+              "particle_final_sem": 0.001995824310256106,
+              "model_final": 0.5680256604604628
+            },
+            "M110": {
+              "history_relative_l2": 0.009899116333317049,
+              "relaxation_change_relative_l2": 0.008802104373370288,
+              "final_relative_error": -0.014170793496398918,
+              "final_seed_z_score": -0.5466294736460832,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9024390243902439,
+              "particle_final_mean": 0.021392035708486662,
+              "particle_final_sem": 0.0005545659996534077,
+              "model_final": 0.021088893587994106
+            },
+            "M210": {
+              "history_relative_l2": 0.027290630227876495,
+              "relaxation_change_relative_l2": 0.04292363016867466,
+              "final_relative_error": 0.04051380826178723,
+              "final_seed_z_score": 1.9465818862180786,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.3170731707317073,
+              "particle_final_mean": -0.03147807732629597,
+              "particle_final_sem": 0.0006551467463436539,
+              "model_final": -0.030202780537048703
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0040221442244276805,
+              "relaxation_change_relative_l2": 0.003283999008451799,
+              "final_relative_error": 0.003142326661265644,
+              "final_seed_z_score": 0.12193301165966003,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 0.03664103964900357,
+              "particle_final_sem": 0.0009442735336262301,
+              "model_final": 0.03675617776478913
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.07114410766943971,
+              "relaxation_change_relative_l2": 0.08840735231066028,
+              "final_relative_error": -0.23885692904234818,
+              "final_seed_z_score": -3.9199432195147383,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.43902439024390244,
+              "particle_final_mean": 0.011201052991990357,
+              "particle_final_sem": 0.0006825224167503693,
+              "model_final": 0.008525603872282935
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 18.567073220001475,
+            "minimum_realizability_margin": 0.2105961711326594,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.004321795931450409,
+          "all_35_relaxation_change_relative_l2": 0.015448426127709343,
+          "fourth_order_componentwise_dimensionless_rmse": 0.006539390923779549,
+          "fourth_order_dimensionless_history_relative_l2": 0.004336271095398959,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0009078796051503699,
+              "relaxation_change_relative_l2": 0.006195201354093102,
+              "final_relative_error": -0.0004205075406126597,
+              "final_seed_z_score": -0.252004234136316,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.4347653040462466,
+              "particle_final_sem": 0.0007254722896810889,
+              "model_final": 0.4345824819574984
+            },
+            "M300": {
+              "history_relative_l2": 0.008535721374657688,
+              "relaxation_change_relative_l2": 0.032307435325758055,
+              "final_relative_error": 0.018377655829488346,
+              "final_seed_z_score": 2.9610609451386947,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": -0.1341163639461683,
+              "particle_final_sem": 0.0008323855615844587,
+              "model_final": -0.13165161956846322
+            },
+            "M400": {
+              "history_relative_l2": 0.00433489330973023,
+              "relaxation_change_relative_l2": 0.01609450706353902,
+              "final_relative_error": -0.00658881586739622,
+              "final_seed_z_score": -1.8876636815386227,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": 0.5717939522099817,
+              "particle_final_sem": 0.001995824310256106,
+              "model_final": 0.5680265071447794
+            },
+            "M110": {
+              "history_relative_l2": 0.009901621024005033,
+              "relaxation_change_relative_l2": 0.008804331496288769,
+              "final_relative_error": -0.01417721953983927,
+              "final_seed_z_score": -0.5468773542424886,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9024390243902439,
+              "particle_final_mean": 0.021392035708486662,
+              "particle_final_sem": 0.0005545659996534077,
+              "model_final": 0.021088756121843365
+            },
+            "M210": {
+              "history_relative_l2": 0.027301909339459432,
+              "relaxation_change_relative_l2": 0.0429413703384756,
+              "final_relative_error": 0.04052718294364757,
+              "final_seed_z_score": 1.9472245044897318,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.3170731707317073,
+              "particle_final_mean": -0.03147807732629597,
+              "particle_final_sem": 0.0006551467463436539,
+              "model_final": -0.030202359527778888
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.004024119579057416,
+              "relaxation_change_relative_l2": 0.0032856118453575456,
+              "final_relative_error": 0.003134454117736427,
+              "final_seed_z_score": 0.12162753007056495,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 0.03664103964900357,
+              "particle_final_sem": 0.0009442735336262301,
+              "model_final": 0.036755889306609536
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.07107563805391444,
+              "relaxation_change_relative_l2": 0.08832226842078365,
+              "final_relative_error": -0.23876015510460097,
+              "final_seed_z_score": -3.9183550372391855,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.43902439024390244,
+              "particle_final_mean": 0.011201052991990357,
+              "particle_final_sem": 0.0006825224167503693,
+              "model_final": 0.008526687842287885
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 18.100898464996135,
+            "minimum_realizability_margin": 0.2105961711326594,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 1.27675647831893e-15
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.003910370464276478,
+          "all_35_relaxation_change_relative_l2": 0.013977769938128055,
+          "fourth_order_componentwise_dimensionless_rmse": 0.006126949509127665,
+          "fourth_order_dimensionless_history_relative_l2": 0.004062781131922857,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0009081860493619058,
+              "relaxation_change_relative_l2": 0.006197292472324518,
+              "final_relative_error": -0.0004207743856644508,
+              "final_seed_z_score": -0.2521641506096608,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.4347653040462466,
+              "particle_final_sem": 0.0007254722896810889,
+              "model_final": 0.4345823659425283
+            },
+            "M300": {
+              "history_relative_l2": 0.0026263418823401544,
+              "relaxation_change_relative_l2": 0.009940620925016665,
+              "final_relative_error": 0.003444196878273683,
+              "final_seed_z_score": 0.5549389409753002,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": -0.1341163639461683,
+              "particle_final_sem": 0.0008323855615844587,
+              "model_final": -0.1336544407841395
+            },
+            "M400": {
+              "history_relative_l2": 0.0040920623335283296,
+              "relaxation_change_relative_l2": 0.015192928966344558,
+              "final_relative_error": -0.005313222249775207,
+              "final_seed_z_score": -1.5222123177661506,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7560975609756098,
+              "particle_final_mean": 0.5717939522099817,
+              "particle_final_sem": 0.001995824310256106,
+              "model_final": 0.5687558838608128
+            },
+            "M110": {
+              "history_relative_l2": 0.00990411490281766,
+              "relaxation_change_relative_l2": 0.00880654900549506,
+              "final_relative_error": -0.014183617287008284,
+              "final_seed_z_score": -0.5471241433279699,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9024390243902439,
+              "particle_final_mean": 0.021392035708486662,
+              "particle_final_sem": 0.0005545659996534077,
+              "model_final": 0.021088619261007472
+            },
+            "M210": {
+              "history_relative_l2": 0.020189666290107128,
+              "relaxation_change_relative_l2": 0.03175499289790304,
+              "final_relative_error": 0.023697789904360448,
+              "final_seed_z_score": 1.1386164507951082,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.5365853658536586,
+              "particle_final_mean": -0.03147807732629597,
+              "particle_final_sem": 0.0006551467463436539,
+              "model_final": -0.030732116463224195
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.00402608715759191,
+              "relaxation_change_relative_l2": 0.0032872183332395785,
+              "final_relative_error": 0.0031266168037250262,
+              "final_seed_z_score": 0.121323415507139,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 0.03664103964900357,
+              "particle_final_sem": 0.0009442735336262301,
+              "model_final": 0.0367556021392761
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.01958355486055528,
+              "relaxation_change_relative_l2": 0.024335539382918644,
+              "final_relative_error": -0.06190893503035502,
+              "final_seed_z_score": -1.0160036431540687,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.011201052991990357,
+              "particle_final_sem": 0.0006825224167503693,
+              "model_final": 0.010507607730037663
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 30.57864937600243,
+            "minimum_realizability_margin": 0.2105961711326594,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.003915363135268694,
+          "all_35_relaxation_change_relative_l2": 0.013995616433017347,
+          "fourth_order_componentwise_dimensionless_rmse": 0.006132867595746978,
+          "fourth_order_dimensionless_history_relative_l2": 0.00406670541604144,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0009081860493581971,
+              "relaxation_change_relative_l2": 0.00619729247229921,
+              "final_relative_error": -0.00042077438566036503,
+              "final_seed_z_score": -0.25216415060721226,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.4347653040462466,
+              "particle_final_sem": 0.0007254722896810889,
+              "model_final": 0.4345823659425301
+            },
+            "M300": {
+              "history_relative_l2": 0.002562453041112062,
+              "relaxation_change_relative_l2": 0.00969880368246439,
+              "final_relative_error": 0.0038011676594138953,
+              "final_seed_z_score": 0.6124551034498351,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": -0.1341163639461683,
+              "particle_final_sem": 0.0008323855615844587,
+              "model_final": -0.13360656516093794
+            },
+            "M400": {
+              "history_relative_l2": 0.004088459888302719,
+              "relaxation_change_relative_l2": 0.015179553878196608,
+              "final_relative_error": -0.0053402826348615704,
+              "final_seed_z_score": -1.529964986404038,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7560975609756098,
+              "particle_final_mean": 0.5717939522099817,
+              "particle_final_sem": 0.001995824310256106,
+              "model_final": 0.5687404108962759
+            },
+            "M110": {
+              "history_relative_l2": 0.009904114902798003,
+              "relaxation_change_relative_l2": 0.008806549005477582,
+              "final_relative_error": -0.014183617286961575,
+              "final_seed_z_score": -0.5471241433261681,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9024390243902439,
+              "particle_final_mean": 0.021392035708486662,
+              "particle_final_sem": 0.0005545659996534077,
+              "model_final": 0.02108861926100847
+            },
+            "M210": {
+              "history_relative_l2": 0.02048229772058188,
+              "relaxation_change_relative_l2": 0.03221525355119488,
+              "final_relative_error": 0.024148684378488782,
+              "final_seed_z_score": 1.1602807438742135,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.5365853658536586,
+              "particle_final_mean": -0.03147807732629597,
+              "particle_final_sem": 0.0006551467463436539,
+              "model_final": -0.030717923172101584
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.004026087157572428,
+              "relaxation_change_relative_l2": 0.0032872183332236706,
+              "final_relative_error": 0.003126616803807594,
+              "final_seed_z_score": 0.12132341551034291,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 0.03664103964900357,
+              "particle_final_sem": 0.0009442735336262301,
+              "model_final": 0.03675560213927913
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.02098700670947493,
+              "relaxation_change_relative_l2": 0.026079541326621204,
+              "final_relative_error": -0.06613686799588349,
+              "final_seed_z_score": -1.085389351273291,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.011201052991990357,
+              "particle_final_sem": 0.0006825224167503693,
+              "model_final": 0.010460250428844195
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 73.76902937999694,
+            "minimum_realizability_margin": 0.2105961711326594,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        }
+      }
+    },
+    "rare_hot_anisotropic_w0.02_r25": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.0489040357323088,
+          "all_35_relaxation_change_relative_l2": 0.02700375707536129,
+          "fourth_order_componentwise_dimensionless_rmse": 0.2199580766125007,
+          "fourth_order_dimensionless_history_relative_l2": 0.04921420908922159,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614316837103117,
+              "relaxation_change_relative_l2": 0.9999891778166888,
+              "final_relative_error": -0.0003449977719364617,
+              "final_seed_z_score": -0.15465440842661227,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0003451042763518,
+              "particle_final_sem": 0.0022315356907957533,
+              "model_final": 0.9999999874442089
+            },
+            "M400": {
+              "history_relative_l2": 0.04446720099686933,
+              "relaxation_change_relative_l2": 0.02716668133566258,
+              "final_relative_error": 0.11284469880985157,
+              "final_seed_z_score": 0.981148226157138,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": 2.945329256502708,
+              "particle_final_sem": 0.3387508472065071,
+              "model_final": 3.2776940493486
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.030707416163352732,
+              "relaxation_change_relative_l2": 0.02543093956561594,
+              "final_relative_error": -0.2211692004492499,
+              "final_seed_z_score": -2.236247030331717,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 0.03735977863607896,
+              "particle_final_sem": 0.0036949551001424345,
+              "model_final": 0.029096946266176406
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 18.752645485001267,
+            "minimum_realizability_margin": 0.10139872260756397,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.220446049250313e-16
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.04895836083862451,
+          "all_35_relaxation_change_relative_l2": 0.027033754231057652,
+          "fourth_order_componentwise_dimensionless_rmse": 0.22020257745486002,
+          "fourth_order_dimensionless_history_relative_l2": 0.04926891458475819,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614353012510853,
+              "relaxation_change_relative_l2": 0.9999946470158715,
+              "final_relative_error": -0.0003449914284741689,
+              "final_seed_z_score": -0.1546515648012672,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0003451042763518,
+              "particle_final_sem": 0.0022315356907957533,
+              "model_final": 0.9999999937898604
+            },
+            "M400": {
+              "history_relative_l2": 0.04450227269862653,
+              "relaxation_change_relative_l2": 0.027188107954027974,
+              "final_relative_error": 0.11285491572031836,
+              "final_seed_z_score": 0.9812370588952908,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8292682926829268,
+              "particle_final_mean": 2.945329256502708,
+              "particle_final_sem": 0.3387508472065071,
+              "model_final": 3.277724141513909
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.03070744142486392,
+              "relaxation_change_relative_l2": 0.025430960486424157,
+              "final_relative_error": -0.22116972194805842,
+              "final_seed_z_score": -2.236252303218536,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 0.03735977863607896,
+              "particle_final_sem": 0.0036949551001424345,
+              "model_final": 0.02909692678309636
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 35.02804711600038,
+            "minimum_realizability_margin": 0.10139872260756397,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.220446049250313e-16
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.04832485764569476,
+          "all_35_relaxation_change_relative_l2": 0.02668394738848988,
+          "fourth_order_componentwise_dimensionless_rmse": 0.21735136065969032,
+          "fourth_order_dimensionless_history_relative_l2": 0.048630973111195554,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614388419230785,
+              "relaxation_change_relative_l2": 1.00000000000056,
+              "final_relative_error": -0.0003449852204771725,
+              "final_seed_z_score": -0.15464878190183687,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0003451042763518,
+              "particle_final_sem": 0.0022315356907957533,
+              "model_final": 0.9999999999999998
+            },
+            "M400": {
+              "history_relative_l2": 0.04214226724817787,
+              "relaxation_change_relative_l2": 0.025746292085579693,
+              "final_relative_error": 0.11200131669945246,
+              "final_seed_z_score": 0.9738152909788086,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8780487804878049,
+              "particle_final_mean": 2.945329256502708,
+              "particle_final_sem": 0.3387508472065071,
+              "model_final": 3.2752100113444307
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.03070746615672476,
+              "relaxation_change_relative_l2": 0.02543098096859221,
+              "final_relative_error": -0.22117023213270048,
+              "final_seed_z_score": -2.23625746170755,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 0.03735977863607896,
+              "particle_final_sem": 0.0036949551001424345,
+              "model_final": 0.02909690772271107
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 35.26301436100039,
+            "minimum_realizability_margin": 0.10139872260756397,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.220446049250313e-16
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.04841562433199498,
+          "all_35_relaxation_change_relative_l2": 0.026734066801145373,
+          "fourth_order_componentwise_dimensionless_rmse": 0.21775987709171285,
+          "fourth_order_dimensionless_history_relative_l2": 0.04872237604311589,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614388419230291,
+              "relaxation_change_relative_l2": 1.0000000000004854,
+              "final_relative_error": -0.0003449852204767285,
+              "final_seed_z_score": -0.15464878190163786,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0003451042763518,
+              "particle_final_sem": 0.0022315356907957533,
+              "model_final": 1.0000000000000002
+            },
+            "M400": {
+              "history_relative_l2": 0.04221561208385922,
+              "relaxation_change_relative_l2": 0.025791101197327294,
+              "final_relative_error": 0.11202540080842097,
+              "final_seed_z_score": 0.9740246945311443,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8780487804878049,
+              "particle_final_mean": 2.945329256502708,
+              "particle_final_sem": 0.3387508472065071,
+              "model_final": 3.2752809469751925
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.030707466156704465,
+              "relaxation_change_relative_l2": 0.0254309809685754,
+              "final_relative_error": -0.221170232132587,
+              "final_seed_z_score": -2.2362574617064026,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 0.03735977863607896,
+              "particle_final_sem": 0.0036949551001424345,
+              "model_final": 0.02909690772271531
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 74.48486015299568,
+            "minimum_realizability_margin": 0.10139872260756397,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        }
+      }
+    },
+    "counterstream_ma20": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.0023833348039745766,
+          "all_35_relaxation_change_relative_l2": 0.004442407040334859,
+          "fourth_order_componentwise_dimensionless_rmse": 0.004494388849171081,
+          "fourth_order_dimensionless_history_relative_l2": 0.002450938321753271,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004075465813142207,
+              "relaxation_change_relative_l2": 0.0006422962725915838,
+              "final_relative_error": -0.0008195090085788146,
+              "final_seed_z_score": -0.549552830631744,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2696963385129445,
+              "particle_final_sem": 0.0018934077482136618,
+              "model_final": 1.2686558109253736
+            },
+            "M400": {
+              "history_relative_l2": 0.0019553497361371104,
+              "relaxation_change_relative_l2": 0.004556666602035199,
+              "final_relative_error": -0.003901217145159915,
+              "final_seed_z_score": -1.1903759063907275,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8780487804878049,
+              "particle_final_mean": 4.440731300961408,
+              "particle_final_sem": 0.014553601929735671,
+              "model_final": 4.423407043873049
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008423550068564681,
+              "relaxation_change_relative_l2": 0.000685680698413953,
+              "final_relative_error": -0.004490343817719356,
+              "final_seed_z_score": -0.6349914247286317,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.33051897041584577,
+              "particle_final_sem": 0.002337265918323259,
+              "model_final": 0.3290348266004
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 9.780142334995617,
+            "minimum_realizability_margin": 4.24820065101315e-05,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.0023933994000199235,
+          "all_35_relaxation_change_relative_l2": 0.004461166902463929,
+          "fourth_order_componentwise_dimensionless_rmse": 0.004514286335581523,
+          "fourth_order_dimensionless_history_relative_l2": 0.002461789076680475,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004075634440902562,
+              "relaxation_change_relative_l2": 0.0006423228484449703,
+              "final_relative_error": -0.0008195759342589544,
+              "final_seed_z_score": -0.5495977101834971,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2696963385129445,
+              "particle_final_sem": 0.0018934077482136618,
+              "model_final": 1.2686557259500826
+            },
+            "M400": {
+              "history_relative_l2": 0.0019695869843080467,
+              "relaxation_change_relative_l2": 0.004589844499598196,
+              "final_relative_error": -0.0039019901742826527,
+              "final_seed_z_score": -1.1906117802753142,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": 4.440731300961408,
+              "particle_final_sem": 0.014553601929735671,
+              "model_final": 4.423403611058427
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008423952546230627,
+              "relaxation_change_relative_l2": 0.0006857134602738382,
+              "final_relative_error": -0.004490658695398087,
+              "final_seed_z_score": -0.6350359524160313,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.33051897041584577,
+              "particle_final_sem": 0.002337265918323259,
+              "model_final": 0.32903472252735383
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 34.9661186700032,
+            "minimum_realizability_margin": 4.24820065101315e-05,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 4.440892098500626e-15
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.009264604013184949,
+          "all_35_relaxation_change_relative_l2": 0.017268720292865088,
+          "fourth_order_componentwise_dimensionless_rmse": 0.017862120885291002,
+          "fourth_order_dimensionless_history_relative_l2": 0.009740803044583806,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00040757967101003034,
+              "relaxation_change_relative_l2": 0.0006423484221844259,
+              "final_relative_error": -0.0008196364567454907,
+              "final_seed_z_score": -0.5496382958310554,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2696963385129445,
+              "particle_final_sem": 0.0018934077482136618,
+              "model_final": 1.268655649104903
+            },
+            "M400": {
+              "history_relative_l2": 0.010199398668435798,
+              "relaxation_change_relative_l2": 0.023768259158138037,
+              "final_relative_error": -0.002229744524848211,
+              "final_seed_z_score": -0.6803605287849598,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.4146341463414634,
+              "particle_final_mean": 4.440731300961408,
+              "particle_final_sem": 0.014553601929735671,
+              "model_final": 4.4308296046567675
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008424333126256893,
+              "relaxation_change_relative_l2": 0.0006857444396561756,
+              "final_relative_error": -0.004490943446816845,
+              "final_seed_z_score": -0.6350762198691331,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.33051897041584577,
+              "particle_final_sem": 0.002337265918323259,
+              "model_final": 0.3290346284116081
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 47.611112840000715,
+            "minimum_realizability_margin": 4.24820065101315e-05,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 5.551115123125783e-16
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.009273716049520497,
+          "all_35_relaxation_change_relative_l2": 0.017285704635266887,
+          "fourth_order_componentwise_dimensionless_rmse": 0.017879742785778377,
+          "fourth_order_dimensionless_history_relative_l2": 0.009750412847530563,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00040757967100580694,
+              "relaxation_change_relative_l2": 0.0006423484221777698,
+              "final_relative_error": -0.0008196364567225815,
+              "final_seed_z_score": -0.5496382958156927,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2696963385129445,
+              "particle_final_sem": 0.0018934077482136618,
+              "model_final": 1.2686556491049321
+            },
+            "M400": {
+              "history_relative_l2": 0.010209486739835105,
+              "relaxation_change_relative_l2": 0.02379176798480706,
+              "final_relative_error": -0.002164347732355847,
+              "final_seed_z_score": -0.6604060470830825,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.4146341463414634,
+              "particle_final_mean": 4.440731300961408,
+              "particle_final_sem": 0.014553601929735671,
+              "model_final": 4.431120014240171
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008424333126147622,
+              "relaxation_change_relative_l2": 0.0006857444396472808,
+              "final_relative_error": -0.004490943446704989,
+              "final_seed_z_score": -0.6350762198533153,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.33051897041584577,
+              "particle_final_sem": 0.002337265918323259,
+              "model_final": 0.32903462841164505
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 39.028219448002346,
+            "minimum_realizability_margin": 4.24820065101315e-05,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 5.551115123125783e-16
+          }
+        }
+      }
+    },
+    "crossing_ma20": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.0026448505826935954,
+          "all_35_relaxation_change_relative_l2": 0.005228534619081876,
+          "fourth_order_componentwise_dimensionless_rmse": 0.003999958488453883,
+          "fourth_order_dimensionless_history_relative_l2": 0.002773808108795366,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006545571244679955,
+              "relaxation_change_relative_l2": 0.002635363944219014,
+              "final_relative_error": -0.000982710416173558,
+              "final_seed_z_score": -0.5618155693589338,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0677169239206736,
+              "particle_final_sem": 0.001867617417329503,
+              "model_final": 1.066667667378012
+            },
+            "M400": {
+              "history_relative_l2": 0.003178279263898415,
+              "relaxation_change_relative_l2": 0.010305441600158125,
+              "final_relative_error": -0.004944879279929981,
+              "final_seed_z_score": -1.2777322894589052,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 3.3061156172036026,
+              "particle_final_sem": 0.012794810577641598,
+              "model_final": 3.2897672745910396
+            },
+            "M110": {
+              "history_relative_l2": 0.0013408216538197083,
+              "relaxation_change_relative_l2": 0.001089433933610368,
+              "final_relative_error": 0.003844402454626543,
+              "final_seed_z_score": 0.6749915732850251,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": -0.20077486150441964,
+              "particle_final_sem": 0.0011435096391476966,
+              "model_final": -0.20000300213402475
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009714349668184436,
+              "relaxation_change_relative_l2": 0.0007898090125942818,
+              "final_relative_error": -0.004692315948504566,
+              "final_seed_z_score": -0.958340909635492,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.926829268292683,
+              "particle_final_mean": 0.328143286813533,
+              "particle_final_sem": 0.0016066850143082157,
+              "model_final": 0.32660353483542315
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 9.858984736994898,
+            "minimum_realizability_margin": 0.0002002919811992695,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 1.7763568394002505e-15
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.0026639511505036355,
+          "all_35_relaxation_change_relative_l2": 0.005266294022464584,
+          "fourth_order_componentwise_dimensionless_rmse": 0.004030356913429148,
+          "fourth_order_dimensionless_history_relative_l2": 0.002794888176984671,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.000654572755331332,
+              "relaxation_change_relative_l2": 0.0026354268768678446,
+              "final_relative_error": -0.0009827301661736766,
+              "final_seed_z_score": -0.5618268604344927,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0677169239206736,
+              "particle_final_sem": 0.001867617417329503,
+              "model_final": 1.0666676462906026
+            },
+            "M400": {
+              "history_relative_l2": 0.0032006044028620234,
+              "relaxation_change_relative_l2": 0.010377829957725761,
+              "final_relative_error": -0.004952798123143263,
+              "final_seed_z_score": -1.2797784792839713,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 3.3061156172036026,
+              "particle_final_sem": 0.012794810577641598,
+              "model_final": 3.289741093979822
+            },
+            "M110": {
+              "history_relative_l2": 0.0013407135861946958,
+              "relaxation_change_relative_l2": 0.0010893461273480825,
+              "final_relative_error": 0.0038447175449772115,
+              "final_seed_z_score": 0.6750468961431376,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": -0.20077486150441964,
+              "particle_final_sem": 0.0011435096391476966,
+              "model_final": -0.20000293887180323
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009713465044190498,
+              "relaxation_change_relative_l2": 0.0007897370897145179,
+              "final_relative_error": -0.004692630770653431,
+              "final_seed_z_score": -0.9584052077236489,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.926829268292683,
+              "particle_final_mean": 0.328143286813533,
+              "particle_final_sem": 0.0016066850143082157,
+              "model_final": 0.32660343152864846
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 18.652424724998127,
+            "minimum_realizability_margin": 0.0002002919811992695,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.220446049250313e-16
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.006210108155377552,
+          "all_35_relaxation_change_relative_l2": 0.012276597283452602,
+          "fourth_order_componentwise_dimensionless_rmse": 0.009591560135761621,
+          "fourth_order_dimensionless_history_relative_l2": 0.006651355847159739,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.000654586810536152,
+              "relaxation_change_relative_l2": 0.0026354834656339378,
+              "final_relative_error": -0.0009827480365079356,
+              "final_seed_z_score": -0.5618370769050329,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0677169239206736,
+              "particle_final_sem": 0.001867617417329503,
+              "model_final": 1.0666676272101443
+            },
+            "M400": {
+              "history_relative_l2": 0.004234680824003118,
+              "relaxation_change_relative_l2": 0.013730780810477095,
+              "final_relative_error": -0.004658893227643876,
+              "final_seed_z_score": -1.2038349114533469,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7073170731707317,
+              "particle_final_mean": 3.3061156172036026,
+              "particle_final_sem": 0.012794810577641598,
+              "model_final": 3.290712777544805
+            },
+            "M110": {
+              "history_relative_l2": 0.0013406189857158885,
+              "relaxation_change_relative_l2": 0.0010892692633062057,
+              "final_relative_error": 0.0038450026472646795,
+              "final_seed_z_score": 0.6750969537642729,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": -0.20077486150441964,
+              "particle_final_sem": 0.0011435096391476966,
+              "model_final": -0.20000288163043095
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009712693710495964,
+              "relaxation_change_relative_l2": 0.0007896743777137696,
+              "final_relative_error": -0.004692915630253104,
+              "final_seed_z_score": -0.9584633863737791,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.926829268292683,
+              "particle_final_mean": 0.328143286813533,
+              "particle_final_sem": 0.0016066850143082157,
+              "model_final": 0.32660333805388314
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 19.6068217380016,
+            "minimum_realizability_margin": 0.0002002919811992695,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.886579864025407e-15
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.006215395508363726,
+          "all_35_relaxation_change_relative_l2": 0.01228704971063787,
+          "fourth_order_componentwise_dimensionless_rmse": 0.00959980100833934,
+          "fourth_order_dimensionless_history_relative_l2": 0.006657070556261247,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006545868105344033,
+              "relaxation_change_relative_l2": 0.0026354834656268974,
+              "final_relative_error": -0.00098274803650544,
+              "final_seed_z_score": -0.5618370769036062,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.0677169239206736,
+              "particle_final_sem": 0.001867617417329503,
+              "model_final": 1.066667627210147
+            },
+            "M400": {
+              "history_relative_l2": 0.0042059904258813004,
+              "relaxation_change_relative_l2": 0.013637753358267933,
+              "final_relative_error": -0.0046090307469151505,
+              "final_seed_z_score": -1.190950693648839,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7073170731707317,
+              "particle_final_mean": 3.3061156172036026,
+              "particle_final_sem": 0.012794810577641598,
+              "model_final": 3.290877628671055
+            },
+            "M110": {
+              "history_relative_l2": 0.0013406189857412397,
+              "relaxation_change_relative_l2": 0.001089269263326804,
+              "final_relative_error": 0.0038450026471533944,
+              "final_seed_z_score": 0.6750969537447338,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": -0.20077486150441964,
+              "particle_final_sem": 0.0011435096391476966,
+              "model_final": -0.2000028816304533
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009712693710687525,
+              "relaxation_change_relative_l2": 0.0007896743777293441,
+              "final_relative_error": -0.0046929156301453445,
+              "final_seed_z_score": -0.9584633863517708,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.926829268292683,
+              "particle_final_mean": 0.328143286813533,
+              "particle_final_sem": 0.0016066850143082157,
+              "model_final": 0.3266033380539185
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 48.05149263099884,
+            "minimum_realizability_margin": 0.0002002919811992695,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 6.772360450213455e-15
+          }
+        }
+      }
+    },
+    "rare_beam_ma20": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.16413022195252805,
+          "all_35_relaxation_change_relative_l2": 0.27495871941677436,
+          "fourth_order_componentwise_dimensionless_rmse": 2.006722143043736,
+          "fourth_order_dimensionless_history_relative_l2": 0.16642261850203308,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0007782331211258657,
+              "relaxation_change_relative_l2": 0.001421842888576812,
+              "final_relative_error": 0.0002517237212513848,
+              "final_seed_z_score": 0.15633088294889877,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7560975609756098,
+              "particle_final_mean": 1.2043807081591096,
+              "particle_final_sem": 0.0019392917633574,
+              "model_final": 1.2046838793527708
+            },
+            "M300": {
+              "history_relative_l2": 0.015048670347324012,
+              "relaxation_change_relative_l2": 0.017960152994991294,
+              "final_relative_error": -0.05774911377206921,
+              "final_seed_z_score": -14.523857888474918,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.2682926829268293,
+              "particle_final_mean": 3.0509790387977684,
+              "particle_final_sem": 0.012131166318250978,
+              "model_final": 2.8747877031700377
+            },
+            "M400": {
+              "history_relative_l2": 0.16589898415992133,
+              "relaxation_change_relative_l2": 0.28468295365801555,
+              "final_relative_error": -0.29995963273309917,
+              "final_seed_z_score": -62.02583942842997,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.0,
+              "particle_final_mean": 23.610298697034892,
+              "particle_final_sem": 0.11418042208124007,
+              "model_final": 16.528162171153536
+            },
+            "M110": {
+              "history_relative_l2": 0.002537998035283276,
+              "relaxation_change_relative_l2": 0.002075919532865422,
+              "final_relative_error": 0.003076673440438635,
+              "final_seed_z_score": 0.3188415008446463,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 0.11550343328816419,
+              "particle_final_sem": 0.0011145548635788185,
+              "model_final": 0.11585879963364136
+            },
+            "M210": {
+              "history_relative_l2": 0.02788673479412389,
+              "relaxation_change_relative_l2": 0.03324506215811446,
+              "final_relative_error": -0.09096799346336004,
+              "final_seed_z_score": -16.71756334315854,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.14634146341463414,
+              "particle_final_mean": 1.0380609194672097,
+              "particle_final_sem": 0.00564856953123537,
+              "model_final": 0.943630600530547
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0007379610527430151,
+              "relaxation_change_relative_l2": 0.0006011545973787216,
+              "final_relative_error": 0.0038812415987506117,
+              "final_seed_z_score": 0.4902959846153959,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3082751361977903,
+              "particle_final_sem": 0.002440342813351694,
+              "model_final": 0.30947162648026166
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.0077400161432205385,
+              "relaxation_change_relative_l2": 0.009279580170351213,
+              "final_relative_error": -0.03549860985740964,
+              "final_seed_z_score": -9.449974002174116,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.4146341463414634,
+              "particle_final_mean": 1.9034849553023634,
+              "particle_final_sem": 0.007150397427779338,
+              "model_final": 1.835913885504636
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 165.14437083400117,
+            "minimum_realizability_margin": 0.0006246963247817812,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 3.6637359812630166e-15
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.16258099009724752,
+          "all_35_relaxation_change_relative_l2": 0.2723633728563413,
+          "fourth_order_componentwise_dimensionless_rmse": 1.987803311829032,
+          "fourth_order_dimensionless_history_relative_l2": 0.1648536312654775,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.000545576413163034,
+              "relaxation_change_relative_l2": 0.0009967758017146186,
+              "final_relative_error": -7.3842408942692e-05,
+              "final_seed_z_score": -0.04585920203188316,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.9512195121951219,
+              "particle_final_mean": 1.2043807081591096,
+              "particle_final_sem": 0.0019392917633574,
+              "model_final": 1.204291773786335
+            },
+            "M300": {
+              "history_relative_l2": 0.013972263654585796,
+              "relaxation_change_relative_l2": 0.016675492726660766,
+              "final_relative_error": -0.05576349828890311,
+              "final_seed_z_score": -14.024477115074928,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.21951219512195122,
+              "particle_final_mean": 3.0509790387977684,
+              "particle_final_sem": 0.012131166318250978,
+              "model_final": 2.88084577438829
+            },
+            "M400": {
+              "history_relative_l2": 0.16433682364782964,
+              "relaxation_change_relative_l2": 0.28200228342412503,
+              "final_relative_error": -0.2985021691132113,
+              "final_seed_z_score": -61.72446419458182,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.0,
+              "particle_final_mean": 23.610298697034892,
+              "particle_final_sem": 0.11418042208124007,
+              "model_final": 16.56257332255915
+            },
+            "M110": {
+              "history_relative_l2": 0.003113199987210019,
+              "relaxation_change_relative_l2": 0.0025463978195886692,
+              "final_relative_error": 0.0011551154337503119,
+              "final_seed_z_score": 0.1197068020625733,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8780487804878049,
+              "particle_final_mean": 0.11550343328816419,
+              "particle_final_sem": 0.0011145548635788185,
+              "model_final": 0.1156368530866065
+            },
+            "M210": {
+              "history_relative_l2": 0.0268589878053038,
+              "relaxation_change_relative_l2": 0.032019837592442514,
+              "final_relative_error": -0.08942546013469423,
+              "final_seed_z_score": -16.434085631392914,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.14634146341463414,
+              "particle_final_mean": 1.0380609194672097,
+              "particle_final_sem": 0.00564856953123537,
+              "model_final": 0.9452318440960107
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.00052478468879338,
+              "relaxation_change_relative_l2": 0.0004274978023968462,
+              "final_relative_error": 0.0019581423096894776,
+              "final_seed_z_score": 0.2473613886997703,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3082751361977903,
+              "particle_final_sem": 0.002440342813351694,
+              "model_final": 0.30887878278500447
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.006727885139288113,
+              "relaxation_change_relative_l2": 0.008066126526315139,
+              "final_relative_error": -0.03322273734982538,
+              "final_seed_z_score": -8.844121093699028,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.36585365853658536,
+              "particle_final_mean": 1.9034849553023634,
+              "particle_final_sem": 0.007150397427779338,
+              "model_final": 1.8402459745830089
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 282.25868909100245,
+            "minimum_realizability_margin": 0.0006246963247817812,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 1.3322676295501878e-15
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.11994677559732354,
+          "all_35_relaxation_change_relative_l2": 0.20094051798668935,
+          "fourth_order_componentwise_dimensionless_rmse": 1.466654676989615,
+          "fourth_order_dimensionless_history_relative_l2": 0.12163343720952079,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0003936853653342393,
+              "relaxation_change_relative_l2": 0.0007192687150444747,
+              "final_relative_error": -0.000402453925134365,
+              "final_seed_z_score": -0.24994059816744088,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 1.2043807081591096,
+              "particle_final_sem": 0.0019392917633574,
+              "model_final": 1.2038960004157548
+            },
+            "M300": {
+              "history_relative_l2": 0.0075222628507661815,
+              "relaxation_change_relative_l2": 0.008977603240031367,
+              "final_relative_error": -0.018452047859564922,
+              "final_seed_z_score": -4.64067590580544,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.024390243902439025,
+              "particle_final_mean": 3.0509790387977684,
+              "particle_final_sem": 0.012131166318250978,
+              "model_final": 2.9946822275553426
+            },
+            "M400": {
+              "history_relative_l2": 0.126726813137923,
+              "relaxation_change_relative_l2": 0.21746343809431823,
+              "final_relative_error": -0.3341494357336604,
+              "final_seed_z_score": -69.09562815860019,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.024390243902439025,
+              "particle_final_mean": 23.610298697034892,
+              "particle_final_sem": 0.11418042208124007,
+              "model_final": 15.720930709917505
+            },
+            "M110": {
+              "history_relative_l2": 0.0037129204612680812,
+              "relaxation_change_relative_l2": 0.0030369306840940143,
+              "final_relative_error": -0.000784417070155546,
+              "final_seed_z_score": -0.08129062793901766,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": 0.11550343328816419,
+              "particle_final_sem": 0.0011145548635788185,
+              "model_final": 0.11541283042343138
+            },
+            "M210": {
+              "history_relative_l2": 0.012406453097483804,
+              "relaxation_change_relative_l2": 0.014790304689041259,
+              "final_relative_error": -0.009105173555873935,
+              "final_seed_z_score": -1.6732952973408617,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.07317073170731707,
+              "particle_final_mean": 1.0380609194672097,
+              "particle_final_sem": 0.00564856953123537,
+              "model_final": 1.0286091946338907
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009166599536594894,
+              "relaxation_change_relative_l2": 0.0007467255125823898,
+              "final_relative_error": 1.7054109638799843e-05,
+              "final_seed_z_score": 0.0021543522257892697,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3082751361977903,
+              "particle_final_sem": 0.002440342813351694,
+              "model_final": 0.3082803935557619
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.006292672128534941,
+              "relaxation_change_relative_l2": 0.007544345440884022,
+              "final_relative_error": -0.002901269870438467,
+              "final_seed_z_score": -0.7723379861651635,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.3902439024390244,
+              "particle_final_mean": 1.9034849553023634,
+              "particle_final_sem": 0.007150397427779338,
+              "model_final": 1.8979624317527117
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 20.372341399001016,
+            "minimum_realizability_margin": 9.999956167277075e-13,
+            "limited_steps": 14,
+            "minimum_lambda": 0.6748070964410372,
+            "weighted_removed_nonlinear_fraction": 0.014004758631026612,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.12215978234939671,
+          "all_35_relaxation_change_relative_l2": 0.20464785168411598,
+          "fourth_order_componentwise_dimensionless_rmse": 1.4936878401525098,
+          "fourth_order_dimensionless_history_relative_l2": 0.1238753668237213,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0003936853650984909,
+              "relaxation_change_relative_l2": 0.0007192687146137589,
+              "final_relative_error": -0.00040245392567473623,
+              "final_seed_z_score": -0.24994059850303388,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.975609756097561,
+              "particle_final_mean": 1.2043807081591096,
+              "particle_final_sem": 0.0019392917633574,
+              "model_final": 1.203896000415104
+            },
+            "M300": {
+              "history_relative_l2": 0.008935780137878655,
+              "relaxation_change_relative_l2": 0.010664595256712725,
+              "final_relative_error": -0.02281205867238985,
+              "final_seed_z_score": -5.737215286264478,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.024390243902439025,
+              "particle_final_mean": 3.0509790387977684,
+              "particle_final_sem": 0.012131166318250978,
+              "model_final": 2.981379925956482
+            },
+            "M400": {
+              "history_relative_l2": 0.128950251387896,
+              "relaxation_change_relative_l2": 0.22127886210962355,
+              "final_relative_error": -0.3383141343540464,
+              "final_seed_z_score": -69.95680712972433,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.024390243902439025,
+              "particle_final_mean": 23.610298697034892,
+              "particle_final_sem": 0.11418042208124007,
+              "model_final": 15.622600931507064
+            },
+            "M110": {
+              "history_relative_l2": 0.003712920462409935,
+              "relaxation_change_relative_l2": 0.0030369306850279772,
+              "final_relative_error": -0.000784417073164954,
+              "final_seed_z_score": -0.08129062825088831,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.7317073170731707,
+              "particle_final_mean": 0.11550343328816419,
+              "particle_final_sem": 0.0011145548635788185,
+              "model_final": 0.11541283042308378
+            },
+            "M210": {
+              "history_relative_l2": 0.01379055531135356,
+              "relaxation_change_relative_l2": 0.01644035674687414,
+              "final_relative_error": -0.013719441380642117,
+              "final_seed_z_score": -2.5212783263820655,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.024390243902439025,
+              "particle_final_mean": 1.0380609194672097,
+              "particle_final_sem": 0.00564856953123537,
+              "model_final": 1.0238193035330438
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009166599546096014,
+              "relaxation_change_relative_l2": 0.0007467255133563659,
+              "final_relative_error": 1.7054106514042462e-05,
+              "final_seed_z_score": 0.002154351831055791,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3082751361977903,
+              "particle_final_sem": 0.002440342813351694,
+              "model_final": 0.30828039355479864
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.007299041133900427,
+              "relaxation_change_relative_l2": 0.008750890969141785,
+              "final_relative_error": -0.007165605017209236,
+              "final_seed_z_score": -1.9075333201630025,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.17073170731707318,
+              "particle_final_mean": 1.9034849553023634,
+              "particle_final_sem": 0.007150397427779338,
+              "model_final": 1.8898453339564665
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 55.85676392700407,
+            "minimum_realizability_margin": 9.9995243470329e-13,
+            "limited_steps": 27,
+            "minimum_lambda": 0.6625589759028241,
+            "weighted_removed_nonlinear_fraction": 0.01377411582512782,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 1.1102230246251565e-15
+          }
+        }
+      }
+    },
+    "counterstream_ma100": {
+      "stage9_finite_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.002398588001434239,
+          "all_35_relaxation_change_relative_l2": 0.0044799527202059024,
+          "fourth_order_componentwise_dimensionless_rmse": 0.0045414576211222114,
+          "fourth_order_dimensionless_history_relative_l2": 0.0024723497123104446,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004024726838845551,
+              "relaxation_change_relative_l2": 0.0006320700673163117,
+              "final_relative_error": -0.0008142456815858288,
+              "final_seed_z_score": -0.5476718768869044,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2716249677481217,
+              "particle_final_sem": 0.001890575693736859,
+              "model_final": 1.270589552609536
+            },
+            "M400": {
+              "history_relative_l2": 0.0019827890647727033,
+              "relaxation_change_relative_l2": 0.004652751002364381,
+              "final_relative_error": -0.00386542814105385,
+              "final_seed_z_score": -1.1830915846185597,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8780487804878049,
+              "particle_final_mean": 4.449787431060244,
+              "particle_final_sem": 0.01453846327820305,
+              "model_final": 4.432587097502516
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.000831041524613711,
+              "relaxation_change_relative_l2": 0.0006765302837356978,
+              "final_relative_error": -0.004434483460241495,
+              "final_seed_z_score": -0.632577408838323,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3328793146256372,
+              "particle_final_sem": 0.0023335449453921195,
+              "model_final": 0.3314031668106733
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 10.414248690998647,
+            "minimum_realizability_margin": 6.917967503853064e-08,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 4.440892098500626e-16
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.002410222568477907,
+          "all_35_relaxation_change_relative_l2": 0.004501683134201359,
+          "fourth_order_componentwise_dimensionless_rmse": 0.004564446117693221,
+          "fourth_order_dimensionless_history_relative_l2": 0.002484864549533509,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00040249501473944204,
+              "relaxation_change_relative_l2": 0.000632105137186931,
+              "final_relative_error": -0.0008143129697993455,
+              "final_seed_z_score": -0.5477171357848298,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2716249677481217,
+              "particle_final_sem": 0.001890575693736859,
+              "model_final": 1.2705894670441638
+            },
+            "M400": {
+              "history_relative_l2": 0.0019995742186974695,
+              "relaxation_change_relative_l2": 0.004692138521256739,
+              "final_relative_error": -0.00386647665932866,
+              "final_seed_z_score": -1.1834125046051638,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.8536585365853658,
+              "particle_final_mean": 4.449787431060244,
+              "particle_final_sem": 0.01453846327820305,
+              "model_final": 4.432582431819076
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008310912475208762,
+              "relaxation_change_relative_l2": 0.0006765707619205974,
+              "final_relative_error": -0.004434798276290187,
+              "final_seed_z_score": -0.6326223172300507,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3328793146256372,
+              "particle_final_sem": 0.0023335449453921195,
+              "model_final": 0.33140306201492276
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 32.39717400199879,
+            "minimum_realizability_margin": 6.917967503853064e-08,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        }
+      },
+      "guarded_grad_map": {
+        "base": {
+          "all_35_dimensionless_history_relative_l2": 0.009191597153534308,
+          "all_35_relaxation_change_relative_l2": 0.01716756718802498,
+          "fourth_order_componentwise_dimensionless_rmse": 0.017754181187929065,
+          "fourth_order_dimensionless_history_relative_l2": 0.00966529876842436,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004025159205118149,
+              "relaxation_change_relative_l2": 0.0006321379690124935,
+              "final_relative_error": -0.0008143738272593939,
+              "final_seed_z_score": -0.5477580692771663,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2716249677481217,
+              "particle_final_sem": 0.001890575693736859,
+              "model_final": 1.270589389656298
+            },
+            "M400": {
+              "history_relative_l2": 0.01010990315778927,
+              "relaxation_change_relative_l2": 0.023723583555572587,
+              "final_relative_error": -0.0021695753346845184,
+              "final_seed_z_score": -0.6640419190308496,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.4146341463414634,
+              "particle_final_mean": 4.449787431060244,
+              "particle_final_sem": 0.01453846327820305,
+              "model_final": 4.440133282005227
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008311373856952465,
+              "relaxation_change_relative_l2": 0.0006766083218634803,
+              "final_relative_error": -0.004435083005282326,
+              "final_seed_z_score": -0.6326629337144019,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3328793146256372,
+              "particle_final_sem": 0.0023335449453921195,
+              "model_final": 0.331402967234531
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 400,
+            "elapsed_seconds": 22.33880092099571,
+            "minimum_realizability_margin": 6.917967503853064e-08,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 0.0
+          }
+        },
+        "half_dt": {
+          "all_35_dimensionless_history_relative_l2": 0.00920058063725278,
+          "all_35_relaxation_change_relative_l2": 0.017184346052214007,
+          "fourth_order_componentwise_dimensionless_rmse": 0.01777158299011496,
+          "fourth_order_dimensionless_history_relative_l2": 0.00967477223360168,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00040251592050643875,
+              "relaxation_change_relative_l2": 0.0006321379690040505,
+              "final_relative_error": -0.0008143738272391386,
+              "final_seed_z_score": -0.5477580692635423,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 1.2716249677481217,
+              "particle_final_sem": 0.001890575693736859,
+              "model_final": 1.2705893896563238
+            },
+            "M400": {
+              "history_relative_l2": 0.010119829707050925,
+              "relaxation_change_relative_l2": 0.02374687688659188,
+              "final_relative_error": -0.002103728733946124,
+              "final_seed_z_score": -0.6438882500538102,
+              "fraction_of_samples_inside_95pct_seed_ci": 0.4146341463414634,
+              "particle_final_mean": 4.449787431060244,
+              "particle_final_sem": 0.01453846327820305,
+              "model_final": 4.44042628538157
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008311373856837685,
+              "relaxation_change_relative_l2": 0.0006766083218541363,
+              "final_relative_error": -0.004435083005186438,
+              "final_seed_z_score": -0.6326629337007236,
+              "fraction_of_samples_inside_95pct_seed_ci": 1.0,
+              "particle_final_mean": 0.3328793146256372,
+              "particle_final_sem": 0.0023335449453921195,
+              "model_final": 0.3314029672345629
+            }
+          },
+          "diagnostics": {
+            "status": "REACHED_FINAL_TIME",
+            "message": "",
+            "completed_steps": 800,
+            "elapsed_seconds": 40.24195196099754,
+            "minimum_realizability_margin": 6.917967503853064e-08,
+            "limited_steps": 0,
+            "minimum_lambda": 1.0,
+            "weighted_removed_nonlinear_fraction": 0.0,
+            "mass_drift": 0.0,
+            "momentum_drift": 0.0,
+            "temperature_drift": 2.220446049250313e-16
+          }
+        }
+      }
+    }
+  }
+}

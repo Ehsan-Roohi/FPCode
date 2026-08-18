@@ -1,0 +1,80 @@
+{
+  "schema": "riemann35-stage18-adaptive-micro-solver-screen-v1",
+  "case": "rare_beam_ma20",
+  "interpretation": "kinetic microstate sizing, not an instantaneous 35-moment closure",
+  "gate": "M400 history error and independent-scrambling spread all < 3%",
+  "candidates": [
+    {
+      "points_per_component": 512,
+      "total_positive_nodes": 1024,
+      "independent_scramblings": 4,
+      "elapsed_seconds_sum": 2.7723122389943455,
+      "M400_error_vs_particle": 0.03427284738058508,
+      "M400_error_vs_qmc": 0.025886888981409725,
+      "M400_scramble_relative_spread": 0.04774282790572599,
+      "passes_3pct_reference_envelope": false,
+      "minimum_realizability_margin": 0.000597302169154296,
+      "maximum_energy_drift": 1.3322676295501878e-14
+    },
+    {
+      "points_per_component": 1024,
+      "total_positive_nodes": 2048,
+      "independent_scramblings": 4,
+      "elapsed_seconds_sum": 3.9600954849956906,
+      "M400_error_vs_particle": 0.016666515372365645,
+      "M400_error_vs_qmc": 0.010965952258593249,
+      "M400_scramble_relative_spread": 0.023193089971535224,
+      "passes_3pct_reference_envelope": true,
+      "minimum_realizability_margin": 0.0006178504208853163,
+      "maximum_energy_drift": 2.0872192862952943e-14
+    },
+    {
+      "points_per_component": 2048,
+      "total_positive_nodes": 4096,
+      "independent_scramblings": 4,
+      "elapsed_seconds_sum": 6.207367654002155,
+      "M400_error_vs_particle": 0.011023769769040995,
+      "M400_error_vs_qmc": 0.009875205340368329,
+      "M400_scramble_relative_spread": 0.028315689361656907,
+      "passes_3pct_reference_envelope": true,
+      "minimum_realizability_margin": 0.0006207770162049088,
+      "maximum_energy_drift": 2.7977620220553945e-14
+    },
+    {
+      "points_per_component": 4096,
+      "total_positive_nodes": 8192,
+      "independent_scramblings": 4,
+      "elapsed_seconds_sum": 10.84873940700345,
+      "M400_error_vs_particle": 0.015788579298356035,
+      "M400_error_vs_qmc": 0.013853120377046411,
+      "M400_scramble_relative_spread": 0.016188868927445782,
+      "passes_3pct_reference_envelope": true,
+      "minimum_realizability_margin": 0.0006209685092006882,
+      "maximum_energy_drift": 4.3520742565306136e-14
+    },
+    {
+      "points_per_component": 8192,
+      "total_positive_nodes": 16384,
+      "independent_scramblings": 4,
+      "elapsed_seconds_sum": 20.051967549989058,
+      "M400_error_vs_particle": 0.004452864014044479,
+      "M400_error_vs_qmc": 0.011987102432509937,
+      "M400_scramble_relative_spread": 0.014008957295757596,
+      "passes_3pct_reference_envelope": true,
+      "minimum_realizability_margin": 0.0006225776929981408,
+      "maximum_energy_drift": 5.995204332975845e-14
+    }
+  ],
+  "selected_minimum": {
+    "points_per_component": 1024,
+    "total_positive_nodes": 2048,
+    "independent_scramblings": 4,
+    "elapsed_seconds_sum": 3.9600954849956906,
+    "M400_error_vs_particle": 0.016666515372365645,
+    "M400_error_vs_qmc": 0.010965952258593249,
+    "M400_scramble_relative_spread": 0.023193089971535224,
+    "passes_3pct_reference_envelope": true,
+    "minimum_realizability_margin": 0.0006178504208853163,
+    "maximum_energy_drift": 2.0872192862952943e-14
+  }
+}

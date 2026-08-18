@@ -1,0 +1,4 @@
+numpy>=1.26,<2.1
+matplotlib>=3.8
+tensorflow[and-cuda]>=2.16,<2.20
+

@@ -2,6 +2,10 @@
 
 This directory hosts the next-generation physics-informed extension of the GPU-native cubic Fokker-Planck solver published in the *Journal of Computational Physics*.
 
+## First runnable baseline
+
+[`pinn/ou_1d`](pinn/ou_1d) is the Stage-0 positive Fokker–Planck PINN. It solves a dimensionless Ornstein–Uhlenbeck relaxation problem with an exact solution and checks the PDE sign/factor convention, automatic second derivatives, zero-flux velocity boundaries, positivity, mass, and second-moment evolution. This small verification gate precedes the 3-D cubic drift and differentiable `9 x 9` closure.
+
 ## Planned scope
 
 - Positive kinetic representation for the velocity distribution function
@@ -23,4 +27,4 @@ The legacy working directory is:
 /project/pi_roohie_umass_edu/fokkerplanckDeeponet
 ```
 
-Selected source files will be synchronized into `FP_PINN/legacy_source/` after review.
+Selected source files are synchronized into `FP_PINN/legacy_source/` through `sync_curated_source.sh` after review.

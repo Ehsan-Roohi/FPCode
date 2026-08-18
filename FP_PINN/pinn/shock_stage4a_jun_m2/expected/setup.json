@@ -1,0 +1,49 @@
+{
+  "case": "1D planar stationary normal shock",
+  "gas": "monatomic argon / Maxwell-molecule BGK reference",
+  "paper": "Fei Fei, Haihong Liu, Zhaohui Liu, Jun Zhang, AIAA Journal 58(6), 2020",
+  "doi": "10.2514/1.J059029",
+  "paper_upstream": {
+    "T_K": 300.0,
+    "number_density_m-3": 1.6095e+21,
+    "mean_free_path_m": 0.001114
+  },
+  "dimensionless_states": {
+    "rho1": 1.0,
+    "u1": 2.581988897471611,
+    "T1": 1.0,
+    "rho2": 2.285714285714286,
+    "u2": 1.1296201426438297,
+    "T2": 2.0781249999999996
+  },
+  "exact_fluxes": {
+    "mass": 2.581988897471611,
+    "momentum": 7.666666666666666,
+    "energy": 15.061601901917731
+  },
+  "domain_x_over_lambda0": [
+    -40.0,
+    40.0
+  ],
+  "reference_grid": {
+    "nx": 1600,
+    "velocity_nodes": 35017,
+    "vmax": 12.0
+  },
+  "training": {
+    "macro_steps": 8000,
+    "micro_steps": 5500,
+    "macro_profile_anchors": 17,
+    "scalar_diagnostic_locks": [
+      "phase",
+      "maximum density slope",
+      "density asymmetry"
+    ],
+    "seed": 2402
+  },
+  "software": {
+    "python": "3.12.13",
+    "torch": "2.13.0+cpu",
+    "numpy": "2.5.2"
+  }
+}

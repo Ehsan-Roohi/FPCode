@@ -1,0 +1,319 @@
+From 87356309165ee5118d72c2b4754aa46809cf7686 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Mon, 10 Aug 2026 09:12:13 +0900
+Subject: [PATCH] Add bounded CHyQMOM FP source
+
+---
+ docs/design/cubic-fp-collision.md |  49 +++++++++--
+ src/Riemann35.jl                  |   2 +-
+ src/numerics/fp_collision35.jl    | 131 +++++++++++++++++++++++++++---
+ test/test_fp_collision35.jl       |  38 +++++++++
+ 4 files changed, 197 insertions(+), 23 deletions(-)
+
+diff --git a/docs/design/cubic-fp-collision.md b/docs/design/cubic-fp-collision.md
+index 259d571..99596b7 100644
+--- a/docs/design/cubic-fp-collision.md
++++ b/docs/design/cubic-fp-collision.md
+@@ -1,10 +1,10 @@
+-# Provisional cubic Fokker--Planck collision source
++# Provisional cubic Fokker--Planck collision sources
+ 
+ ## Scope
+ 
+-The prototype in `src/numerics/fp_collision35.jl` projects FPCode's continuous
++The prototypes in `src/numerics/fp_collision35.jl` project FPCode's continuous
+ cubic Fokker--Planck velocity generator onto Riemann35's existing 35 raw
+-moments. It is intentionally CPU-only and is not wired into
++moments. They are intentionally CPU-only and are not wired into
+ `simulation_runner` or the GPU kernels.
+ 
+ The retained/evolved state is unchanged: all monomials through total degree
+@@ -12,7 +12,7 @@ four. This is not a sixth-order moment system. Degree-five and degree-six
+ moments appear only as algebraic values needed to evaluate the collision
+ source of the retained fourth-order moments.
+ 
+-## Provisional tail model
++## Raw analytical tail model
+ 
+ The lookup used by the source is
+ 
+@@ -57,16 +57,46 @@ are conserved to roundoff.
+ 
+ This is the unclipped continuous-time polynomial model. It deliberately omits
+ the particle implementation's `m2_lim` speed cutoff and finite-step alpha
+-rescaling. Those operations are not polynomial moment closures; their effect
+-must be measured in the direct FPCode particle comparison rather than silently
+-folded into the first analytical source.
++rescaling. Those operations are not polynomial moment closures.
++
++Homogeneous Stage-2 evidence shows why this distinction is material. The raw
++source remains realizable but develops a source norm above `5e10` near
++`t=0.025`; an adaptive explicit step then requires `h/dt < 2^-24`. This is a
++high-moment runaway of the unclipped closure, not merely the original
++integrator's 256-substep cap.
++
++## Bounded quadrature model
++
++`fp_collision_source35_bounded` evaluates the nonlinear drift directly on the
++non-negative CHyQMOM nodes. It applies the same
++`min(|c|^2, speed_cap*theta)` limiter as FPCode, with `speed_cap=25` by default.
++This direct evaluation is required because a clipped radial function cannot be
++recovered exactly from a finite M5/M6 polynomial lookup.
++
++The bounded source also includes the continuous limits of the two invariant
++corrections used by the homogeneous particle reference. If `N(c)` denotes the
++nonlinear drift, it subtracts its quadrature mean to conserve momentum and
++adds
++
++```text
++-lambda*c,   lambda = <c dot N> / (3*theta),
++```
++
++which is the first-order-in-time limit of FPCode's finite-step `alpha`
++rescaling. This correction acts consistently on all retained moments, unlike
++changing only the diagonal second-moment source after projection. A final
++low-order invariant projection removes quadrature roundoff only.
++
++The raw analytical function remains available as a diagnostic control. The
++bounded function is the candidate for the next homogeneous comparison, not yet
++a production solver choice.
+ 
+ ## Acceptance gates before solver wiring
+ 
+ 1. Maxwellian stationarity in the Ornstein--Uhlenbeck limit (`Pr=1`).
+ 2. Exact collision invariants for a non-equilibrium Gaussian mixture.
+ 3. Realizability of accepted homogeneous source steps.
+-4. Direct comparison against the existing FPCode particle reference.
++4. Direct bounded-source comparison against the existing FPCode particle reference.
+ 5. Sensitivity of M4 relaxation to the M6 model.
+ 6. Guidance/review of the algebraic M6 construction before crossing-jet runs.
+ 
+@@ -84,4 +114,5 @@ HYQMOM_SKIP_PLOTTING=true CI=true julia --project=. -e \
+ 
+ The focused test does not run a spatial solver. It checks the closure sizes,
+ finite source values, Maxwellian stationarity, the five collision invariants,
+-and realizability after one small homogeneous collision step.
++activation of the CHyQMOM speed limiter, and realizability after one small
++homogeneous collision step.
+diff --git a/src/Riemann35.jl b/src/Riemann35.jl
+index 4062ddc..beea681 100644
+--- a/src/Riemann35.jl
++++ b/src/Riemann35.jl
+@@ -74,7 +74,7 @@ export realizability_margin, is_realizable
+ export closure_and_eigenvalues, eigenvalues6_hyperbolic_3D, eigenvalues6z_hyperbolic_3D
+ export Flux_closure35_and_realizable_3D, Flux_closure35_3D
+ export flux_HLL, pas_HLL, collision35
+-export fp_macroscopic35, fp_collision_source35, fp_collision35
++export fp_macroscopic35, fp_collision_source35, fp_collision_source35_bounded, fp_collision35
+ export moment_idx, M4_to_vars, M5_to_vars
+ export delta2star3D, delta2star3D_permutation, jacobian6, M4toC4_3D, C4toM4_3D, S4toC4_3D_r, C5toM5_3D
+ export reduce26_S, reduce26_residual, S_INDEX, DROPPED_KEYS
+diff --git a/src/numerics/fp_collision35.jl b/src/numerics/fp_collision35.jl
+index 63c3cdc..413da82 100644
+--- a/src/numerics/fp_collision35.jl
++++ b/src/numerics/fp_collision35.jl
+@@ -14,10 +14,12 @@ closure or flux Jacobian.  The CHyQMOM M6 model is deliberately isolated so it
+ can be replaced after closure guidance/validation.  This first implementation
+ is CPU-only because `chyqmom_nodes_3d` allocates and is not device compatible.
+ 
+-The source is the unclipped continuous-time polynomial counterpart of FPCode's
+-particle update.  It does not reproduce the particle-only `m2_lim` cutoff or
+-the finite-step alpha rescaling; those effects belong in the particle-reference
+-comparison and in the eventual source-integrator study.
++`fp_collision_source35` is the unclipped continuous-time polynomial counterpart
++of FPCode's particle update.  `fp_collision_source35_bounded` instead evaluates
++the nonlinear drift on the CHyQMOM nodes, applies FPCode's `m2_lim` cutoff, and
++includes the continuous-time limit of its alpha energy correction.  Keeping the
++two paths separate makes the analytical M5/M6 closure failure observable while
++providing a bounded source for validation against the particle implementation.
+ """
+ 
+ # Total-degree-five ordering returned by Moments5_3D.
+@@ -44,6 +46,19 @@ const _FP6_INDEX = Dict{NTuple{3,Int},Int}(a => n for (n, a) in enumerate(_FP6_I
+     return (a[1], a[2], a[3] + amount)
+ end
+ 
++function _fp_project_invariants!(source::AbstractVector)
++    source[IJK_INDEX[(0,0,0)]] = 0.0
++    source[IJK_INDEX[(1,0,0)]] = 0.0
++    source[IJK_INDEX[(0,1,0)]] = 0.0
++    source[IJK_INDEX[(0,0,1)]] = 0.0
++    eidx = (IJK_INDEX[(2,0,0)], IJK_INDEX[(0,2,0)], IJK_INDEX[(0,0,2)])
++    eleak = source[eidx[1]] + source[eidx[2]] + source[eidx[3]]
++    for n in eidx
++        source[n] -= eleak/3.0
++    end
++    return source
++end
++
+ function _fp_m6_chyqmom(M::AbstractVector)
+     weights, nodes = chyqmom_nodes_3d(M)
+     M6 = zeros(Float64, length(_FP6_IJK))
+@@ -222,16 +237,106 @@ function fp_collision_source35(
+ 
+     # Exact collision-invariant projection, matching the conservation contract
+     # used by the homogeneous FPCode validation reference.
+-    source[IJK_INDEX[(0,0,0)]] = 0.0
+-    source[IJK_INDEX[(1,0,0)]] = 0.0
+-    source[IJK_INDEX[(0,1,0)]] = 0.0
+-    source[IJK_INDEX[(0,0,1)]] = 0.0
+-    eidx = (IJK_INDEX[(2,0,0)], IJK_INDEX[(0,2,0)], IJK_INDEX[(0,0,2)])
+-    eleak = source[eidx[1]] + source[eidx[2]] + source[eidx[3]]
+-    for n in eidx
+-        source[n] -= eleak/3.0
++    return _fp_project_invariants!(source)
++end
++
++"""
++    fp_collision_source35_bounded(M, tau; Pr=2/3, gamma_scale=0.05,
++                                  speed_cap=25)
++
++Evaluate the cubic FP collision source on the CHyQMOM quadrature represented by
++the retained 35 moments.  Unlike [`fp_collision_source35`](@ref), this path
++matches the stabilizing pieces of FPCode's particle update:
++
++  * `|c|^2` in the gamma and beta terms is limited to `speed_cap*theta`;
++  * the mean nonlinear drift is removed, the continuous counterpart of the
++    homogeneous reference's exact momentum recentering; and
++  * `-lambda*c`, with `lambda = <c dot N>/(3theta)`, is included as the
++    continuous-time limit of FPCode's finite-step alpha energy rescaling.
++
++The capped terms are non-polynomial, so they cannot be assembled exactly from a
++finite list of M5/M6 raw moments.  Direct CHyQMOM evaluation retains the cutoff
++without adding evolved variables.  The implementation is CPU-only and intended
++for homogeneous source validation before a device-side design is selected.
++"""
++function fp_collision_source35_bounded(
++    M::AbstractVector, tau::Real;
++    Pr::Real=2/3, gamma_scale::Real=0.05, speed_cap::Real=25.0,
++)
++    length(M) == 35 || throw(ArgumentError(
++        "fp_collision_source35_bounded expects 35 moments",
++    ))
++    tau > 0.0 || throw(ArgumentError("tau must be positive"))
++    0.0 < Pr <= 1.0 || throw(ArgumentError("Pr must lie in (0,1]"))
++    speed_cap > 0.0 || throw(ArgumentError("speed_cap must be positive"))
++    all(isfinite, M) || throw(ArgumentError("moment state contains NaN or Inf"))
++
++    state = fp_macroscopic35(M)
++    rho = state.rho; u = state.velocity; theta = state.theta
++    invtau = 1.0/Float64(tau)
++    prfactor = (1.0-Float64(Pr))/Float64(Pr)
++    C = invtau .* state.stress ./ state.pressure
++    beta = invtau * prfactor / (10.0*theta^2)
++    qscale = rho*theta*sqrt(theta)
++    gamma = Float64(gamma_scale) * invtau * prfactor .* state.heat_flux ./
++            (qscale*theta)
++    diffusion = theta*invtau
++
++    weights, nodes = chyqmom_nodes_3d(M)
++    node_count = length(weights)
++    nonlinear = zeros(Float64, node_count, 3)
++    peculiar = zeros(Float64, node_count, 3)
++    mean_nonlinear = zeros(Float64, 3)
++    mean_cn = 0.0
++    cap = Float64(speed_cap)*theta
++
++    @inbounds for q in eachindex(weights)
++        cx = nodes[q,1] - u[1]
++        cy = nodes[q,2] - u[2]
++        cz = nodes[q,3] - u[3]
++        peculiar[q,1] = cx; peculiar[q,2] = cy; peculiar[q,3] = cz
++        c2_used = min(cx*cx + cy*cy + cz*cz, cap)
++        for direction in 1:3
++            nd = C[direction,1]*cx + C[direction,2]*cy + C[direction,3]*cz
++            nd += gamma[direction]*(c2_used - 5.0*theta)
++            nd += beta*(c2_used*peculiar[q,direction] -
++                        2.0*state.heat_flux[direction]/rho)
++            nonlinear[q,direction] = nd
++            mean_nonlinear[direction] += weights[q]*nd
++            mean_cn += weights[q]*peculiar[q,direction]*nd
++        end
+     end
+-    return source
++    mean_nonlinear ./= rho
++    lambda = mean_cn/(3.0*rho*theta)
++
++    source = zeros(Float64, 35)
++    @inbounds for (position, alpha) in enumerate(IJK)
++        value = 0.0
++        for direction in 1:3
++            exponent = alpha[direction]
++            exponent == 0 && continue
++            raw = _fp_shift(alpha, direction, -1)
++            drift_moment = 0.0
++            for q in eachindex(weights)
++                drift = -invtau*peculiar[q,direction] +
++                        nonlinear[q,direction] - mean_nonlinear[direction] -
++                        lambda*peculiar[q,direction]
++                monomial = nodes[q,1]^raw[1] * nodes[q,2]^raw[2] * nodes[q,3]^raw[3]
++                drift_moment += weights[q]*monomial*drift
++            end
++            value += exponent*drift_moment
++
++            if exponent >= 2
++                lower = _fp_shift(alpha, direction, -2)
++                value += diffusion*exponent*(exponent-1)*M[IJK_INDEX[lower]]
++            end
++        end
++        source[position] = value
++    end
++
++    # The velocity-space mean and alpha corrections already conserve momentum
++    # and energy.  Remove only accumulated quadrature/roundoff leakage exactly.
++    return _fp_project_invariants!(source)
+ end
+ 
+ """
+diff --git a/test/test_fp_collision35.jl b/test/test_fp_collision35.jl
+index 8d57f7d..533316a 100644
+--- a/test/test_fp_collision35.jl
++++ b/test/test_fp_collision35.jl
+@@ -76,6 +76,44 @@ end
+         @test abs(energy_source) <= 5e-13
+     end
+ 
++    @testset "bounded quadrature source matches FPCode stabilization" begin
++        M = fp_test_mixture()
++        source = fp_collision_source35_bounded(M, 0.9; Pr=2/3)
++        @test all(isfinite, source)
++        @test source[IJK_INDEX[(0,0,0)]] == 0.0
++        @test source[IJK_INDEX[(1,0,0)]] == 0.0
++        @test source[IJK_INDEX[(0,1,0)]] == 0.0
++        @test source[IJK_INDEX[(0,0,1)]] == 0.0
++        energy_source = source[IJK_INDEX[(2,0,0)]] +
++                        source[IJK_INDEX[(0,2,0)]] +
++                        source[IJK_INDEX[(0,0,2)]]
++        @test abs(energy_source) <= 5e-13
++
++        maxwellian = InitializeM4_35(
++            1.7, 0.3, -0.2, 0.1,
++            0.8, 0.0, 0.0, 0.8, 0.0, 0.8,
++        )
++        equilibrium_source = fp_collision_source35_bounded(
++            maxwellian, 0.6; Pr=1.0,
++        )
++        @test maximum(abs.(equilibrium_source)) <= 5e-12
++
++        # A small remote population activates the m2 limiter on the CHyQMOM
++        # nodes, so the bounded and effectively-unclipped sources must differ.
++        tail = InitializeM4_35(
++            0.98, 0.0, 0.0, 0.0,
++            0.2, 0.0, 0.0, 0.2, 0.0, 0.2,
++        ) .+ InitializeM4_35(
++            0.02, 8.0, 0.0, 0.0,
++            0.2, 0.0, 0.0, 0.2, 0.0, 0.2,
++        )
++        limited = fp_collision_source35_bounded(tail, 0.9; speed_cap=25.0)
++        effectively_unlimited = fp_collision_source35_bounded(
++            tail, 0.9; speed_cap=1.0e8,
++        )
++        @test norm(limited - effectively_unlimited) > 1e-8
++    end
++
+     @testset "small validation step stays realizable and conservative" begin
+         M = fp_test_mixture()
+         @test is_realizable(M)
+-- 
+2.51.1
+

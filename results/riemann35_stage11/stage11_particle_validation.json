@@ -1,0 +1,1260 @@
+{
+  "schema": "riemann35-cubic-fp-stage11-particle-validation-v1",
+  "model": {
+    "drift": "continuous cubic Fokker-Planck without particle speed clipping",
+    "particle_integrator": "exact OU factor plus explicit nonlinear drift, antithetic noise, and sample invariant projection",
+    "stage9_speed_cap": "disabled (infinite) for model consistency",
+    "grad_guard": "exact OU base plus maximal realizable nonlinear fraction"
+  },
+  "controls": {
+    "cases": [
+      "stage9_correlated",
+      "rare_hot_anisotropic_w0.02_r25",
+      "counterstream_ma20",
+      "crossing_ma20",
+      "rare_beam_ma20",
+      "counterstream_ma100"
+    ],
+    "particles_per_seed": 100000,
+    "independent_seeds": 16,
+    "seed_values": [
+      20260810,
+      20365539,
+      20470268,
+      20574997,
+      20679726,
+      20784455,
+      20889184,
+      20993913,
+      21098642,
+      21203371,
+      21308100,
+      21412829,
+      21517558,
+      21622287,
+      21727016,
+      21831745
+    ],
+    "workers": 8,
+    "steps": 400,
+    "dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "sample_every_steps": 10,
+    "confidence_interval": "Student-t 95% interval over independent seed histories",
+    "particle_alignment": "paired change from each seed's own t=0 sample, shifted to the exact analytic initial moment vector"
+  },
+  "cases": {
+    "stage9_correlated": {
+      "family": "stage9_regression",
+      "components": [
+        {
+          "weight": 0.35,
+          "mean": [
+            -0.6510381450794991,
+            -0.37587704831436336,
+            0.273616114660535
+          ],
+          "covariance": [
+            [
+              0.35622666661696173,
+              0.02091547572314568,
+              -0.027833519961320972
+            ],
+            [
+              0.020915475723145685,
+              0.33207555553898727,
+              -0.016069690242163485
+            ],
+            [
+              -0.027833519961320954,
+              -0.016069690242163474,
+              0.29169777784405115
+            ]
+          ]
+        },
+        {
+          "weight": 0.65,
+          "mean": [
+            0.20344942033734345,
+            0.11746157759823854,
+            -0.08550503583141718
+          ],
+          "covariance": [
+            [
+              0.35622666661696173,
+              0.02091547572314568,
+              -0.027833519961320972
+            ],
+            [
+              0.020915475723145685,
+              0.33207555553898727,
+              -0.016069690242163485
+            ],
+            [
+              -0.027833519961320954,
+              -0.016069690242163474,
+              0.29169777784405115
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 0.2105961711326594,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.00432428395564563,
+          "all_35_relaxation_change_relative_l2": 0.015457319666088636,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00090757175434397,
+              "relaxation_change_relative_l2": 0.006193100637520279,
+              "final_absolute_error": -0.00018270555045529768,
+              "final_relative_error": -0.00042023949187045304,
+              "final_seed_z_score": -0.2518435963082937
+            },
+            "M300": {
+              "history_relative_l2": 0.008542782800452332,
+              "relaxation_change_relative_l2": 0.0323341625989614,
+              "final_absolute_error": 0.0024656047905747547,
+              "final_relative_error": 0.018384071249981104,
+              "final_seed_z_score": 2.962094616203383
+            },
+            "M400": {
+              "history_relative_l2": 0.0043397557947914564,
+              "relaxation_change_relative_l2": 0.01611256040293461,
+              "final_absolute_error": -0.0037682917495189816,
+              "final_relative_error": -0.006590296618134113,
+              "final_seed_z_score": -1.8880879094189562
+            },
+            "M110": {
+              "history_relative_l2": 0.009899116333317049,
+              "relaxation_change_relative_l2": 0.008802104373370288,
+              "final_absolute_error": -0.0003031421204925562,
+              "final_relative_error": -0.014170793496398918,
+              "final_seed_z_score": -0.5466294736460832
+            },
+            "M210": {
+              "history_relative_l2": 0.027290630227876495,
+              "relaxation_change_relative_l2": 0.04292363016867466,
+              "final_absolute_error": 0.001275296789247267,
+              "final_relative_error": 0.04051380826178723,
+              "final_seed_z_score": 1.9465818862180786
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.003681405805181689,
+              "relaxation_change_relative_l2": 0.0030016864188416236,
+              "final_absolute_error": 0.0005032151472341151,
+              "final_relative_error": 0.01388066273486956,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.06685374828225533,
+              "relaxation_change_relative_l2": 0.0823846654020846,
+              "final_absolute_error": -0.002513106016639651,
+              "final_relative_error": -0.22766301877011627,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.003910370464276478,
+          "all_35_relaxation_change_relative_l2": 0.013977769938128055,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0009081860493619058,
+              "relaxation_change_relative_l2": 0.006197292472324518,
+              "final_absolute_error": -0.00018293810371827757,
+              "final_relative_error": -0.0004207743856644508,
+              "final_seed_z_score": -0.2521641506096608
+            },
+            "M300": {
+              "history_relative_l2": 0.0026263418823401544,
+              "relaxation_change_relative_l2": 0.009940620925016665,
+              "final_absolute_error": 0.00046192316202881,
+              "final_relative_error": 0.003444196878273683,
+              "final_seed_z_score": 0.5549389409753002
+            },
+            "M400": {
+              "history_relative_l2": 0.0040920623335283296,
+              "relaxation_change_relative_l2": 0.015192928966344558,
+              "final_absolute_error": -0.0030380683491689764,
+              "final_relative_error": -0.005313222249775207,
+              "final_seed_z_score": -1.5222123177661506
+            },
+            "M110": {
+              "history_relative_l2": 0.00990411490281766,
+              "relaxation_change_relative_l2": 0.00880654900549506,
+              "final_absolute_error": -0.0003034164474791899,
+              "final_relative_error": -0.014183617287008284,
+              "final_seed_z_score": -0.5471241433279699
+            },
+            "M210": {
+              "history_relative_l2": 0.020189666290107128,
+              "relaxation_change_relative_l2": 0.03175499289790304,
+              "final_absolute_error": 0.0007459608630717741,
+              "final_relative_error": 0.023697789904360448,
+              "final_seed_z_score": 1.1386164507951082
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0036843474750406424,
+              "relaxation_change_relative_l2": 0.003004084951068608,
+              "final_absolute_error": 0.0005026395217210891,
+              "final_relative_error": 0.013864784708041837,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.015689989702650134,
+              "relaxation_change_relative_l2": 0.01933496004378974,
+              "final_absolute_error": -0.0005311021588849229,
+              "final_relative_error": -0.04811270195785173,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 10.426437932001136,
+          "minimum_realizability_margin": 0.2105961711326594,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 0.0
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 30.124250064996886,
+          "minimum_realizability_margin": 0.2105961711326594,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 0.0
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 3.885780586188048e-14,
+        "maximum_momentum_drift": 3.919363446967764e-15,
+        "minimum_alpha": 1.0000000004140603,
+        "elapsed_seconds_sum": 438.2743396910155
+      }
+    },
+    "rare_hot_anisotropic_w0.02_r25": {
+      "family": "rare_hot_anisotropic",
+      "components": [
+        {
+          "weight": 0.98,
+          "mean": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.6756756756756758,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.6756756756756758,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.6756756756756758
+            ]
+          ]
+        },
+        {
+          "weight": 0.02,
+          "mean": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              16.891891891891895,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              9.290540540540544,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              24.493243243243246
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 0.10139872260756397,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.0489040357323088,
+          "all_35_relaxation_change_relative_l2": 0.02700375707536129,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614316837103117,
+              "relaxation_change_relative_l2": 0.9999891778166888,
+              "final_absolute_error": -0.0003451168321428888,
+              "final_relative_error": -0.0003449977719364617,
+              "final_seed_z_score": -0.15465440842661227
+            },
+            "M300": {
+              "history_relative_l2": 0.9999999999999732,
+              "relaxation_change_relative_l2": 0.9999999999999732,
+              "final_absolute_error": 0.007445540278109682,
+              "final_relative_error": 1.000000000000008,
+              "final_seed_z_score": 0.358396373498064
+            },
+            "M400": {
+              "history_relative_l2": 0.04446720099686933,
+              "relaxation_change_relative_l2": 0.02716668133566258,
+              "final_absolute_error": 0.33236479284589215,
+              "final_relative_error": 0.11284469880985157,
+              "final_seed_z_score": 0.981148226157138
+            },
+            "M110": {
+              "history_relative_l2": 1.0000000000000409,
+              "relaxation_change_relative_l2": 1.0000000000000409,
+              "final_absolute_error": 0.000758582427773109,
+              "final_relative_error": 0.9999999999999911,
+              "final_seed_z_score": 0.3643715183796319
+            },
+            "M210": {
+              "history_relative_l2": 0.9999999999999142,
+              "relaxation_change_relative_l2": 0.9999999999999142,
+              "final_absolute_error": 0.005179714584189816,
+              "final_relative_error": 0.9999999999997233,
+              "final_seed_z_score": 0.6075731213242581
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.013192408463457539,
+              "relaxation_change_relative_l2": 0.010566255256090031,
+              "final_absolute_error": 0.0002828112156484826,
+              "final_relative_error": 0.009815016662917356,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.9999999999999041,
+              "relaxation_change_relative_l2": 0.9999999999999041,
+              "final_absolute_error": -0.021449276251977362,
+              "final_relative_error": -0.9999999999998729,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.04832485764569476,
+          "all_35_relaxation_change_relative_l2": 0.02668394738848988,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006614388419230785,
+              "relaxation_change_relative_l2": 1.00000000000056,
+              "final_absolute_error": -0.00034510427635203733,
+              "final_relative_error": -0.0003449852204771725,
+              "final_seed_z_score": -0.15464878190183687
+            },
+            "M300": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": 0.007445540278109623,
+              "final_relative_error": 1.0,
+              "final_seed_z_score": 0.3583963734980612
+            },
+            "M400": {
+              "history_relative_l2": 0.04214226724817787,
+              "relaxation_change_relative_l2": 0.025746292085579693,
+              "final_absolute_error": 0.32988075484172263,
+              "final_relative_error": 0.11200131669945246,
+              "final_seed_z_score": 0.9738152909788086
+            },
+            "M110": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": 0.0007585824277731157,
+              "final_relative_error": 1.0,
+              "final_seed_z_score": 0.3643715183796351
+            },
+            "M210": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": 0.0051797145841912485,
+              "final_relative_error": 1.0,
+              "final_seed_z_score": 0.6075731213244262
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.013191461587614115,
+              "relaxation_change_relative_l2": 0.010565496870546925,
+              "final_absolute_error": 0.00028277267218314653,
+              "final_relative_error": 0.009813679004671899,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": -0.02144927625198009,
+              "final_relative_error": -1.0,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 18.893105512004695,
+          "minimum_realizability_margin": 0.10139872260756397,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 2.220446049250313e-16
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 36.2002975899959,
+          "minimum_realizability_margin": 0.10139872260756397,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 2.220446049250313e-16
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 7.194245199571014e-14,
+        "maximum_momentum_drift": 2.632782224277425e-16,
+        "minimum_alpha": 1.0000000001116118,
+        "elapsed_seconds_sum": 444.85893522797414
+      }
+    },
+    "counterstream_ma20": {
+      "family": "near_delta_counterstream",
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            1.725591925629152,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.007444168734491314,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.007444168734491314,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.007444168734491314
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -1.725591925629152,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.007444168734491314,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.007444168734491314,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.007444168734491314
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 4.24820065101315e-05,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.0023833348039745766,
+          "all_35_relaxation_change_relative_l2": 0.004442407040334859,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004075465813142207,
+              "relaxation_change_relative_l2": 0.0006422962725915838,
+              "final_absolute_error": -0.0010405275875708941,
+              "final_relative_error": -0.0008195090085788146,
+              "final_seed_z_score": -0.549552830631744
+            },
+            "M300": {
+              "history_relative_l2": 0.9999999999995856,
+              "relaxation_change_relative_l2": 0.9999999999995856,
+              "final_absolute_error": -0.0028430671605378286,
+              "final_relative_error": -0.9999999999993332,
+              "final_seed_z_score": -0.9751257309602773
+            },
+            "M400": {
+              "history_relative_l2": 0.0019553497361371104,
+              "relaxation_change_relative_l2": 0.004556666602035199,
+              "final_absolute_error": -0.01732425708835894,
+              "final_relative_error": -0.003901217145159915,
+              "final_seed_z_score": -1.1903759063907275
+            },
+            "M110": {
+              "history_relative_l2": 0.999999999999892,
+              "relaxation_change_relative_l2": 0.999999999999892,
+              "final_absolute_error": 5.917218718423509e-05,
+              "final_relative_error": 1.0000000000050286,
+              "final_seed_z_score": 0.04907349431836154
+            },
+            "M210": {
+              "history_relative_l2": 1.0000000000004012,
+              "relaxation_change_relative_l2": 1.0000000000004012,
+              "final_absolute_error": 0.0009337184081842755,
+              "final_relative_error": 1.0000000000009965,
+              "final_seed_z_score": 0.7816957833937217
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0007945327375320291,
+              "relaxation_change_relative_l2": 0.0006466979385456325,
+              "final_absolute_error": -0.0012958010650570007,
+              "final_relative_error": -0.003922739693303055,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.9999999999991742,
+              "relaxation_change_relative_l2": 0.9999999999991742,
+              "final_absolute_error": -0.00197316332978746,
+              "final_relative_error": -0.9999999999986984,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.009264604013184949,
+          "all_35_relaxation_change_relative_l2": 0.017268720292865088,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.00040757967101003034,
+              "relaxation_change_relative_l2": 0.0006423484221844259,
+              "final_absolute_error": -0.001040689408041473,
+              "final_relative_error": -0.0008196364567454907,
+              "final_seed_z_score": -0.5496382958310554
+            },
+            "M300": {
+              "history_relative_l2": 0.9999999999999989,
+              "relaxation_change_relative_l2": 0.9999999999999989,
+              "final_absolute_error": -0.002843067160539722,
+              "final_relative_error": -0.9999999999999992,
+              "final_seed_z_score": -0.9751257309609268
+            },
+            "M400": {
+              "history_relative_l2": 0.010199398668435798,
+              "relaxation_change_relative_l2": 0.023768259158138037,
+              "final_absolute_error": -0.009901696304640772,
+              "final_relative_error": -0.002229744524848211,
+              "final_seed_z_score": -0.6803605287849598
+            },
+            "M110": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": 5.9172187183937535e-05,
+              "final_relative_error": 1.0,
+              "final_seed_z_score": 0.04907349431811477
+            },
+            "M210": {
+              "history_relative_l2": 0.9999999999999991,
+              "relaxation_change_relative_l2": 0.9999999999999991,
+              "final_absolute_error": 0.0009337184081833461,
+              "final_relative_error": 1.0000000000000013,
+              "final_seed_z_score": 0.7816957833929437
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0007945984976644595,
+              "relaxation_change_relative_l2": 0.0006467514630136279,
+              "final_absolute_error": -0.001295999253848934,
+              "final_relative_error": -0.0039233396642876835,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": -0.001973163329790028,
+              "final_relative_error": -1.0,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 18.218712803005474,
+          "minimum_realizability_margin": 4.24820065101315e-05,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 0.0
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 37.58346834300028,
+          "minimum_realizability_margin": 4.24820065101315e-05,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 5.551115123125783e-16
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 1.1546319456101628e-13,
+        "maximum_momentum_drift": 2.690719219392443e-16,
+        "minimum_alpha": 1.0000000001575133,
+        "elapsed_seconds_sum": 605.4126000179749
+      }
+    },
+    "crossing_ma20": {
+      "family": "near_delta_crossing",
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            1.2156613477096618,
+            -1.2156613477096618,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.01477832512315271,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.01477832512315271,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.01477832512315271
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -1.2156613477096618,
+            1.2156613477096618,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.01477832512315271,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.01477832512315271,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.01477832512315271
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 0.0002002919811992695,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.0026448505826935954,
+          "all_35_relaxation_change_relative_l2": 0.005228534619081876,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0006545571244679955,
+              "relaxation_change_relative_l2": 0.002635363944219014,
+              "final_absolute_error": -0.0010492565426616363,
+              "final_relative_error": -0.000982710416173558,
+              "final_seed_z_score": -0.5618155693589338
+            },
+            "M300": {
+              "history_relative_l2": 0.9999999999999849,
+              "relaxation_change_relative_l2": 0.9999999999999849,
+              "final_absolute_error": -0.0015916802579417201,
+              "final_relative_error": -0.9999999999986029,
+              "final_seed_z_score": -0.8167886758042484
+            },
+            "M400": {
+              "history_relative_l2": 0.003178279263898415,
+              "relaxation_change_relative_l2": 0.010305441600158125,
+              "final_absolute_error": -0.016348342612563016,
+              "final_relative_error": -0.004944879279929981,
+              "final_seed_z_score": -1.2777322894589052
+            },
+            "M110": {
+              "history_relative_l2": 0.0013408216538197083,
+              "relaxation_change_relative_l2": 0.001089433933610368,
+              "final_absolute_error": 0.000771859370394895,
+              "final_relative_error": 0.003844402454626543,
+              "final_seed_z_score": 0.6749915732850251
+            },
+            "M210": {
+              "history_relative_l2": 0.9999999999989144,
+              "relaxation_change_relative_l2": 0.9999999999989144,
+              "final_absolute_error": 0.0015531817988847661,
+              "final_relative_error": 0.9999999999992432,
+              "final_seed_z_score": 1.7002764720416625
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009929622129428058,
+              "relaxation_change_relative_l2": 0.0008072288852943784,
+              "final_absolute_error": -0.0013010510234850448,
+              "final_relative_error": -0.0039677731864502346,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.9999999999990764,
+              "relaxation_change_relative_l2": 0.9999999999990764,
+              "final_absolute_error": -0.002400755086541501,
+              "final_relative_error": -0.9999999999987423,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.006210108155377552,
+          "all_35_relaxation_change_relative_l2": 0.012276597283452602,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.000654586810536152,
+              "relaxation_change_relative_l2": 0.0026354834656339378,
+              "final_absolute_error": -0.001049296710529335,
+              "final_relative_error": -0.0009827480365079356,
+              "final_seed_z_score": -0.5618370769050329
+            },
+            "M300": {
+              "history_relative_l2": 1.0000000000000084,
+              "relaxation_change_relative_l2": 1.0000000000000084,
+              "final_absolute_error": -0.0015916802579439497,
+              "final_relative_error": -1.0000000000000038,
+              "final_seed_z_score": -0.8167886758053926
+            },
+            "M400": {
+              "history_relative_l2": 0.004234680824003118,
+              "relaxation_change_relative_l2": 0.013730780810477095,
+              "final_absolute_error": -0.015402839658797518,
+              "final_relative_error": -0.004658893227643876,
+              "final_seed_z_score": -1.2038349114533469
+            },
+            "M110": {
+              "history_relative_l2": 0.0013406189857158885,
+              "relaxation_change_relative_l2": 0.0010892692633062057,
+              "final_absolute_error": 0.0007719798739886929,
+              "final_relative_error": 0.0038450026472646795,
+              "final_seed_z_score": 0.6750969537642729
+            },
+            "M210": {
+              "history_relative_l2": 1.0000000000000195,
+              "relaxation_change_relative_l2": 1.0000000000000195,
+              "final_absolute_error": 0.0015531817988859477,
+              "final_relative_error": 1.000000000000004,
+              "final_seed_z_score": 1.700276472042956
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0009927837517074278,
+              "relaxation_change_relative_l2": 0.0008070838051873767,
+              "final_absolute_error": -0.001301247805025052,
+              "final_relative_error": -0.003968373304742243,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": -0.0024007550865445203,
+              "final_relative_error": -1.0,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 17.80299748100515,
+          "minimum_realizability_margin": 0.0002002919811992695,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 1.7763568394002505e-15
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 22.472603223999613,
+          "minimum_realizability_margin": 0.0002002919811992695,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 2.886579864025407e-15
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 1.0080825063596421e-13,
+        "maximum_momentum_drift": 2.67545120247967e-16,
+        "minimum_alpha": 1.0000000001527771,
+        "elapsed_seconds_sum": 571.4841371240109
+      }
+    },
+    "rare_beam_ma20": {
+      "family": "near_delta_rare_beam",
+      "components": [
+        {
+          "weight": 0.08,
+          "mean": [
+            5.29342087581631,
+            1.8526973065357084,
+            -0.7940131313724466
+          ],
+          "covariance": [
+            [
+              0.07005076142131979,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.07005076142131979,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.07005076142131979
+            ]
+          ]
+        },
+        {
+          "weight": 0.92,
+          "mean": [
+            -0.46029746746228783,
+            -0.16110411361180071,
+            0.06904462011934318
+          ],
+          "covariance": [
+            [
+              0.07005076142131979,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.07005076142131979,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.07005076142131979
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 0.0006246963247817812,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.16413022195252805,
+          "all_35_relaxation_change_relative_l2": 0.27495871941677436,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0007782331211258657,
+              "relaxation_change_relative_l2": 0.001421842888576812,
+              "final_absolute_error": 0.00030317119366118916,
+              "final_relative_error": 0.0002517237212513848,
+              "final_seed_z_score": 0.15633088294889877
+            },
+            "M300": {
+              "history_relative_l2": 0.015048670347324012,
+              "relaxation_change_relative_l2": 0.017960152994991294,
+              "final_absolute_error": -0.1761913356277307,
+              "final_relative_error": -0.05774911377206921,
+              "final_seed_z_score": -14.523857888474918
+            },
+            "M400": {
+              "history_relative_l2": 0.16589898415992133,
+              "relaxation_change_relative_l2": 0.28468295365801555,
+              "final_absolute_error": -7.0821365258813564,
+              "final_relative_error": -0.29995963273309917,
+              "final_seed_z_score": -62.02583942842997
+            },
+            "M110": {
+              "history_relative_l2": 0.002537998035283276,
+              "relaxation_change_relative_l2": 0.002075919532865422,
+              "final_absolute_error": 0.0003553663454771705,
+              "final_relative_error": 0.003076673440438635,
+              "final_seed_z_score": 0.3188415008446463
+            },
+            "M210": {
+              "history_relative_l2": 0.02788673479412389,
+              "relaxation_change_relative_l2": 0.03324506215811446,
+              "final_absolute_error": -0.09443031893666265,
+              "final_relative_error": -0.09096799346336004,
+              "final_seed_z_score": -16.71756334315854
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0008007591238683483,
+              "relaxation_change_relative_l2": 0.0006522507116642171,
+              "final_absolute_error": 0.001387911635665151,
+              "final_relative_error": 0.004504982148651515,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.0077333186431732415,
+              "relaxation_change_relative_l2": 0.009271434003082207,
+              "final_absolute_error": -0.0675290771788406,
+              "final_relative_error": -0.0354773316052707,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.11994677559732354,
+          "all_35_relaxation_change_relative_l2": 0.20094051798668935,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0003936853653342393,
+              "relaxation_change_relative_l2": 0.0007192687150444747,
+              "final_absolute_error": -0.00048470774335473976,
+              "final_relative_error": -0.000402453925134365,
+              "final_seed_z_score": -0.24994059816744088
+            },
+            "M300": {
+              "history_relative_l2": 0.0075222628507661815,
+              "relaxation_change_relative_l2": 0.008977603240031367,
+              "final_absolute_error": -0.056296811242425804,
+              "final_relative_error": -0.018452047859564922,
+              "final_seed_z_score": -4.64067590580544
+            },
+            "M400": {
+              "history_relative_l2": 0.126726813137923,
+              "relaxation_change_relative_l2": 0.21746343809431823,
+              "final_absolute_error": -7.889367987117387,
+              "final_relative_error": -0.3341494357336604,
+              "final_seed_z_score": -69.09562815860019
+            },
+            "M110": {
+              "history_relative_l2": 0.0037129204612680812,
+              "relaxation_change_relative_l2": 0.0030369306840940143,
+              "final_absolute_error": -9.060286473280832e-05,
+              "final_relative_error": -0.000784417070155546,
+              "final_seed_z_score": -0.08129062793901766
+            },
+            "M210": {
+              "history_relative_l2": 0.012406453097483804,
+              "relaxation_change_relative_l2": 0.014790304689041259,
+              "final_absolute_error": -0.00945172483331902,
+              "final_relative_error": -0.009105173555873935,
+              "final_seed_z_score": -1.6732952973408617
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.000878012961447413,
+              "relaxation_change_relative_l2": 0.0007151770886954467,
+              "final_absolute_error": 0.00019667871116541003,
+              "final_relative_error": 0.00063839372770683,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.006289539294346471,
+              "relaxation_change_relative_l2": 0.00754049473039659,
+              "final_absolute_error": -0.0054805309307648375,
+              "final_relative_error": -0.002879272475303582,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 127.14834428999893,
+          "minimum_realizability_margin": 0.0006246963247817812,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 3.6637359812630166e-15
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 23.80454625600396,
+          "minimum_realizability_margin": 9.999956167277075e-13,
+          "limited_steps": 14,
+          "minimum_lambda": 0.6748070964410372,
+          "weighted_removed_nonlinear_fraction": 0.014004758631026612,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 0.0
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 9.814371537686384e-14,
+        "maximum_momentum_drift": 2.742500271592091e-16,
+        "minimum_alpha": 1.0000002886556405,
+        "elapsed_seconds_sum": 616.5622793220027
+      }
+    },
+    "counterstream_ma100": {
+      "family": "near_delta_counterstream",
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            1.7317910583898464,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.0002999100269919025,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0002999100269919025,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0002999100269919025
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -1.7317910583898464,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.0002999100269919025,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0002999100269919025,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0002999100269919025
+            ]
+          ]
+        }
+      ],
+      "initial_realizability_margin": 6.917967503853064e-08,
+      "methods": {
+        "stage9_finite_map": {
+          "all_35_dimensionless_history_relative_l2": 0.002398588001434239,
+          "all_35_relaxation_change_relative_l2": 0.0044799527202059024,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004024726838845551,
+              "relaxation_change_relative_l2": 0.0006320700673163117,
+              "final_absolute_error": -0.001035415138585627,
+              "final_relative_error": -0.0008142456815858288,
+              "final_seed_z_score": -0.5476718768869044
+            },
+            "M300": {
+              "history_relative_l2": 0.9999999999995853,
+              "relaxation_change_relative_l2": 0.9999999999995853,
+              "final_absolute_error": -0.002536778277708964,
+              "final_relative_error": -0.9999999999996978,
+              "final_seed_z_score": -0.8641715155333928
+            },
+            "M400": {
+              "history_relative_l2": 0.0019827890647727033,
+              "relaxation_change_relative_l2": 0.004652751002364381,
+              "final_absolute_error": -0.017200333557727987,
+              "final_relative_error": -0.00386542814105385,
+              "final_seed_z_score": -1.1830915846185597
+            },
+            "M110": {
+              "history_relative_l2": 1.0000000000001137,
+              "relaxation_change_relative_l2": 1.0000000000001137,
+              "final_absolute_error": 8.115697792120759e-05,
+              "final_relative_error": 0.999999999996415,
+              "final_seed_z_score": 0.06964568379442375
+            },
+            "M210": {
+              "history_relative_l2": 0.9999999999994575,
+              "relaxation_change_relative_l2": 0.9999999999994575,
+              "final_absolute_error": 0.0008424814471715318,
+              "final_relative_error": 0.9999999999993364,
+              "final_seed_z_score": 0.7006149775360359
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0007826321424886022,
+              "relaxation_change_relative_l2": 0.0006370689629323215,
+              "final_absolute_error": -0.0012921326419741974,
+              "final_relative_error": -0.0038838319750835754,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 0.9999999999993415,
+              "relaxation_change_relative_l2": 0.9999999999993415,
+              "final_absolute_error": -0.0018561708403743605,
+              "final_relative_error": -0.9999999999994605,
+              "final_seed_z_score": null
+            }
+          }
+        },
+        "guarded_grad_map": {
+          "all_35_dimensionless_history_relative_l2": 0.009191597153534308,
+          "all_35_relaxation_change_relative_l2": 0.01716756718802498,
+          "physical_observables": {
+            "M200": {
+              "history_relative_l2": 0.0004025159205118149,
+              "relaxation_change_relative_l2": 0.0006321379690124935,
+              "final_absolute_error": -0.0010355780918236412,
+              "final_relative_error": -0.0008143738272593939,
+              "final_seed_z_score": -0.5477580692771663
+            },
+            "M300": {
+              "history_relative_l2": 1.0000000000000009,
+              "relaxation_change_relative_l2": 1.0000000000000009,
+              "final_absolute_error": -0.002536778277709732,
+              "final_relative_error": -1.0000000000000004,
+              "final_seed_z_score": -0.8641715155336545
+            },
+            "M400": {
+              "history_relative_l2": 0.01010990315778927,
+              "relaxation_change_relative_l2": 0.023723583555572587,
+              "final_absolute_error": -0.009654149055017491,
+              "final_relative_error": -0.0021695753346845184,
+              "final_seed_z_score": -0.6640419190308496
+            },
+            "M110": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": 8.115697792149853e-05,
+              "final_relative_error": 1.0,
+              "final_seed_z_score": 0.06964568379467344
+            },
+            "M210": {
+              "history_relative_l2": 1.000000000000001,
+              "relaxation_change_relative_l2": 1.000000000000001,
+              "final_absolute_error": 0.0008424814471720901,
+              "final_relative_error": 0.9999999999999992,
+              "final_seed_z_score": 0.7006149775365001
+            },
+            "stress_norm": {
+              "history_relative_l2": 0.0007827171214602161,
+              "relaxation_change_relative_l2": 0.0006371381365100191,
+              "final_absolute_error": -0.0012923322181164765,
+              "final_relative_error": -0.0038844318517352967,
+              "final_seed_z_score": null
+            },
+            "heat_flux_norm": {
+              "history_relative_l2": 1.0,
+              "relaxation_change_relative_l2": 1.0,
+              "final_absolute_error": -0.0018561708403753618,
+              "final_relative_error": -1.0,
+              "final_seed_z_score": null
+            }
+          }
+        }
+      },
+      "closure_diagnostics": {
+        "stage9_finite_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 17.304622112998914,
+          "minimum_realizability_margin": 6.917967503853064e-08,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 4.440892098500626e-16
+        },
+        "guarded_grad_map": {
+          "status": "REACHED_FINAL_TIME",
+          "message": "",
+          "completed_steps": 400,
+          "elapsed_seconds": 21.86640618099773,
+          "minimum_realizability_margin": 6.917967503853064e-08,
+          "limited_steps": 0,
+          "minimum_lambda": 1.0,
+          "weighted_removed_nonlinear_fraction": 0.0,
+          "mass_drift": 0.0,
+          "momentum_drift": 0.0,
+          "temperature_drift": 0.0
+        }
+      },
+      "particle_diagnostics": {
+        "maximum_energy_drift": 1.4166445794216997e-13,
+        "maximum_momentum_drift": 2.698455607364786e-16,
+        "minimum_alpha": 1.0000000001613178,
+        "elapsed_seconds_sum": 569.1596768890304
+      }
+    }
+  }
+}

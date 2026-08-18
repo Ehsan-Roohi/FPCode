@@ -1,0 +1,48 @@
+{
+  "schema": "riemann35-stage15-particle-count-refinement-v1",
+  "case": "rare_beam_ma20",
+  "controls": {
+    "dt_over_tau": 0.0025,
+    "final_time_over_tau": 1.0,
+    "refined_particles_per_seed": 200000,
+    "refined_independent_seeds": 8,
+    "seed_values": [
+      31415927,
+      31520656,
+      31625385,
+      31730114,
+      31834843,
+      31939572,
+      32044301,
+      32149030
+    ]
+  },
+  "comparisons": [
+    {
+      "particle_ensemble": "16x100k",
+      "M400_history_error_vs_qmc": 0.01009168877756358,
+      "final_M400_particle_mean": 23.610298697034892,
+      "final_M400_particle_sem": 0.11418042208124007,
+      "final_M400_qmc_mean": 24.062979793167187,
+      "final_M400_qmc_sem": 0.017984089794323373,
+      "final_M400_difference": -0.4526810961322951,
+      "final_M400_combined_z": -3.9163314338166786
+    },
+    {
+      "particle_ensemble": "8x200k",
+      "M400_history_error_vs_qmc": 0.010238078631958577,
+      "final_M400_particle_mean": 23.346570169754198,
+      "final_M400_particle_sem": 0.11080385621702529,
+      "final_M400_qmc_mean": 24.062979793167187,
+      "final_M400_qmc_sem": 0.017984089794323373,
+      "final_M400_difference": -0.7164096234129893,
+      "final_M400_combined_z": -6.382050681606304
+    }
+  ],
+  "diagnostics": {
+    "maximum_energy_drift": 1.4477308241112041e-13,
+    "maximum_momentum_drift": 2.941482554942038e-16,
+    "minimum_alpha": 1.000000296622683,
+    "elapsed_seconds_sum": 830.7350549840048
+  }
+}

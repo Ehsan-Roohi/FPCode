@@ -1,0 +1,239 @@
+{
+  "schema": "riemann35-stage17-tail-identifiability-v2",
+  "case": "rare_beam_ma20 at t=0",
+  "retained_constraints": "all 35 raw moments through total degree four",
+  "compact_support": {
+    "support_type": "finite adaptive two-population tensor Gauss-Hermite centers",
+    "total_nodes": 1024,
+    "physical_coordinate_minimum": [
+      -1.5572390972545127,
+      -1.2580457434040335,
+      -1.8909547611646755
+    ],
+    "physical_coordinate_maximum": [
+      6.390362505608533,
+      2.9496389363279407,
+      1.1659862499115725
+    ],
+    "standardized_coordinate_minimum": [
+      -1.5572390972545131,
+      -1.2580457434040337,
+      -1.890954761164676
+    ],
+    "standardized_coordinate_maximum": [
+      6.390362505608535,
+      2.949638936327941,
+      1.1659862499115727
+    ],
+    "maximum_c2_over_theta": 53.11281271656034,
+    "interpretation": "The grid-LP range is an inner, conservative witness range on this compact support, not a global sharp moment bound."
+  },
+  "unbounded_domain_context": "On an unbounded velocity domain, fourth-moment constraints generally do not impose a finite upper bound on sixth moments for interior truncated-moment states: tail mass of order V^-4 can preserve a bounded fourth-moment perturbation while producing an order V^2 sixth-moment increment. The compact grid-LP is intentionally a conservative practical witness, not a global supremum calculation.",
+  "global_bound_method_note": "Sharp polynomial-moment bounds can be posed through the Lasserre moment/SOS hierarchy; the grid LP is used here because it gives explicit multivariate positive witnesses on the same physically resolved support.",
+  "base_two_population_M400_source": -100.48361060604002,
+  "frozen_coefficient_definition": "C, gamma, and beta are held at the generating two-Gaussian values; only witness M5/M6 enter the projected M400 source.",
+  "mollifier": {
+    "type": "common isotropic Maxwellian kernel",
+    "variance_over_theta": 0.001,
+    "variance": 0.0009999999999999996,
+    "interpretation": "Each atomic center is replaced by a smooth positive Gaussian kernel and the LP is re-solved with exact Gaussian moment columns."
+  },
+  "atomic_witnesses": {
+    "M500": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 338.2628552907687,
+        "M400_source_self_consistent": -127.52148529337892,
+        "M400_source_frozen_coefficients": -123.29954012640592,
+        "C_frobenius_norm": 14.850632663259187,
+        "gamma_norm": 3.587303825411167,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 1.536964999715451e-14,
+        "mass": 0.9999999999999999,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 350.2465045996922,
+        "M400_source_self_consistent": 23.99615480763232,
+        "M400_source_frozen_coefficients": -22.462539728361936,
+        "C_frobenius_norm": 18.184790263166803,
+        "gamma_norm": 4.249084483588453,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 1.9532986339498848e-15,
+        "mass": 1.0,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 11.983649308923475,
+      "relative_range_to_midpoint": 0.034810418004571575,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    },
+    "M600": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 1802.1489250646287,
+        "M400_source_self_consistent": -127.5324011440262,
+        "M400_source_frozen_coefficients": -123.31065499155925,
+        "C_frobenius_norm": 14.84964729607607,
+        "gamma_norm": 3.5871113506010444,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 1.016547956922409e-15,
+        "mass": 1.0,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 1968.5735420588042,
+        "M400_source_self_consistent": 24.188603554856353,
+        "M400_source_frozen_coefficients": -22.388096725985225,
+        "C_frobenius_norm": 18.190752612828692,
+        "gamma_norm": 4.2502605404498865,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 3.8163916471489756e-16,
+        "mass": 1.0000000000000002,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 166.4246169941755,
+      "relative_range_to_midpoint": 0.08827200540226217,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    },
+    "M420": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 217.44971985194564,
+        "M400_source_self_consistent": -121.95188044744275,
+        "M400_source_frozen_coefficients": -118.71303493004045,
+        "C_frobenius_norm": 14.660465407984729,
+        "gamma_norm": 3.54894813200783,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 6.283723541500308e-12,
+        "mass": 1.0000000000000002,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 242.67019708890683,
+        "M400_source_self_consistent": 20.52623947479442,
+        "M400_source_frozen_coefficients": -23.910719878235614,
+        "C_frobenius_norm": 18.146919166085446,
+        "gamma_norm": 4.241472481093433,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 2.220446049250313e-16,
+        "mass": 0.9999999999999997,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 25.220477236961187,
+      "relative_range_to_midpoint": 0.10962567064969383,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    }
+  },
+  "mollified_witnesses": {
+    "M500": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 338.31115756896077,
+        "M400_source_self_consistent": -126.90985578729469,
+        "M400_source_frozen_coefficients": -122.7618265852664,
+        "C_frobenius_norm": 14.865378252181104,
+        "gamma_norm": 3.5902339752329078,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 3.309852392163748e-15,
+        "mass": 1.0000000000000027,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 350.07183423208033,
+        "M400_source_self_consistent": 21.0833145104403,
+        "M400_source_frozen_coefficients": -24.029066549153345,
+        "C_frobenius_norm": 18.13024322420255,
+        "gamma_norm": 4.2382677387546215,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 2.4868995751603507e-14,
+        "mass": 1.0000000000000249,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 11.760676663119568,
+      "relative_range_to_midpoint": 0.034168992561392865,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    },
+    "M600": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 1802.6372932848872,
+        "M400_source_self_consistent": -126.96009626689003,
+        "M400_source_frozen_coefficients": -122.80721710424443,
+        "C_frobenius_norm": 14.862933343308672,
+        "gamma_norm": 3.5897545938480317,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 2.1760371282653068e-14,
+        "mass": 1.0000000000000218,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 1966.0866851965839,
+        "M400_source_self_consistent": 21.161464576658272,
+        "M400_source_frozen_coefficients": -23.994990482034428,
+        "C_frobenius_norm": 18.134697373519938,
+        "gamma_norm": 4.239149903698254,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 8.333611578592581e-14,
+        "mass": 1.0,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 163.4493919116967,
+      "relative_range_to_midpoint": 0.08673991135724152,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    },
+    "M420": {
+      "minimum": {
+        "extremum": "minimum",
+        "tail_value": 217.5424912457455,
+        "M400_source_self_consistent": -121.80449126842852,
+        "M400_source_frozen_coefficients": -118.57520193086422,
+        "C_frobenius_norm": 14.665078730888808,
+        "gamma_norm": 3.549912806204205,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 3.1329105976141136e-15,
+        "mass": 1.0,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "maximum": {
+        "extremum": "maximum",
+        "tail_value": 242.3419581950828,
+        "M400_source_self_consistent": 18.019258915046134,
+        "M400_source_frozen_coefficients": -25.291522765559808,
+        "C_frobenius_norm": 18.099219527118397,
+        "gamma_norm": 4.232009986045551,
+        "beta": -0.11095460845913083,
+        "scaled_retained_moment_residual": 2.7929047963226594e-15,
+        "mass": 1.0,
+        "minimum_weight": 0.0,
+        "positive_support_count": 35
+      },
+      "absolute_range": 24.7994669493373,
+      "relative_range_to_midpoint": 0.10785086114344972,
+      "relative_range_normalization": "absolute range divided by absolute midpoint of the two extrema"
+    }
+  },
+  "coefficient_feedback_diagnostic": {
+    "M600_witness_pair_self_consistent_source_span": 151.72100469888255,
+    "M600_witness_pair_frozen_coefficient_source_span": 100.92255826557403,
+    "additional_span_from_coefficient_feedback": 50.79844643330853,
+    "feedback_fraction_of_self_consistent_span": 0.3348148566121555,
+    "interpretation": "Freezing the 9x9 coefficients removes the sign reversal at the upper witness but leaves a large direct-tail source span; coefficient regularization can reduce, not remove, practical non-identifiability."
+  },
+  "decision": "INSTANTANEOUS_35_TO_M5_M6_MAP_IS_NOT_IDENTIFIABLE"
+}

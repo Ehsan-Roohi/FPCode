@@ -1,0 +1,273 @@
+From 755d08364fe7d293a69316cc9dfa6de51cecc013 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Mon, 10 Aug 2026 09:52:58 +0900
+Subject: [PATCH] Add finite-step CHyQMOM FP map
+
+---
+ docs/design/cubic-fp-collision.md |  14 +++
+ src/Riemann35.jl                  |   3 +-
+ src/numerics/fp_collision35.jl    | 168 ++++++++++++++++++++++++++++++
+ test/test_fp_collision35.jl       |  29 ++++++
+ 4 files changed, 213 insertions(+), 1 deletion(-)
+
+diff --git a/docs/design/cubic-fp-collision.md b/docs/design/cubic-fp-collision.md
+index 99596b7..32e3bc3 100644
+--- a/docs/design/cubic-fp-collision.md
++++ b/docs/design/cubic-fp-collision.md
+@@ -91,6 +91,20 @@ The raw analytical function remains available as a diagnostic control. The
+ bounded function is the candidate for the next homogeneous comparison, not yet
+ a production solver choice.
+ 
++The Stage-3 continuous bounded-source experiment passed all 36 focused Julia
++tests but was too stiff from its first macro step: the source norm was
++`1.38e5`, and explicit Euler requested `h/dt < 2^-24`. FPCode does not integrate
++this bounded model as an Euler source; it uses an exact-OU finite-step map.
++
++`fp_collision_step35_bounded` therefore applies that same map to the CHyQMOM
++nodes. The stochastic increment is integrated analytically: each mapped node
++becomes an isotropic Gaussian with the FPCode noise variance, and its raw
++moments through degree four are accumulated exactly. A final isotropic affine
++map is the deterministic moment counterpart of the homogeneous particle
++validator's recenter/rescale. This is the appropriate algorithm-to-algorithm
++comparison; the continuous bounded source remains available only as a recorded
++negative result.
++
+ ## Acceptance gates before solver wiring
+ 
+ 1. Maxwellian stationarity in the Ornstein--Uhlenbeck limit (`Pr=1`).
+diff --git a/src/Riemann35.jl b/src/Riemann35.jl
+index beea681..6165479 100644
+--- a/src/Riemann35.jl
++++ b/src/Riemann35.jl
+@@ -74,7 +74,8 @@ export realizability_margin, is_realizable
+ export closure_and_eigenvalues, eigenvalues6_hyperbolic_3D, eigenvalues6z_hyperbolic_3D
+ export Flux_closure35_and_realizable_3D, Flux_closure35_3D
+ export flux_HLL, pas_HLL, collision35
+-export fp_macroscopic35, fp_collision_source35, fp_collision_source35_bounded, fp_collision35
++export fp_macroscopic35, fp_collision_source35, fp_collision_source35_bounded
++export fp_collision_step35_bounded, fp_collision35
+ export moment_idx, M4_to_vars, M5_to_vars
+ export delta2star3D, delta2star3D_permutation, jacobian6, M4toC4_3D, C4toM4_3D, S4toC4_3D_r, C5toM5_3D
+ export reduce26_S, reduce26_residual, S_INDEX, DROPPED_KEYS
+diff --git a/src/numerics/fp_collision35.jl b/src/numerics/fp_collision35.jl
+index 413da82..4a478ee 100644
+--- a/src/numerics/fp_collision35.jl
++++ b/src/numerics/fp_collision35.jl
+@@ -339,6 +339,174 @@ function fp_collision_source35_bounded(
+     return _fp_project_invariants!(source)
+ end
+ 
++function _fp_affine_isotropic35(
++    M::AbstractVector, scale::Float64, shift::NTuple{3,Float64},
++)
++    transformed = zeros(Float64, 35)
++    @inbounds for (position, alpha) in enumerate(IJK)
++        value = 0.0
++        for i in 0:alpha[1], j in 0:alpha[2], k in 0:alpha[3]
++            raw = (i, j, k)
++            coefficient = binomial(alpha[1], i) * binomial(alpha[2], j) *
++                          binomial(alpha[3], k) * scale^(i+j+k) *
++                          shift[1]^(alpha[1]-i) * shift[2]^(alpha[2]-j) *
++                          shift[3]^(alpha[3]-k)
++            value += coefficient*M[IJK_INDEX[raw]]
++        end
++        transformed[position] = value
++    end
++    return transformed
++end
++
++"""
++    fp_collision_step35_bounded(M, dt, tau; Pr=2/3, gamma_scale=0.05,
++                                speed_cap=25, with_diagnostics=false)
++
++Advance one homogeneous collision interval with the same finite-step structure
++as FPCode's particle kernel.  The CHyQMOM nodes receive the exact OU factor,
++the capped nonlinear drift, FPCode's full finite-step `alpha`, and Gaussian
++noise variance.  Moments through degree four are then evaluated analytically
++from the resulting Gaussian mixture.
++
++This map avoids applying explicit Euler to the very stiff continuous bounded
++source.  An isotropic affine correction matches the incoming density, velocity,
++and thermal energy exactly, mirroring the recenter/rescale used by the
++homogeneous particle validator.  It is a CPU validation map, not a production
++spatial collision kernel.
++"""
++function fp_collision_step35_bounded(
++    M::AbstractVector, dt::Real, tau::Real;
++    Pr::Real=2/3, gamma_scale::Real=0.05, speed_cap::Real=25.0,
++    with_diagnostics::Bool=false,
++)
++    length(M) == 35 || throw(ArgumentError(
++        "fp_collision_step35_bounded expects 35 moments",
++    ))
++    dt >= 0.0 || throw(ArgumentError("dt must be non-negative"))
++    tau > 0.0 || throw(ArgumentError("tau must be positive"))
++    0.0 < Pr <= 1.0 || throw(ArgumentError("Pr must lie in (0,1]"))
++    speed_cap > 0.0 || throw(ArgumentError("speed_cap must be positive"))
++    all(isfinite, M) || throw(ArgumentError("moment state contains NaN or Inf"))
++    if dt == 0.0
++        result = Float64.(M)
++        diagnostics = (
++            alpha=1.0, alpha_squared=1.0, affine_scale=1.0,
++            mean_n2=0.0, mean_cn=0.0, maximum_c2_over_theta=0.0,
++        )
++        return with_diagnostics ? (result, diagnostics) : result
++    end
++
++    state = fp_macroscopic35(M)
++    rho = state.rho; u = state.velocity; theta = state.theta
++    invtau = 1.0/Float64(tau)
++    prfactor = (1.0-Float64(Pr))/Float64(Pr)
++    C = invtau .* state.stress ./ state.pressure
++    beta = invtau * prfactor / (10.0*theta^2)
++    qscale = rho*theta*sqrt(theta)
++    gamma = Float64(gamma_scale) * invtau * prfactor .* state.heat_flux ./
++            (qscale*theta)
++
++    weights, nodes = chyqmom_nodes_3d(M)
++    quadrature_mass = sum(weights)
++    quadrature_mass > 0.0 || error("CHyQMOM quadrature has nonpositive mass")
++    weight_scale = rho/quadrature_mass
++    node_count = length(weights)
++    peculiar = zeros(Float64, node_count, 3)
++    nonlinear = zeros(Float64, node_count, 3)
++    mean_n2 = 0.0
++    mean_cn = 0.0
++    maximum_c2 = 0.0
++    cap = Float64(speed_cap)*theta
++
++    @inbounds for q in eachindex(weights)
++        cx = nodes[q,1] - u[1]
++        cy = nodes[q,2] - u[2]
++        cz = nodes[q,3] - u[3]
++        peculiar[q,1] = cx; peculiar[q,2] = cy; peculiar[q,3] = cz
++        c2 = cx*cx + cy*cy + cz*cz
++        maximum_c2 = max(maximum_c2, c2)
++        c2_used = min(c2, cap)
++        n2 = 0.0
++        cn = 0.0
++        for direction in 1:3
++            nd = C[direction,1]*cx + C[direction,2]*cy + C[direction,3]*cz
++            nd += gamma[direction]*(c2_used - 5.0*theta)
++            nd += beta*(c2_used*peculiar[q,direction] -
++                        2.0*state.heat_flux[direction]/rho)
++            nonlinear[q,direction] = nd
++            n2 += nd*nd
++            cn += peculiar[q,direction]*nd
++        end
++        probability_weight = weight_scale*weights[q]/rho
++        mean_n2 += probability_weight*n2
++        mean_cn += probability_weight*cn
++    end
++
++    step = Float64(dt)
++    relaxation = exp(-step/Float64(tau))
++    relaxation2 = relaxation*relaxation
++    alpha_squared = 1.0 + Float64(tau)/(3.0*theta) * (
++        Float64(tau)*(1.0-relaxation)^2*mean_n2 +
++        2.0*(relaxation-relaxation2)*mean_cn
++    )
++    alpha = alpha_squared > 1.0e-6 ? sqrt(alpha_squared) : 1.0
++    noise_variance = theta*(1.0-relaxation2)/(alpha*alpha)
++    noise_variance >= 0.0 || error("finite FP map produced negative noise variance")
++
++    updated = zeros(Float64, 35)
++    @inbounds for q in eachindex(weights)
++        node_weight = weight_scale*weights[q]
++        node_weight == 0.0 && continue
++        mean_velocity = ntuple(direction ->
++            u[direction] + (
++                relaxation*peculiar[q,direction] +
++                (1.0-relaxation)*Float64(tau)*nonlinear[q,direction]
++            )/alpha,
++            3,
++        )
++        updated .+= InitializeM4_35(
++            node_weight,
++            mean_velocity[1], mean_velocity[2], mean_velocity[3],
++            noise_variance, 0.0, 0.0,
++            noise_variance, 0.0, noise_variance,
++        )
++    end
++
++    mapped_state = fp_macroscopic35(updated)
++    affine_scale = sqrt(theta/mapped_state.theta)
++    affine_shift = ntuple(
++        direction -> Float64(u[direction] - affine_scale*mapped_state.velocity[direction]),
++        3,
++    )
++    corrected = _fp_affine_isotropic35(updated, affine_scale, affine_shift)
++
++    # Pin collision invariants after the affine map; these assignments remove
++    # only floating-point roundoff from an already conservative transformation.
++    corrected[IJK_INDEX[(0,0,0)]] = M[IJK_INDEX[(0,0,0)]]
++    corrected[IJK_INDEX[(1,0,0)]] = M[IJK_INDEX[(1,0,0)]]
++    corrected[IJK_INDEX[(0,1,0)]] = M[IJK_INDEX[(0,1,0)]]
++    corrected[IJK_INDEX[(0,0,1)]] = M[IJK_INDEX[(0,0,1)]]
++    energy_indices = (
++        IJK_INDEX[(2,0,0)], IJK_INDEX[(0,2,0)], IJK_INDEX[(0,0,2)],
++    )
++    energy_error = sum(M[n] for n in energy_indices) -
++                   sum(corrected[n] for n in energy_indices)
++    for n in energy_indices
++        corrected[n] += energy_error/3.0
++    end
++    all(isfinite, corrected) || error("finite FP map produced NaN or Inf")
++
++    diagnostics = (
++        alpha=alpha,
++        alpha_squared=alpha_squared,
++        affine_scale=affine_scale,
++        mean_n2=mean_n2,
++        mean_cn=mean_cn,
++        maximum_c2_over_theta=maximum_c2/theta,
++    )
++    return with_diagnostics ? (corrected, diagnostics) : corrected
++end
++
+ """
+     fp_collision35(M, dt, tau; Pr=2/3, gamma_scale=0.05,
+                    lam_min=0, max_substeps=256)
+diff --git a/test/test_fp_collision35.jl b/test/test_fp_collision35.jl
+index 533316a..bd559db 100644
+--- a/test/test_fp_collision35.jl
++++ b/test/test_fp_collision35.jl
+@@ -114,6 +114,35 @@ end
+         @test norm(limited - effectively_unlimited) > 1e-8
+     end
+ 
++    @testset "bounded finite-step map matches particle algorithm structure" begin
++        M = fp_test_mixture()
++        updated, diagnostics = fp_collision_step35_bounded(
++            M, 2.5e-4, 0.9; Pr=2/3, with_diagnostics=true,
++        )
++        @test all(isfinite, updated)
++        @test is_realizable(updated)
++        @test diagnostics.alpha > 0.0
++        @test diagnostics.alpha_squared > 0.0
++        @test diagnostics.affine_scale > 0.0
++        @test diagnostics.maximum_c2_over_theta > 0.0
++        @test updated[IJK_INDEX[(0,0,0)]] == M[IJK_INDEX[(0,0,0)]]
++        @test updated[IJK_INDEX[(1,0,0)]] == M[IJK_INDEX[(1,0,0)]]
++        @test updated[IJK_INDEX[(0,1,0)]] == M[IJK_INDEX[(0,1,0)]]
++        @test updated[IJK_INDEX[(0,0,1)]] == M[IJK_INDEX[(0,0,1)]]
++        energy(Mv) = Mv[IJK_INDEX[(2,0,0)]] + Mv[IJK_INDEX[(0,2,0)]] +
++                     Mv[IJK_INDEX[(0,0,2)]]
++        @test energy(updated) ≈ energy(M) atol=5e-13 rtol=0
++
++        maxwellian = InitializeM4_35(
++            1.7, 0.3, -0.2, 0.1,
++            0.8, 0.0, 0.0, 0.8, 0.0, 0.8,
++        )
++        equilibrium = fp_collision_step35_bounded(
++            maxwellian, 2.5e-4, 0.6; Pr=1.0,
++        )
++        @test maximum(abs.(equilibrium - maxwellian)) <= 2e-11
++    end
++
+     @testset "small validation step stays realizable and conservative" begin
+         M = fp_test_mixture()
+         @test is_realizable(M)
+-- 
+2.51.1
+

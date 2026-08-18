@@ -1,0 +1,864 @@
+{
+  "schema": "riemann35-stage34-rodney-two-peak-v1",
+  "case": {
+    "name": "counterstream_ma20",
+    "source": "official deterministic_states() definition from Stage 10",
+    "weights": [
+      0.5,
+      0.5
+    ],
+    "means": [
+      [
+        1.725591925629152,
+        0.0,
+        0.0
+      ],
+      [
+        -1.725591925629152,
+        0.0,
+        0.0
+      ]
+    ],
+    "covariances": [
+      [
+        [
+          0.007444168734491314,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.007444168734491314,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.007444168734491314
+        ]
+      ],
+      [
+        [
+          0.007444168734491314,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.007444168734491314,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.007444168734491314
+        ]
+      ]
+    ],
+    "peak_separation_ratio_a_over_sigma": 20.0,
+    "homogeneous": true,
+    "transport": false,
+    "symmetric_zero_heat_flux": true,
+    "scope_caveat": "does not test heat-flux relaxation or identify Prandtl response"
+  },
+  "controls": {
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "final_time_over_tau": 1.0,
+    "stage9_grad_particle_and_time_refined_qmc_dt_over_tau": 0.0025,
+    "base_and_node_refined_qmc_dt_over_tau": 0.005,
+    "sample_interval_over_tau": 0.05,
+    "qmc_base_points_per_component": 8192,
+    "qmc_node_and_time_refined_points_per_component": 32768,
+    "qmc_scrambles": 8,
+    "qmc_seed_base": 20260816,
+    "qmc_seed_values": [
+      20260816,
+      20365545,
+      20470274,
+      20575003,
+      20679732,
+      20784461,
+      20889190,
+      20993919
+    ],
+    "particle_count_per_seed": 100000,
+    "particle_seed_count": 8,
+    "particle_seed_values": [
+      52713659,
+      52818388,
+      52923117,
+      53027846,
+      53132575,
+      53237304,
+      53342033,
+      53446762
+    ],
+    "maximum_total_moment_degree": 8,
+    "number_of_exported_moments": 165,
+    "failure_tolerance": -1e-10,
+    "reference_accuracy_symmetry_projection": "exact eight-reflection positive-measure group average; raw histories retained for PSD diagnostics"
+  },
+  "provenance": {
+    "git_head": "809553e744d76890cdf7e4482d030c744dd7e28a",
+    "source_relative_path": "riemann35_patch/stage34_two_peak/run_two_peak_audit.py",
+    "source_sha256": "295eba165900da8a35e27e0f5dd77d8c6d0d225c02993d43979dd2facb91ddac"
+  },
+  "stage9_finite_gaussian_mixture": {
+    "status": "REACHED_FINAL_TIME",
+    "message": "",
+    "completed_steps": 400,
+    "minimum_retained_margin": 4.24820065101315e-05,
+    "minimum_necessary_H4_PSD_margin": 3.197392207505753e-05,
+    "first_retained_realizability_failure": null,
+    "first_necessary_H4_PSD_failure": null,
+    "H4_scope": "necessary PSD condition only; positive is not proof of full realizability, negative is decisive failure",
+    "maximum_reconstruction_relative_residual": 0.0061674418889343845,
+    "degreewise_dimensionless_history_rmse_vs_fine_qmc": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0027075791026128955,
+      "3": 0.0,
+      "4": 0.010979386610596938,
+      "5": 0.0,
+      "6": 0.056453506678622624,
+      "7": 0.0,
+      "8": 0.8065082524276159
+    },
+    "degreewise_history_relative_l2_vs_fine_qmc": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0031134627867850984,
+      "3": 0.0,
+      "4": 0.005964337439228734,
+      "5": 0.0,
+      "6": 0.009105776928721599,
+      "7": 0.0,
+      "8": 0.027030518736205166
+    },
+    "retained_accuracy_gate": {
+      "threshold": 0.03,
+      "metric": "dimensionless history relative L2 for every retained degree block and every active/nonzero retained component",
+      "block_relative_l2": 0.005732270492963065,
+      "degree_block_relative_l2": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0031134627867851045,
+        "3": 0.0,
+        "4": 0.005964337439228728
+      },
+      "degree_blocks_pass": true,
+      "active_components_pass": true,
+      "active_component_count": 10,
+      "inactive_symmetry_zero_components": [
+        "M100",
+        "M300",
+        "M010",
+        "M110",
+        "M210",
+        "M310",
+        "M120",
+        "M030",
+        "M130",
+        "M001",
+        "M101",
+        "M201",
+        "M301",
+        "M102",
+        "M003",
+        "M103",
+        "M011",
+        "M111",
+        "M211",
+        "M021",
+        "M121",
+        "M031",
+        "M012",
+        "M112",
+        "M013"
+      ],
+      "pass": true,
+      "worst_component": {
+        "moment": "M004",
+        "degree": 4,
+        "history_relative_l2": 0.009113939724540892
+      }
+    },
+    "worst_final_predictive_moment": {
+      "moment": "M800",
+      "total_degree": 8,
+      "stage9_finite_mixture": 181.47951339052997,
+      "grad_hyqmom": 193.0419368386918,
+      "fine_qmc_mean": 175.3664676245844,
+      "fine_qmc_sem": 0.4071283810308819,
+      "particle_mean": 177.96347997115697,
+      "particle_sem": 1.398152662968213,
+      "stage9_minus_qmc_scaled": 6.1130457659455795,
+      "grad_minus_qmc_scaled": 17.675469214107434,
+      "particle_minus_qmc_scaled": 2.5970123465725727
+    },
+    "invariant_drift": {
+      "maximum_mass_drift": 0.0,
+      "maximum_momentum_drift": 0.0,
+      "maximum_energy_trace_drift": 2.6645352591003757e-15
+    },
+    "elapsed_seconds": 7.964219305998995
+  },
+  "grad_hyqmom_35": {
+    "status": "REACHED_FINAL_TIME",
+    "message": "",
+    "completed_steps": 400,
+    "minimum_retained_margin": 4.24820065101315e-05,
+    "minimum_necessary_H4_PSD_margin": 1.4180635994917547e-06,
+    "first_retained_realizability_failure": null,
+    "first_necessary_H4_PSD_failure": null,
+    "H4_scope": "necessary PSD condition only; positive is not proof of full realizability, negative is decisive failure",
+    "maximum_negative_quadrature_mass_fraction": 5.264372766956703e-07,
+    "minimum_limiter_fraction_at_samples": 1.0,
+    "minimum_univariate_hankel_margin": 0.009962624610543314,
+    "degreewise_dimensionless_history_rmse_vs_fine_qmc": {
+      "0": 3.121437377171735e-16,
+      "1": 0.0,
+      "2": 0.0027076679664720608,
+      "3": 0.0,
+      "4": 0.013816064371681435,
+      "5": 0.0,
+      "6": 0.22333278774808094,
+      "7": 0.0,
+      "8": 2.9289167961022926
+    },
+    "degreewise_history_relative_l2_vs_fine_qmc": {
+      "0": 3.121437377171735e-16,
+      "1": 0.0,
+      "2": 0.0031135649719136265,
+      "3": 0.0,
+      "4": 0.007505307255988281,
+      "5": 0.0,
+      "6": 0.03602289150398567,
+      "7": 0.0,
+      "8": 0.098164079655136
+    },
+    "retained_accuracy_gate": {
+      "threshold": 0.03,
+      "metric": "dimensionless history relative L2 for every retained degree block and every active/nonzero retained component",
+      "block_relative_l2": 0.007181656261252998,
+      "degree_block_relative_l2": {
+        "0": 3.121437377171735e-16,
+        "1": 0.0,
+        "2": 0.003113564971913632,
+        "3": 0.0,
+        "4": 0.007505307255988277
+      },
+      "degree_blocks_pass": true,
+      "active_components_pass": true,
+      "active_component_count": 10,
+      "inactive_symmetry_zero_components": [
+        "M100",
+        "M300",
+        "M010",
+        "M110",
+        "M210",
+        "M310",
+        "M120",
+        "M030",
+        "M130",
+        "M001",
+        "M101",
+        "M201",
+        "M301",
+        "M102",
+        "M003",
+        "M103",
+        "M011",
+        "M111",
+        "M211",
+        "M021",
+        "M121",
+        "M031",
+        "M012",
+        "M112",
+        "M013"
+      ],
+      "pass": true,
+      "worst_component": {
+        "moment": "M004",
+        "degree": 4,
+        "history_relative_l2": 0.009307102299697938
+      }
+    },
+    "worst_final_predictive_moment": {
+      "moment": "M800",
+      "total_degree": 8,
+      "stage9_finite_mixture": 181.47951339052997,
+      "grad_hyqmom": 193.0419368386918,
+      "fine_qmc_mean": 175.3664676245844,
+      "fine_qmc_sem": 0.4071283810308819,
+      "particle_mean": 177.96347997115697,
+      "particle_sem": 1.398152662968213,
+      "stage9_minus_qmc_scaled": 6.1130457659455795,
+      "grad_minus_qmc_scaled": 17.675469214107434,
+      "particle_minus_qmc_scaled": 2.5970123465725727
+    },
+    "invariant_drift": {
+      "maximum_mass_drift": 7.771561172376096e-16,
+      "maximum_momentum_drift": 0.0,
+      "maximum_energy_trace_drift": 5.329070518200751e-15
+    },
+    "elapsed_seconds": 19.12895675900654
+  },
+  "reference_agreement": {
+    "particle_degreewise_dimensionless_history_rmse_vs_fine_qmc": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.002396099946919592,
+      "3": 0.0,
+      "4": 0.007383444132698085,
+      "5": 0.0,
+      "6": 0.04769882628507483,
+      "7": 0.0,
+      "8": 0.6342546518712422
+    },
+    "coarse_to_fine_qmc_degreewise_dimensionless_history_rmse": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.003119383594615406,
+      "3": 0.0,
+      "4": 0.016386197392212115,
+      "5": 0.0,
+      "6": 0.10439141427937314,
+      "7": 0.0,
+      "8": 1.0596606790518883
+    },
+    "base_to_node_refined_qmc_degreewise_dimensionless_history_rmse": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0030419984955264785,
+      "3": 0.0,
+      "4": 0.01539333093750794,
+      "5": 0.0,
+      "6": 0.10962276740297759,
+      "7": 0.0,
+      "8": 0.9773844597895144
+    },
+    "node_to_time_refined_qmc_degreewise_dimensionless_history_rmse": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0032478258174345152,
+      "3": 0.0,
+      "4": 0.010788426384262344,
+      "5": 0.0,
+      "6": 0.07766944038682513,
+      "7": 0.0,
+      "8": 0.9539103163705926
+    },
+    "particle_degreewise_history_relative_l2_vs_fine_qmc": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.002755290883635721,
+      "3": 0.0,
+      "4": 0.004010911887245279,
+      "5": 0.0,
+      "6": 0.007693673918013745,
+      "7": 0.0,
+      "8": 0.021257355023121222
+    },
+    "coarse_to_fine_qmc_degreewise_history_relative_l2": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.0035869994454346844,
+      "3": 0.0,
+      "4": 0.008901481845865096,
+      "5": 0.0,
+      "6": 0.01683801392733831,
+      "7": 0.0,
+      "8": 0.03551504619192062
+    },
+    "base_to_node_refined_qmc_degreewise_history_relative_l2": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.003497866456418034,
+      "3": 0.0,
+      "4": 0.008366109387689488,
+      "5": 0.0,
+      "6": 0.017691902600803992,
+      "7": 0.0,
+      "8": 0.032747023717254874
+    },
+    "node_to_time_refined_qmc_degreewise_history_relative_l2": {
+      "0": 0.0,
+      "1": 0.0,
+      "2": 0.003734695991257978,
+      "3": 0.0,
+      "4": 0.005860602024152656,
+      "5": 0.0,
+      "6": 0.012527841757771304,
+      "7": 0.0,
+      "8": 0.031970771038860354
+    },
+    "retained_reference_convergence_gate": {
+      "threshold": 0.03,
+      "metric": "separate 3% node- and time-refinement gates for every retained degree block and active/nonzero component",
+      "maximum_relative_l2": 0.008366109387689488,
+      "node_refinement_base_to_4N_same_dt": {
+        "threshold": 0.03,
+        "metric": "dimensionless history relative L2 for every retained degree block and every active/nonzero retained component",
+        "block_relative_l2": 0.008005952906279663,
+        "degree_block_relative_l2": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.003497866456418039,
+          "3": 0.0,
+          "4": 0.008366109387689488
+        },
+        "degree_blocks_pass": true,
+        "active_components_pass": true,
+        "active_component_count": 10,
+        "inactive_symmetry_zero_components": [
+          "M100",
+          "M300",
+          "M010",
+          "M110",
+          "M210",
+          "M310",
+          "M120",
+          "M030",
+          "M130",
+          "M001",
+          "M101",
+          "M201",
+          "M301",
+          "M102",
+          "M003",
+          "M103",
+          "M011",
+          "M111",
+          "M211",
+          "M021",
+          "M121",
+          "M031",
+          "M012",
+          "M112",
+          "M013"
+        ],
+        "pass": true,
+        "worst_component": {
+          "moment": "M022",
+          "degree": 4,
+          "history_relative_l2": 0.02546940567550821
+        }
+      },
+      "time_refinement_4N_dt_to_4N_half_dt": {
+        "threshold": 0.03,
+        "metric": "dimensionless history relative L2 for every retained degree block and every active/nonzero retained component",
+        "block_relative_l2": 0.005665265912849179,
+        "degree_block_relative_l2": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.003734695991257979,
+          "3": 0.0,
+          "4": 0.005860602024152651
+        },
+        "degree_blocks_pass": true,
+        "active_components_pass": true,
+        "active_component_count": 10,
+        "inactive_symmetry_zero_components": [
+          "M100",
+          "M300",
+          "M010",
+          "M110",
+          "M210",
+          "M310",
+          "M120",
+          "M030",
+          "M130",
+          "M001",
+          "M101",
+          "M201",
+          "M301",
+          "M102",
+          "M003",
+          "M103",
+          "M011",
+          "M111",
+          "M211",
+          "M021",
+          "M121",
+          "M031",
+          "M012",
+          "M112",
+          "M013"
+        ],
+        "pass": true,
+        "worst_component": {
+          "moment": "M040",
+          "degree": 4,
+          "history_relative_l2": 0.01601612786735123
+        }
+      },
+      "pass": true,
+      "higher_degrees": "M5-M8 are diagnostic unless separately converged"
+    },
+    "minimum_raw_qmc_retained_margin": 4.237140710274499e-05,
+    "minimum_raw_qmc_necessary_H4_PSD_margin": 3.18343810099675e-05,
+    "minimum_raw_particle_retained_margin": 4.15088700653954e-05,
+    "minimum_raw_particle_necessary_H4_PSD_margin": 3.118945581934407e-05,
+    "fine_qmc_mean_audit": {
+      "minimum_H2_margin": 4.248200651013065e-05,
+      "minimum_necessary_H4_PSD_margin": 3.197392207510025e-05,
+      "H4_scope": "necessary PSD condition only; a positive margin is not proof of full realizability, while a negative margin is decisive failure",
+      "invariant_drift": {
+        "maximum_mass_drift": 0.0,
+        "maximum_momentum_drift": 0.0,
+        "maximum_energy_trace_drift": 1.3322676295501878e-14
+      }
+    },
+    "particle_mean_audit": {
+      "minimum_H2_margin": 4.248200651013065e-05,
+      "minimum_necessary_H4_PSD_margin": 3.197392207510025e-05,
+      "H4_scope": "necessary PSD condition only; a positive margin is not proof of full realizability, while a negative margin is decisive failure",
+      "invariant_drift": {
+        "maximum_mass_drift": 0.0,
+        "maximum_momentum_drift": 0.0,
+        "maximum_energy_trace_drift": 5.329070518200751e-15
+      }
+    },
+    "maximum_fine_qmc_step_energy_drift": 9.370282327836321e-14,
+    "maximum_fine_qmc_step_momentum_drift": 2.4806135965739123e-14,
+    "maximum_particle_step_energy_drift": 1.0969003483296547e-13,
+    "maximum_particle_step_momentum_drift": 3.4565719741070656e-16
+  },
+  "alternative_collision_models_not_accuracy_references": {
+    "BGK": {
+      "convention": "df/dt=(Maxwellian-f)/tau_BGK",
+      "tau_BGK": 0.5,
+      "minimum_H2_margin": 4.24820065101315e-05,
+      "minimum_necessary_H4_PSD_margin": 3.197392207442856e-05,
+      "H4_scope": "necessary PSD condition only; a positive margin is not proof of full realizability, while a negative margin is decisive failure",
+      "invariant_drift": {
+        "maximum_mass_drift": 0.0,
+        "maximum_momentum_drift": 0.0,
+        "maximum_energy_trace_drift": 4.440892098500626e-16
+      }
+    },
+    "ES_BGK": {
+      "prandtl": 0.6666666666666666,
+      "nu": -0.5,
+      "tau_FP": 1.0,
+      "tau_sigma": 0.5,
+      "tau_BGK": 0.5,
+      "ES_collision_rate": 1.3333333333333333,
+      "clock_matching": "tau_sigma=tau_FP/2; BGK and ES-BGK share this stress-relaxation time",
+      "convention": "df/dt=(Pr/tau_sigma)(G_ES-f); T_ES=(1-nu)theta I+nu Theta",
+      "evaluation": "semi-analytic homogeneous Duhamel integral",
+      "duhamel_gauss_legendre_order": 64,
+      "minimum_H2_margin": 4.24820065101315e-05,
+      "minimum_necessary_H4_PSD_margin": 3.197392207442856e-05,
+      "H4_scope": "necessary PSD condition only; a positive margin is not proof of full realizability, while a negative margin is decisive failure",
+      "invariant_drift": {
+        "maximum_mass_drift": 3.3306690738754696e-16,
+        "maximum_momentum_drift": 0.0,
+        "maximum_energy_trace_drift": 4.440892098500626e-16
+      }
+    }
+  },
+  "legacy_ma20_initial_closure_controls": {
+    "counterstream_ma20": {
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            1.725591925629152,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.007444168734491314,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.007444168734491314,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.007444168734491314
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -1.725591925629152,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.007444168734491314,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.007444168734491314,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.007444168734491314
+            ]
+          ]
+        }
+      ],
+      "exact_positive_measure_necessary_H4_PSD_margin": 3.197392207442856e-05,
+      "methods": {
+        "stage9_finite_mixture": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 9.62014571990255e-17,
+          "negative_mass_fraction": 0.0,
+          "necessary_H4_PSD_margin": 3.197392207505753e-05,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 2.451128794145907e-17,
+            "6": 6.714942806499659e-16,
+            "7": 1.1105836587214706e-16,
+            "8": 8.473732736175786e-15
+          }
+        },
+        "grad_hyqmom_35": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 2.1838177121987926e-16,
+          "negative_mass_fraction": -0.0,
+          "necessary_H4_PSD_margin": 1.4180636003712608e-06,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 1.580181216167502e-15,
+            "6": 0.04958308415592999,
+            "7": 5.377612374517909e-15,
+            "8": 0.35723578927643895
+          }
+        }
+      }
+    },
+    "crossing_ma20": {
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            1.2156613477096618,
+            -1.2156613477096618,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.01477832512315271,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.01477832512315271,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.01477832512315271
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -1.2156613477096618,
+            1.2156613477096618,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.01477832512315271,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.01477832512315271,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.01477832512315271
+            ]
+          ]
+        }
+      ],
+      "exact_positive_measure_necessary_H4_PSD_margin": 4.770752216315289e-08,
+      "methods": {
+        "stage9_finite_mixture": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 8.849453394548654e-16,
+          "negative_mass_fraction": 0.0,
+          "necessary_H4_PSD_margin": 4.770752200187049e-08,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 2.3573576182479858e-17,
+            "6": 2.8902737441656495e-15,
+            "7": 2.5517673500721146e-17,
+            "8": 5.713331122303305e-15
+          }
+        },
+        "grad_hyqmom_35": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 4.583573949630789e-15,
+          "negative_mass_fraction": 0.04606244021536159,
+          "necessary_H4_PSD_margin": -0.008131038038732658,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 3.1395051240944734e-15,
+            "6": 0.03804898295950234,
+            "7": 4.456905972591251e-15,
+            "8": 0.15985934481961508
+          }
+        }
+      }
+    },
+    "two_component_unimodal_control": {
+      "components": [
+        {
+          "weight": 0.5,
+          "mean": [
+            0.55,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.45,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.45,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.45
+            ]
+          ]
+        },
+        {
+          "weight": 0.5,
+          "mean": [
+            -0.55,
+            0.0,
+            0.0
+          ],
+          "covariance": [
+            [
+              0.45,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.45,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.45
+            ]
+          ]
+        }
+      ],
+      "exact_positive_measure_necessary_H4_PSD_margin": 0.060437007460726645,
+      "methods": {
+        "stage9_finite_mixture": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 4.2698520829637607e-16,
+          "negative_mass_fraction": 0.0,
+          "necessary_H4_PSD_margin": 0.060437007460729206,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 1.1397080385433815e-16,
+            "6": 3.687593790261933e-15,
+            "7": 1.1977014445876873e-15,
+            "8": 1.5157995367145628e-14
+          }
+        },
+        "grad_hyqmom_35": {
+          "status": "PASS",
+          "retained_reconstruction_residual": 5.541523829844776e-16,
+          "negative_mass_fraction": -0.0,
+          "necessary_H4_PSD_margin": 0.06184224310476367,
+          "H4_scope": "necessary condition; positive is not proof, negative is decisive",
+          "degreewise_dimensionless_t0_rmse_vs_exact": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "3": 0.0,
+            "4": 0.0,
+            "5": 2.183283233152285e-15,
+            "6": 0.09219415324691321,
+            "7": 1.157126921996171e-14,
+            "8": 1.936524355395236
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "wall_seconds": 172.33661129100074,
+    "stage9_seconds": 7.964219305998995,
+    "grad_seconds": 19.12895675900654,
+    "qmc_cpu_seconds_sum": 317.33126936599,
+    "particle_cpu_seconds_sum": 221.60221578000346,
+    "workers": 4
+  },
+  "qualification": {
+    "outcome": "PASS",
+    "requirements": {
+      "stage9_completed": true,
+      "retained_H2_condition": true,
+      "necessary_H4_PSD_condition": true,
+      "retained_accuracy_each_degree_and_active_component": true,
+      "reference_node_and_time_convergence": true
+    },
+    "H4_scope": "positive is necessary but not proof of full realizability; negative is decisive failure"
+  }
+}

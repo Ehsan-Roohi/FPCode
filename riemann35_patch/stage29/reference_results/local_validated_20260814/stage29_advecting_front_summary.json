@@ -1,0 +1,877 @@
+{
+  "stage": "29",
+  "case": "advecting_regularized_four_delta_kinetic_front",
+  "decision": "WORKSTATION_PASS",
+  "scope": "numerical qualification, not independent MD/DSMC physical validation",
+  "configuration": {
+    "mode": "workstation",
+    "x_lower": -12.0,
+    "x_upper": 12.0,
+    "spatial_cells": 48,
+    "pocket_center": -2.0,
+    "pocket_half_width": 1.0,
+    "initial_buffer_cells": 1,
+    "bulk_velocity_x": 1.0,
+    "velocity_lower": [
+      -2.5,
+      -2.5,
+      -1.5
+    ],
+    "velocity_upper": [
+      3.5,
+      2.5,
+      1.5
+    ],
+    "coarse_velocity_shape": [
+      19,
+      15,
+      11
+    ],
+    "refined_velocity_shape": [
+      21,
+      17,
+      13
+    ],
+    "regularization_fraction": 0.12,
+    "cfl": 0.15,
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "steps": 24,
+    "sensor_interval_steps": 8,
+    "macro_equilibrium_tolerance": 1e-12,
+    "kinetic_front_on": 0.4,
+    "dt": 0.022340425531914895,
+    "final_time": 0.5361702127659574
+  },
+  "reference": "positive guided DVM on coarse and refined velocity grids",
+  "primary_metrics": {
+    "causal_births": 4,
+    "kinetic_front_births": 4,
+    "right_moving_front_births": 3,
+    "mean_active_fraction_percent": 16.833333333333332,
+    "peak_active_fraction_percent": 20.833333333333336,
+    "final_active_fraction_percent": 20.833333333333336,
+    "expensive_sensor_evaluations": 144,
+    "front_sensor_evaluations": 48,
+    "adaptive_over_coarse_dvm_wall_time": 0.8010475115673014,
+    "measured_speedup_factor": 1.2483654034995193,
+    "final_errors": {
+      "coarse_vs_refined_M400_percent": 0.11055143127927496,
+      "coarse_vs_refined_M420_percent": 0.13069827494060257,
+      "adaptive_vs_refined_M400_percent": 0.22999603383373773,
+      "adaptive_vs_refined_M420_percent": 0.4280313262526209
+    },
+    "space_time_errors": {
+      "adaptive_vs_refined_M400_percent": 0.10992423076225234,
+      "adaptive_vs_refined_M420_percent": 0.6405198789419382
+    }
+  },
+  "contracts": {
+    "synchronous_causal_provenance_pass": true,
+    "nontrivial_kinetic_front_birth_pass": true,
+    "numerical_accuracy_and_invariants_pass": true,
+    "kinetic_fraction_below_50_percent_pass": true,
+    "measured_speedup_vs_coarse_full_dvm_pass": true,
+    "all_qualification_gates_pass": true,
+    "minimum_dvm_mass": 1.2280573964829762e-15,
+    "minimum_adaptive_active_mass": 2.4189329716023764e-85,
+    "minimum_realizability_margin": 0.0032006572721583497,
+    "maximum_balance_residual": 3.451167770216743e-15,
+    "maximum_projection_residual": 1.2216682795579767e-10,
+    "maximum_collision_invariant_drift": 8.290129693833137e-11,
+    "maximum_micro_macro_sync_residual": 1.840851351867684e-13
+  },
+  "activation_history": [
+    {
+      "step": 1,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 2,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 3,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [
+        23
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        22
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.0827571840047585
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4243333311172688
+      ]
+    },
+    {
+      "step": 4,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 5,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 6,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 7,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 8,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 9,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 10,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [
+        24
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        23
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.271396279580308
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.40854794900434555
+      ]
+    },
+    {
+      "step": 11,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 12,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 13,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 14,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 15,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 16,
+      "active_cells_before": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [
+        16
+      ],
+      "activation_sources": [
+        "right_neighbor"
+      ],
+      "activation_donor_cells": [
+        17
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.5953393163632198
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4205167975787391
+      ]
+    },
+    {
+      "step": 17,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 18,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 19,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [
+        25
+      ],
+      "activation_sources": [
+        "left_neighbor"
+      ],
+      "activation_donor_cells": [
+        24
+      ],
+      "activation_carrier_used": [
+        true
+      ],
+      "activation_donor_fractions": [
+        0.6019488679265582
+      ],
+      "activation_reasons": [
+        "kinetic_front"
+      ],
+      "activation_front_signals": [
+        0.4086837531799289
+      ]
+    },
+    {
+      "step": 20,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 21,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 22,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 23,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    },
+    {
+      "step": 24,
+      "active_cells_before": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "active_cells_after": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "activation_cells": [],
+      "activation_sources": [],
+      "activation_donor_cells": [],
+      "activation_carrier_used": [],
+      "activation_donor_fractions": [],
+      "activation_reasons": [],
+      "activation_front_signals": []
+    }
+  ],
+  "timing_seconds": {
+    "coarse_dvm": 48.04396835300395,
+    "refined_dvm": 57.96507559899328,
+    "adaptive": 38.48550129499199,
+    "total": 144.49454524698922
+  },
+  "environment": {
+    "python": "3.12.13 (main, Aug  7 2026, 02:25:39) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+    "numpy": "2.3.5"
+  }
+}

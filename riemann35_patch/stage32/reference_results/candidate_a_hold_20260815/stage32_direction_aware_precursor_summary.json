@@ -1,0 +1,396 @@
+{
+  "stage": "32",
+  "case": "direction_aware_precursor_ma2_development",
+  "decision": "DEVELOPMENT_HOLD",
+  "scope": "Mach-2 direction-aware precursor development; not a blind cross-case qualification and not MD/DSMC evidence",
+  "configuration": {
+    "stage": "32",
+    "case": "direction_aware_precursor_ma2_development",
+    "result_stem": "stage32_direction_aware_precursor",
+    "report_filename": "STAGE32_DIRECTION_AWARE_PRECURSOR_RESULT.md",
+    "report_title": "Stage 32 direction-aware Mach-2 precursor result",
+    "figure_title": "Mach-2 development shock \u2014 direction-aware causal precursor",
+    "progress_event": "STAGE32_PROGRESS",
+    "workstation_pass_label": "DEVELOPMENT_PASS",
+    "workstation_hold_label": "DEVELOPMENT_HOLD",
+    "smoke_pass_label": "DEVELOPMENT_SMOKE_PASS",
+    "smoke_hold_label": "DEVELOPMENT_SMOKE_HOLD",
+    "case_contract_name": "mach2_development_not_blind_qualification_pass",
+    "case_contract_pass": true,
+    "case_summary": "Mach 2 development case; Stage 31 remains WORKSTATION_HOLD",
+    "mode": "workstation",
+    "scope": "Mach-2 direction-aware precursor development; not a blind cross-case qualification and not MD/DSMC evidence",
+    "mach": 2.0,
+    "x_lower": -12.0,
+    "x_upper": 12.0,
+    "spatial_cells": 48,
+    "velocity_lower": [
+      -8.0,
+      -7.0,
+      -7.0
+    ],
+    "velocity_upper": [
+      10.0,
+      7.0,
+      7.0
+    ],
+    "coarse_velocity_shape": [
+      19,
+      15,
+      15
+    ],
+    "refined_velocity_shape": [
+      23,
+      17,
+      17
+    ],
+    "cfl": 0.15,
+    "tau": 1.0,
+    "prandtl": 0.6666666666666666,
+    "steps": 48,
+    "initial_active_half_width": 2,
+    "sensor_interval_steps": 8,
+    "release_sensor_interval_steps": 4,
+    "causal_activation_candidates_only": true,
+    "macro_equilibrium_tolerance": 1e-12,
+    "kinetic_front_on": 0.4,
+    "kinetic_front_observables": [
+      "mass",
+      "stress_xx",
+      "heat_flux_x",
+      "M420"
+    ],
+    "minimum_left_neighbor_front_births": 1,
+    "minimum_weighted_only_front_births": 1,
+    "release_persistence_steps": 4,
+    "profile_error_limit_percent": 3.0,
+    "comparison_half_width": 3.0,
+    "blind_validation_mach": 2.5,
+    "blind_validation_executed": false,
+    "stage31_decision_preserved": "WORKSTATION_HOLD",
+    "dt": 0.007805429864253393,
+    "final_time": 0.37466063348416284
+  },
+  "rankine_hugoniot": {
+    "mach": 2.0,
+    "gamma": 1.6666666666666667,
+    "upstream_density": 1.0,
+    "upstream_velocity": 2.581988897471611,
+    "upstream_theta": 1.0,
+    "downstream_density": 2.285714285714286,
+    "downstream_velocity": 1.1296201426438297,
+    "downstream_theta": 2.0781249999999996
+  },
+  "reference": "independently evolved positive guided coarse/refined Full-DVM",
+  "primary_metrics": {
+    "causal_births": 14,
+    "kinetic_front_births": 14,
+    "left_neighbor_front_births": 0,
+    "weighted_only_front_births": 10,
+    "releases": 5,
+    "four_step_chatter_events": 1,
+    "mean_active_fraction_percent": 19.472789115646258,
+    "peak_active_fraction_percent": 29.166666666666668,
+    "final_active_fraction_percent": 29.166666666666668,
+    "expensive_sensor_evaluations": 138,
+    "activation_sensor_skips_no_donor": 209,
+    "adaptive_over_coarse_dvm_wall_time": 0.7210592922071515,
+    "measured_speedup_factor": 1.3868485030392095,
+    "full_domain_profile_errors_percent": {
+      "coarse_vs_refined": {
+        "rho": 0.21176005520699495,
+        "velocity_x": 0.2592559768885798,
+        "theta": 0.19663747134139575,
+        "stress_xx": 1.8361934076084612,
+        "heat_flux_x": 1.583433863674831,
+        "M300": 0.04292776168706867,
+        "M400": 0.028137707586945282,
+        "M420": 0.04889941794087368
+      },
+      "adaptive_vs_refined": {
+        "rho": 0.40399439509240453,
+        "velocity_x": 0.38489641442142153,
+        "theta": 0.23415054809452868,
+        "stress_xx": 5.832055771026898,
+        "heat_flux_x": 9.275266691504894,
+        "M300": 0.4459673519910964,
+        "M400": 0.46702442145765977,
+        "M420": 1.908191217645003
+      }
+    },
+    "shock_core_profile_errors_percent": {
+      "coarse_vs_refined": {
+        "rho": 0.4262411277793224,
+        "velocity_x": 0.5347950813758077,
+        "theta": 0.3833246258029854,
+        "stress_xx": 1.8360630840132053,
+        "heat_flux_x": 1.5834178596037505,
+        "M300": 0.08441858390534275,
+        "M400": 0.05466106602664885,
+        "M420": 0.10224265798523022
+      },
+      "adaptive_vs_refined": {
+        "rho": 0.6395786393634871,
+        "velocity_x": 0.715191744716984,
+        "theta": 0.44048133940609413,
+        "stress_xx": 5.710267867067752,
+        "heat_flux_x": 8.569050085236727,
+        "M300": 0.7847618502796102,
+        "M400": 0.7778865036079865,
+        "M420": 3.9534126111977583
+      }
+    },
+    "space_time_errors_percent": {
+      "adaptive_vs_refined_M400_percent": 0.3209380307197124,
+      "adaptive_vs_refined_M420_percent": 1.058909061271444
+    }
+  },
+  "contracts": {
+    "mach2_development_not_blind_qualification_pass": true,
+    "coarse_refined_profile_agreement_pass": true,
+    "adaptive_physical_profile_accuracy_pass": false,
+    "synchronous_causal_cellwise_carrier_pass": false,
+    "direction_aware_precursor_evidence_pass": false,
+    "positivity_conservation_realizability_pass": true,
+    "kinetic_fraction_below_50_percent_pass": true,
+    "measured_speedup_vs_coarse_full_dvm_pass": true,
+    "all_qualification_gates_pass": false,
+    "minimum_dvm_mass": 1.1504218727911998e-35,
+    "minimum_adaptive_active_mass": 2.3087932065987113e-43,
+    "minimum_realizability_margin": 0.002146042893086353,
+    "maximum_balance_residual": 8.980442554283101e-13,
+    "maximum_projection_residual": 1.6922189312069786e-10,
+    "maximum_collision_invariant_drift": 6.436668975595694e-10,
+    "maximum_micro_macro_sync_residual": 1.7798936695040238e-10
+  },
+  "birth_history": [
+    {
+      "step": 4,
+      "cell": 20,
+      "source": "right_neighbor",
+      "donor_cell": 21,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.9718980816008164,
+      "front_components": {
+        "mass": 0.013187507101448044,
+        "stress_xx": 0.028124165916075524,
+        "heat_flux_x": 0.04217385737849311,
+        "M420": 0.9718980816008164
+      }
+    },
+    {
+      "step": 5,
+      "cell": 19,
+      "source": "right_neighbor",
+      "donor_cell": 20,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.4489998329388793,
+      "front_components": {
+        "mass": 0.015051574899228872,
+        "stress_xx": 0.018580353807162702,
+        "heat_flux_x": 0.02213996245225309,
+        "M420": 0.4489998329388793
+      }
+    },
+    {
+      "step": 10,
+      "cell": 18,
+      "source": "right_neighbor",
+      "donor_cell": 19,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.5261258539267041,
+      "front_components": {
+        "mass": 0.008322743450631094,
+        "stress_xx": 0.012812747348414453,
+        "heat_flux_x": 0.017156206704159193,
+        "M420": 0.5261258539267041
+      }
+    },
+    {
+      "step": 14,
+      "cell": 17,
+      "source": "right_neighbor",
+      "donor_cell": 18,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.426434780168235,
+      "front_components": {
+        "mass": 0.0211868650206638,
+        "stress_xx": 0.02436454279528917,
+        "heat_flux_x": 0.02732882708705538,
+        "M420": 0.426434780168235
+      }
+    },
+    {
+      "step": 22,
+      "cell": 16,
+      "source": "right_neighbor",
+      "donor_cell": 17,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.4693318476930078,
+      "front_components": {
+        "mass": 0.01780114772017411,
+        "stress_xx": 0.02147965990830534,
+        "heat_flux_x": 0.024859567872130613,
+        "M420": 0.4693318476930078
+      }
+    },
+    {
+      "step": 28,
+      "cell": 15,
+      "source": "right_neighbor",
+      "donor_cell": 16,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.42672714187988847,
+      "front_components": {
+        "mass": 0.03353923499206354,
+        "stress_xx": 0.03669657582609727,
+        "heat_flux_x": 0.03952671264220232,
+        "M420": 0.42672714187988847
+      }
+    },
+    {
+      "step": 34,
+      "cell": 21,
+      "source": "right_neighbor",
+      "donor_cell": 22,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 1.9993830998346516,
+      "front_components": {
+        "mass": 1.9574914105876287,
+        "stress_xx": 1.9746945643709324,
+        "heat_flux_x": 1.9820540624865388,
+        "M420": 1.9993830998346516
+      }
+    },
+    {
+      "step": 35,
+      "cell": 20,
+      "source": "right_neighbor",
+      "donor_cell": 21,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 1.9981724848717033,
+      "front_components": {
+        "mass": 1.8329245192720003,
+        "stress_xx": 1.9112400553241826,
+        "heat_flux_x": 1.9382550835952923,
+        "M420": 1.9981724848717033
+      }
+    },
+    {
+      "step": 37,
+      "cell": 14,
+      "source": "right_neighbor",
+      "donor_cell": 15,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.6065756019460161,
+      "front_components": {
+        "mass": 0.026337264387911185,
+        "stress_xx": 0.029345315710721666,
+        "heat_flux_x": 0.032179177562825415,
+        "M420": 0.6065756019460161
+      }
+    },
+    {
+      "step": 40,
+      "cell": 13,
+      "source": "right_neighbor",
+      "donor_cell": 14,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.4520572400594995,
+      "front_components": {
+        "mass": 0.03612914723303696,
+        "stress_xx": 0.037138079296812024,
+        "heat_flux_x": 0.038238185105292956,
+        "M420": 0.4520572400594995
+      }
+    },
+    {
+      "step": 42,
+      "cell": 19,
+      "source": "right_neighbor",
+      "donor_cell": 20,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 1.9989906590513749,
+      "front_components": {
+        "mass": 1.6105514657867521,
+        "stress_xx": 1.815824061825419,
+        "heat_flux_x": 1.881903075087374,
+        "M420": 1.9989906590513749
+      }
+    },
+    {
+      "step": 44,
+      "cell": 12,
+      "source": "right_neighbor",
+      "donor_cell": 13,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.4631112018286142,
+      "front_components": {
+        "mass": 0.013700903491567525,
+        "stress_xx": 0.014566316492661324,
+        "heat_flux_x": 0.015667482999612067,
+        "M420": 0.4631112018286142
+      }
+    },
+    {
+      "step": 46,
+      "cell": 18,
+      "source": "right_neighbor",
+      "donor_cell": 19,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 1.9989188286114061,
+      "front_components": {
+        "mass": 1.1460272074947102,
+        "stress_xx": 1.5900624146996947,
+        "heat_flux_x": 1.7510252969286066,
+        "M420": 1.9989188286114061
+      }
+    },
+    {
+      "step": 48,
+      "cell": 11,
+      "source": "right_neighbor",
+      "donor_cell": 12,
+      "carrier_used": true,
+      "reason": "kinetic_front",
+      "front_signal": 0.4247140296333661,
+      "front_components": {
+        "mass": 0.0158239625329089,
+        "stress_xx": 0.01658807850078029,
+        "heat_flux_x": 0.017601242025840007,
+        "M420": 0.4247140296333661
+      }
+    }
+  ],
+  "chatter_events": [
+    {
+      "release_step": 33,
+      "reactivation_step": 35,
+      "cell": 20
+    }
+  ],
+  "timing_seconds": {
+    "coarse_dvm": 133.02064476603118,
+    "refined_dvm": 267.86067061401263,
+    "adaptive": 95.91577196393337,
+    "total": 496.7970873439772
+  },
+  "environment": {
+    "python": "3.12.13 (main, Aug  7 2026, 02:25:39) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+    "numpy": "2.3.5"
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "schema": "riemann35-cubic-fp-stage9-corrected-v1",
+  "coefficient_model": "physical 9x9 cubic-FP solve",
+  "unresolved_residual_model": "exact OU moment propagation",
+  "cases": {
+    "symmetric": {
+      "status": "REACHED_FINAL_TIME",
+      "dt": 0.0025,
+      "requested_final_time": 3.0,
+      "reached_time": 3.0,
+      "initial_shape": {
+        "excess_kurtosis_axes": [
+          -0.32319731570291754,
+          0.0,
+          0.0
+        ],
+        "heat_flux_norm": 0.0,
+        "realizability_margin": 0.3233271561879729
+      },
+      "final_shape": {
+        "excess_kurtosis_axes": [
+          -6.624882212147298e-06,
+          -2.347253724277465e-06,
+          -2.3472537193924836e-06
+        ],
+        "heat_flux_norm": 4.374754430272887e-15,
+        "realizability_margin": 0.4291098168230399
+      },
+      "initial_marginal_branches": [
+        "gaussian",
+        "gaussian",
+        "equal-variance-eqmom"
+      ],
+      "initial_reconstruction_relative_residual": 2.3129690053126863e-16,
+      "maximum_reconstruction_relative_residual": 0.0009840527308154217,
+      "minimum_realizability_margin": 0.3233271561879729,
+      "mass_drift": 0.0,
+      "momentum_drift": 0.0,
+      "temperature_drift": 2.4424906541753444e-15
+    },
+    "asymmetric": {
+      "status": "REACHED_FINAL_TIME",
+      "dt": 0.0025,
+      "requested_final_time": 3.0,
+      "reached_time": 3.0,
+      "initial_shape": {
+        "excess_kurtosis_axes": [
+          -0.25364264578024187,
+          0.0,
+          0.0
+        ],
+        "heat_flux_norm": 0.12514590232724934,
+        "realizability_margin": 0.28381707679835316
+      },
+      "final_shape": {
+        "excess_kurtosis_axes": [
+          -3.40707908108584e-07,
+          -2.486112633981463e-06,
+          -2.4861126415309798e-06
+        ],
+        "heat_flux_norm": 0.0005968507551425058,
+        "realizability_margin": 0.4165011012835318
+      },
+      "initial_marginal_branches": [
+        "gaussian",
+        "gaussian",
+        "equal-variance-eqmom"
+      ],
+      "initial_reconstruction_relative_residual": 2.788453266946826e-16,
+      "maximum_reconstruction_relative_residual": 0.0022910577590184154,
+      "minimum_realizability_margin": 0.28381707679835316,
+      "mass_drift": 0.0,
+      "momentum_drift": 0.0,
+      "temperature_drift": 5.551115123125783e-16
+    },
+    "correlated": {
+      "status": "REACHED_FINAL_TIME",
+      "dt": 0.0025,
+      "requested_final_time": 3.0,
+      "reached_time": 3.0,
+      "initial_shape": {
+        "excess_kurtosis_axes": [
+          -0.1622549897873964,
+          -0.03276681295569883,
+          -0.013400633306153154
+        ],
+        "heat_flux_norm": 0.15032502473961235,
+        "realizability_margin": 0.2105961711326594
+      },
+      "final_shape": {
+        "excess_kurtosis_axes": [
+          -4.819368881747721e-06,
+          -6.003585951486201e-06,
+          -5.76499840265754e-06
+        ],
+        "heat_flux_norm": 0.0007698004670242793,
+        "realizability_margin": 0.3799379405242831
+      },
+      "initial_marginal_branches": [
+        "gaussian",
+        "gaussian",
+        "equal-variance-eqmom"
+      ],
+      "initial_reconstruction_relative_residual": 1.1496992205766217e-15,
+      "maximum_reconstruction_relative_residual": 0.003394297948115052,
+      "minimum_realizability_margin": 0.2105961711326594,
+      "mass_drift": 0.0,
+      "momentum_drift": 0.0,
+      "temperature_drift": 1.6653345369377348e-15
+    },
+    "leptokurtic": {
+      "status": "REACHED_FINAL_TIME",
+      "dt": 0.0025,
+      "requested_final_time": 3.0,
+      "reached_time": 3.0,
+      "initial_shape": {
+        "excess_kurtosis_axes": [
+          1.4999999999999991,
+          0.0,
+          0.0
+        ],
+        "heat_flux_norm": 0.0,
+        "realizability_margin": 0.2083869307949576
+      },
+      "final_shape": {
+        "excess_kurtosis_axes": [
+          1.1577658781458666e-05,
+          -5.219360256436545e-06,
+          -5.2193602599892586e-06
+        ],
+        "heat_flux_norm": 3.512994790569238e-15,
+        "realizability_margin": 0.3838539336184137
+      },
+      "initial_marginal_branches": [
+        "gaussian",
+        "gaussian",
+        "symmetric-location-scale"
+      ],
+      "initial_reconstruction_relative_residual": 3.7905376916638463e-16,
+      "maximum_reconstruction_relative_residual": 0.0030201817397061586,
+      "minimum_realizability_margin": 0.2083869307949576,
+      "mass_drift": 0.0,
+      "momentum_drift": 0.0,
+      "temperature_drift": 1.3322676295501878e-15
+    },
+    "rare_hot": {
+      "status": "REACHED_FINAL_TIME",
+      "dt": 0.0025,
+      "requested_final_time": 3.0,
+      "reached_time": 3.0,
+      "initial_shape": {
+        "excess_kurtosis_axes": [
+          15.462381300219139,
+          15.462381300219139,
+          15.462381300219139
+        ],
+        "heat_flux_norm": 0.0,
+        "realizability_margin": 0.11555219719097169
+      },
+      "final_shape": {
+        "excess_kurtosis_axes": [
+          9.50041541325497e-05,
+          9.500415413610241e-05,
+          9.500415412722063e-05
+        ],
+        "heat_flux_norm": 3.3599652082335934e-15,
+        "realizability_margin": 0.22141224845694457
+      },
+      "initial_marginal_branches": [
+        "symmetric-location-scale-high-kurtosis",
+        "symmetric-location-scale-high-kurtosis",
+        "symmetric-location-scale-high-kurtosis"
+      ],
+      "initial_reconstruction_relative_residual": 0.2643781356277496,
+      "maximum_reconstruction_relative_residual": 0.2643781356277496,
+      "minimum_realizability_margin": 0.11555219719097169,
+      "mass_drift": 0.0,
+      "momentum_drift": 0.0,
+      "temperature_drift": 2.9976021664879227e-15
+    }
+  },
+  "rare_hot_exact_ou_check": {
+    "reason": "isotropic stress-free, zero-heat-flux state reduces exactly to OU",
+    "exact_excess_kurtosis_axes": [
+      9.500415419667754e-05,
+      9.500415419667754e-05,
+      9.500415419667754e-05
+    ],
+    "computed_excess_kurtosis_axes": [
+      9.50041541325497e-05,
+      9.500415413610241e-05,
+      9.500415412722063e-05
+    ],
+    "maximum_absolute_error": 6.945690496275997e-14
+  },
+  "time_step_refinement": {
+    "symmetric": {
+      "dt_values": [
+        0.005,
+        0.0025,
+        0.00125
+      ],
+      "relative_final_difference_coarse_to_base": 8.815160723490669e-10,
+      "relative_final_difference_base_to_fine": 3.7805101524002354e-10
+    },
+    "correlated": {
+      "dt_values": [
+        0.005,
+        0.0025,
+        0.00125
+      ],
+      "relative_final_difference_coarse_to_base": 1.985844573950992e-08,
+      "relative_final_difference_base_to_fine": 9.871177859442393e-09
+    }
+  },
+  "all_cases_reached_final_time": true
+}

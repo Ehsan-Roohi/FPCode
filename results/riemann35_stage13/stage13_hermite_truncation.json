@@ -1,0 +1,48 @@
+{
+  "schema": "riemann35-stage13-hermite-truncation-rejection-v1",
+  "case": "rare_beam_ma20",
+  "method": "finite raw-moment hierarchy with zero Hermite coefficients above K",
+  "acceptance_rule": "all retained 35-moment states must remain realizable",
+  "configurations": [
+    {
+      "maximum_order": 6,
+      "dt_over_tau": 0.0025,
+      "requested_final_time_over_tau": 1.0,
+      "completed_steps": 15,
+      "completed_time_over_tau": 0.0375,
+      "reached_final_time": false,
+      "first_negative_step": 15,
+      "minimum_realizability_margin": -0.0003777895608062797,
+      "final_realizability_margin": -0.0003777895608062797,
+      "finite_first_35": true,
+      "elapsed_seconds": 0.9863181460023043
+    },
+    {
+      "maximum_order": 8,
+      "dt_over_tau": 0.0025,
+      "requested_final_time_over_tau": 1.0,
+      "completed_steps": 15,
+      "completed_time_over_tau": 0.0375,
+      "reached_final_time": false,
+      "first_negative_step": 15,
+      "minimum_realizability_margin": -0.11442764714187996,
+      "final_realizability_margin": -0.11442764714187996,
+      "finite_first_35": true,
+      "elapsed_seconds": 2.301663615995494
+    },
+    {
+      "maximum_order": 8,
+      "dt_over_tau": 0.00125,
+      "requested_final_time_over_tau": 1.0,
+      "completed_steps": 27,
+      "completed_time_over_tau": 0.03375,
+      "reached_final_time": false,
+      "first_negative_step": 27,
+      "minimum_realizability_margin": -0.0007667106170234933,
+      "final_realizability_margin": -0.0007667106170234933,
+      "finite_first_35": true,
+      "elapsed_seconds": 4.197851968005125
+    }
+  ],
+  "decision": "REJECT_AS_PHYSICAL_REFERENCE"
+}

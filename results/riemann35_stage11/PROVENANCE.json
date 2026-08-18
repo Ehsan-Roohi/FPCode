@@ -1,0 +1,33 @@
+{
+  "generated_utc": "2026-08-10T19:16:23Z",
+  "repository": "Ehsan-Roohi/FPCode",
+  "base_git_commit": "765944ead4075a8a7018f4570397529ac4d17f4e",
+  "working_tree_note": "Stages 7-11 are local uncommitted changes based on the recorded commit; no GitHub push was performed.",
+  "commands": {
+    "stage10": "python riemann35_patch/stage10/run_general_realizability_audit.py --random-states 256 --workers 8 --dt 0.0025 --long-time 1.0 --output results/riemann35_stage10_corrected",
+    "stage10_summary": "python riemann35_patch/stage10/summarize_stage10.py --results results/riemann35_stage10_corrected",
+    "stage11": "python riemann35_patch/stage11/run_particle_validation.py --particles 100000 --seeds 16 --workers 8 --dt 0.0025 --final-time 1.0 --sample-every 10 --output results/riemann35_stage11",
+    "stage11_refinement": "python riemann35_patch/stage11/summarize_stage11.py --results results/riemann35_stage11 --workers 8",
+    "tests": "python -m unittest tests.test_hyqmom_fp -v"
+  },
+  "verification": {
+    "unit_tests_passed": 20,
+    "unit_tests_failed": 0,
+    "particle_cases": 6,
+    "independent_seeds_per_case": 16,
+    "particles_per_seed": 100000,
+    "particle_trajectories_completed": 96,
+    "particle_trajectories_failed": 0
+  },
+  "source_sha256": {
+    "hyqmom_fp/collision.py": "349e89caf75575b3c6111d423d326ac58f059d1d5e108bc77af629f046ecce68",
+    "hyqmom_fp/particle_reference.py": "45db6eae5ddcec1f857c7ae5a3e9aa19be482cfd012a277408978a4228d93617",
+    "hyqmom_fp/mixture_closure.py": "89eb43cae21ab3adde8bd067b2ab1e3359b35d1770fd0567a4f3c21e472bf85f",
+    "hyqmom_fp/grad_hyqmom.py": "162a35563099624c7c440775f21129b75b6d52a2585f1e560cc9d94bca24d1ab",
+    "riemann35_patch/stage10/run_general_realizability_audit.py": "95dd1e9e667eb78304fd309cf127a1aeebdcb9261f0c2c13e50021a50b966ae4",
+    "riemann35_patch/stage10/summarize_stage10.py": "685bf7e2db759b695f4e2e45c1fb0d6a627386505b654b96f1365edaa9703a74",
+    "riemann35_patch/stage11/run_particle_validation.py": "bf520d6185d58194b775fe93546b0e0d5fa7286cd39ab4852118c33e1ebeb468",
+    "riemann35_patch/stage11/summarize_stage11.py": "ab06d4cbee0166708a942c1ff2d32151e0c259a5046446be4a81ae759c0346e3",
+    "tests/test_hyqmom_fp.py": "51e219ccc8883f52f7acb14cc7a46e916f6e16d0c87c93969b411aa8b6c7c1c4"
+  }
+}

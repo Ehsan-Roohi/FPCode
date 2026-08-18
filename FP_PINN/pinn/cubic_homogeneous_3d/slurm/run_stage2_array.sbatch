@@ -95,11 +95,37 @@ which python
 python --version
 nvidia-smi
 python - <<'PY'
+import os
+
 import tensorflow as tf
+
+gpus = tf.config.list_physical_devices("GPU")
 print("TensorFlow:", tf.__version__)
-print("Visible GPUs:", tf.config.list_physical_devices("GPU"))
-if not tf.config.list_physical_devices("GPU"):
+print("Visible GPUs:", gpus)
+if not gpus:
     raise SystemExit("No TensorFlow GPU is visible inside this Slurm allocation")
+
+details = tf.config.experimental.get_device_details(gpus[0])
+capability = tuple(int(value) for value in details.get("compute_capability", (0, 0)))
+minimum_text = os.environ.get("FP_MIN_GPU_COMPUTE_CAPABILITY", "7.5")
+try:
+    minimum = tuple(int(value) for value in minimum_text.split("."))
+except ValueError as error:
+    raise SystemExit(
+        f"Invalid FP_MIN_GPU_COMPUTE_CAPABILITY={minimum_text!r}; expected MAJOR.MINOR"
+    ) from error
+if len(minimum) != 2:
+    raise SystemExit(
+        f"Invalid FP_MIN_GPU_COMPUTE_CAPABILITY={minimum_text!r}; expected MAJOR.MINOR"
+    )
+print("GPU compute capability:", ".".join(map(str, capability)))
+print("Minimum required compute capability:", minimum_text)
+if capability < minimum:
+    raise SystemExit(
+        "Allocated GPU is incompatible with this TensorFlow/CUDA build: "
+        f"compute capability {capability[0]}.{capability[1]} < {minimum_text}. "
+        "Submit with a Unity constraint such as --constraint=sm_75&vram12."
+    )
 PY
 
 python -m unittest discover -s "$STAGE2_DIR/tests" -t "$STAGE2_DIR" -v

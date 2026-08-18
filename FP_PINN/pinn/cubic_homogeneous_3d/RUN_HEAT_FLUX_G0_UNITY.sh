@@ -35,12 +35,15 @@ export FP_AXISYMMETRIC_HEAT_FLUX="${FP_AXISYMMETRIC_HEAT_FLUX:-1}"
 export FP_ANTITHETIC_HEAT_FLUX_QUADRATURE="${FP_ANTITHETIC_HEAT_FLUX_QUADRATURE:-1}"
 export FP_PACKAGE_RESULTS="${FP_PACKAGE_RESULTS:-1}"
 export FP_STRICT_GATE="${FP_STRICT_GATE:-1}"
+export FP_GPU_CONSTRAINT="${FP_GPU_CONSTRAINT:-sm_75&vram12}"
+export FP_MIN_GPU_COMPUTE_CAPABILITY="${FP_MIN_GPU_COMPUTE_CAPABILITY:-7.5}"
 
 sbatch \
   --array=2 \
   --nodes=1 \
   --ntasks=1 \
   --gres=gpu:1 \
+  --constraint="$FP_GPU_CONSTRAINT" \
   --exclude="${FP_EXCLUDE_NODES:-gypsum-gpu001,gypsum-gpu011,gypsum-gpu012,gypsum-gpu013,gypsum-gpu015}" \
   --output="$FP_TEST/slurm_logs/fp-pinn-g0-%A_%a.out" \
   --error="$FP_TEST/slurm_logs/fp-pinn-g0-%A_%a.err" \

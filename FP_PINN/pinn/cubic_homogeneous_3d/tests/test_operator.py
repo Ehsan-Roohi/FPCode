@@ -105,6 +105,29 @@ class CubicOperatorTests(unittest.TestCase):
             )
             self.assertLess(relative, 1.0e-8)
 
+    def test_closure_enforces_exact_third_moment_decay_rate(self) -> None:
+        """Check the C/Gamma/lambda signs against dQ/dt=-(4/3) nu Q."""
+        rng = np.random.default_rng(20260810)
+        nu = 1.7
+        moments = moments_from_samples(sample_initial("heat_flux", 250_000, rng))
+        lhs, _, lam = build_closure_system(moments, nu=nu)
+        closure = solve_closure(moments, nu=nu)
+        p, q = moments.pij, moments.q
+        lambda_basis = np.array([
+            3.0*moments.m5[0]-moments.dm2*q[0]
+            -2.0*(p[0]*q[0]+p[1]*q[1]+p[2]*q[2]),
+            3.0*moments.m5[1]-moments.dm2*q[1]
+            -2.0*(p[1]*q[0]+p[3]*q[1]+p[4]*q[2]),
+            3.0*moments.m5[2]-moments.dm2*q[2]
+            -2.0*(p[2]*q[0]+p[4]*q[1]+p[5]*q[2]),
+        ])
+        induced_rate = (
+            -3.0*nu*q + lhs[6:9]@closure.vector + lam*lambda_basis
+        )
+        np.testing.assert_allclose(
+            induced_rate, -(4.0/3.0)*nu*q, rtol=2.0e-8, atol=2.0e-10
+        )
+
     def test_particle_projection_preserves_momentum_and_energy(self) -> None:
         rng = np.random.default_rng(67)
         values = sample_initial("heat_flux", 100_000, rng)
@@ -122,4 +145,3 @@ class CubicOperatorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

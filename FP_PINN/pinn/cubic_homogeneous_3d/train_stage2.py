@@ -36,6 +36,14 @@ from cubic_operator import (
     sample_proposal,
     solve_closure,
 )
+from heat_flux_g0 import (
+    HEAT_FLUX_DECAY_RATE_FACTOR,
+    analytic_heat_flux_history,
+    effective_prandtl_number,
+    fit_decay_rate,
+    heat_flux_gate_summary,
+    relative_l2 as analytic_relative_l2,
+)
 
 
 @dataclass
@@ -59,7 +67,9 @@ class Config:
     momentum_weight: float = 20.0
     energy_weight: float = 20.0
     heat_flux_weight: float = 10.0
+    heat_flux_rate_weight: float = 10.0
     heat_flux_scale: float = 0.25
+    heat_flux_rate_step: float = 0.01
     tail_fraction: float = 0.20
     tail_variance: float = 4.0
     fixed_velocity_quadrature: bool = False
@@ -102,11 +112,19 @@ def parse_args() -> Config:
     parser.add_argument("--energy-weight", type=float, default=20.0)
     parser.add_argument(
         "--heat-flux-weight", type=float, default=10.0,
-        help="Weight of the particle-free weak third-moment residual",
+        help="Weight of the particle-free PDE-projected third-moment residual",
+    )
+    parser.add_argument(
+        "--heat-flux-rate-weight", type=float, default=10.0,
+        help="Weight of dQx/dt + (4/3) nu Qx evaluated without particle data",
     )
     parser.add_argument(
         "--heat-flux-scale", type=float, default=0.25,
         help="Reference scale used to nondimensionalize the weak heat-flux residual",
+    )
+    parser.add_argument(
+        "--heat-flux-rate-step", type=float, default=0.01,
+        help="Common-random-number finite-difference step for the analytic Qx rate",
     )
     parser.add_argument(
         "--tail-fraction", type=float, default=0.20,
@@ -158,6 +176,10 @@ def parse_args() -> Config:
         parser.error("--tail-variance must be greater than one")
     if config.heat_flux_scale <= 0.0:
         parser.error("--heat-flux-scale must be positive")
+    if config.heat_flux_rate_weight < 0.0:
+        parser.error("--heat-flux-rate-weight must be nonnegative")
+    if not 0.0 < config.heat_flux_rate_step < 0.25 * config.tmax:
+        parser.error("--heat-flux-rate-step must lie in (0, 0.25*tmax)")
     if config.quadrature_panels < 1:
         parser.error("--quadrature-panels must be at least one")
     if config.quadrature_panels > 1 and not config.fixed_velocity_quadrature:
@@ -499,6 +521,63 @@ def weak_heat_flux_loss(
     )
 
 
+def _heat_flux_moment_at_times(
+    model: DensityModel,
+    c: tf.Tensor,
+    log_q: tf.Tensor,
+    times: tf.Tensor,
+) -> tf.Tensor:
+    """Estimate the three central third moments on a common velocity cloud."""
+    nt = tf.shape(c)[0]
+    nv = tf.shape(c)[1]
+    time_grid = tf.repeat(times[:, None, :], repeats=nv, axis=1)
+    log_f = model.log_density(
+        tf.reshape(time_grid, (-1, 1)), tf.reshape(c, (-1, 3))
+    )
+    ratio = tf.exp(
+        tf.clip_by_value(
+            tf.reshape(log_f, tf.shape(log_q)) - log_q,
+            -40.0,
+            40.0,
+        )
+    )
+    moments = moment_tensors(tf.cast(c, tf.float64), tf.cast(ratio, tf.float64))
+    return tf.cast(moments["q"], tf.float32)
+
+
+def analytic_heat_flux_rate_loss(
+    model: DensityModel,
+    config: Config,
+    c: tf.Tensor,
+    log_q: tf.Tensor,
+    time_grid: tf.Tensor,
+) -> tf.Tensor:
+    """Enforce dQx/dt + (4/3) nu Qx = 0 without particle supervision.
+
+    A centered common-random-number finite difference is used away from the
+    temporal endpoints and automatically becomes one-sided at t=0 or t=tmax.
+    Reusing the identical importance-sampling cloud for Q(t-dt), Q(t), and
+    Q(t+dt) removes Monte-Carlo differencing noise while retaining gradients
+    with respect to every network parameter.
+    """
+    times = time_grid[:, 0, :]
+    step = tf.cast(config.heat_flux_rate_step, times.dtype)
+    lower = tf.maximum(times - step, tf.zeros_like(times))
+    upper = tf.minimum(times + step, tf.cast(config.tmax, times.dtype))
+    denominator = tf.maximum(upper - lower, tf.cast(1.0e-8, times.dtype))
+    q_lower = _heat_flux_moment_at_times(model, c, log_q, lower)
+    q_center = _heat_flux_moment_at_times(model, c, log_q, times)
+    q_upper = _heat_flux_moment_at_times(model, c, log_q, upper)
+    derivative = (q_upper - q_lower) / denominator
+    rate = tf.cast(HEAT_FLUX_DECAY_RATE_FACTOR * config.nu, derivative.dtype)
+    residual_x = derivative[:, 0] + rate * q_center[:, 0]
+    scale = tf.cast(
+        HEAT_FLUX_DECAY_RATE_FACTOR * config.nu * config.heat_flux_scale,
+        residual_x.dtype,
+    )
+    return tf.reduce_mean(tf.square(residual_x / scale))
+
+
 def build_fixed_quadrature_panels(
     config: Config,
 ) -> tuple[tf.Tensor, tf.Tensor]:
@@ -615,8 +694,12 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                     c_grid, ratio, relative_residual, moments["mean"],
                     config.heat_flux_scale,
                 )
+                heat_rate_loss = analytic_heat_flux_rate_loss(
+                    model, config, c_grid, log_q, t_grid
+                )
             else:
                 heat_loss = tf.constant(0.0, tf.float32)
+                heat_rate_loss = tf.constant(0.0, tf.float32)
             mass_loss = tf.reduce_mean(tf.square(moments["mass"]-1.0))
             momentum_loss = tf.reduce_mean(tf.square(moments["mean"]))
             energy_loss = tf.reduce_mean(tf.square(moments["dm2"]-3.0))
@@ -624,6 +707,7 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 config.pde_weight*pde_loss + config.mass_weight*mass_loss
                 +config.momentum_weight*momentum_loss+config.energy_weight*energy_loss
                 +config.heat_flux_weight*heat_loss
+                +config.heat_flux_rate_weight*heat_rate_loss
             )
         gradients = parameter_tape.gradient(total, model.trainable_variables)
         finite_gradients = [tf.where(tf.math.is_finite(g),g,tf.zeros_like(g)) for g in gradients]
@@ -633,7 +717,8 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
         optimizer.apply_gradients(zip(finite_gradients, model.trainable_variables))
         return {
             "total": total, "pde": pde_loss, "mass": mass_loss,
-            "momentum": momentum_loss, "energy": energy_loss, "heat_flux": heat_loss,
+            "momentum": momentum_loss, "energy": energy_loss,
+            "heat_flux": heat_loss, "heat_flux_rate": heat_rate_loss,
             "grad_norm": grad_norm, "max_coefficient": tf.reduce_max(tf.abs(coefficients)),
             "max_abs_lambda": tf.reduce_max(tf.abs(lam)),
         }
@@ -719,6 +804,14 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     stress_error=float(np.linalg.norm(pred_dev-ref_dev)/max(np.linalg.norm(ref_dev),1.0e-12))
     heat_error=float(np.linalg.norm(model_q-ref_q)/max(np.linalg.norm(ref_q),1.0e-12))
     active_heat_error=heat_error
+    analytic_qx=np.full(times.shape,np.nan,dtype=np.float64)
+    analytic_heat_error=float("nan")
+    particle_analytic_heat_error=float("nan")
+    model_decay_rate=float("nan")
+    particle_decay_rate=float("nan")
+    model_effective_prandtl=float("nan")
+    particle_effective_prandtl=float("nan")
+    heat_flux_gates: dict[str,Any] | None=None
     transverse_heat_flux_relative=0.0
     reference_transverse_heat_flux_relative=0.0
     if config.case == "heat_flux":
@@ -726,6 +819,18 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
             np.linalg.norm(model_q[:,0]-ref_q[:,0])
             / max(np.linalg.norm(ref_q[:,0]),1.0e-12)
         )
+        analytic_qx=analytic_heat_flux_history(times,nu=config.nu)
+        analytic_heat_error=analytic_relative_l2(model_q[:,0],analytic_qx)
+        particle_analytic_heat_error=analytic_relative_l2(ref_q[:,0],analytic_qx)
+        model_decay_rate=fit_decay_rate(times,model_q[:,0])
+        particle_decay_rate=fit_decay_rate(times,ref_q[:,0])
+        model_effective_prandtl=effective_prandtl_number(
+            model_decay_rate,nu=config.nu
+        )
+        particle_effective_prandtl=effective_prandtl_number(
+            particle_decay_rate,nu=config.nu
+        )
+        heat_flux_gates=heat_flux_gate_summary(analytic_heat_error)
         active_heat_scale=max(float(np.max(np.abs(ref_q[:,0]))),1.0e-12)
         transverse_heat_flux_relative=float(
             np.max(np.linalg.norm(model_q[:,1:3],axis=1))/active_heat_scale
@@ -753,7 +858,11 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     initial_exact=np.exp(initial_logpdf(config.case,initial_points))
     initial_linf=float(np.max(np.abs(initial_prediction-initial_exact)))
     relevant_error = stress_error if config.case == "stress" else active_heat_error
-    relevant_threshold = 0.20 if config.case == "heat_flux" else 0.15
+    relevant_threshold = 0.15
+    if config.case == "heat_flux":
+        assert heat_flux_gates is not None
+        relevant_error=analytic_heat_error
+        relevant_threshold=float(heat_flux_gates["continuation_threshold"])
     if config.case == "equilibrium":
         relevant_error=max(float(np.max(np.linalg.norm(pred_dev,axis=1))),
                            float(np.max(np.linalg.norm(model_q,axis=1))))
@@ -763,12 +872,16 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "max_mass_error": float(np.max(np.abs(model_mass-1.0))) < 0.03,
         "max_momentum_norm": float(np.max(np.linalg.norm(model_mean,axis=1))) < 0.03,
         "max_energy_error": float(np.max(np.abs(model_dm2-3.0))) < 0.04,
-        "case_relaxation_error": relevant_error < relevant_threshold,
+        "case_relaxation_error": relevant_error <= relevant_threshold,
         "initial_condition_linf": initial_linf < 2.0e-6,
         "positive_density": minimum_density >= 0.0,
     }
     if config.case == "heat_flux":
         checks["transverse_heat_flux_symmetry"] = transverse_heat_flux_relative < 0.02
+    base_checks_passed=bool(all(
+        passed for name,passed in checks.items() if name != "case_relaxation_error"
+    ))
+    continuation_pass=bool(all(checks.values()))
     metrics: dict[str,Any]={
         "case":config.case,"marginal_relative_l2":marginal_error,
         "stress_history_relative_l2":stress_error,"heat_flux_history_relative_l2":heat_error,
@@ -777,29 +890,50 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
         "max_momentum_norm":float(np.max(np.linalg.norm(model_mean,axis=1))),
         "max_energy_error":float(np.max(np.abs(model_dm2-3.0))),
         "minimum_density":minimum_density,"initial_condition_linf":initial_linf,
-        "gate_checks":checks,"gate_passed":bool(all(checks.values())),
+        "gate_checks":checks,"gate_passed":continuation_pass,
+        "continuation_pass":continuation_pass,
     }
     if config.case == "heat_flux":
+        assert heat_flux_gates is not None
         metrics.update({
             "heat_flux_active_axis_relative_l2":active_heat_error,
+            "heat_flux_analytic_history_relative_l2":analytic_heat_error,
+            "particle_heat_flux_analytic_relative_l2":particle_analytic_heat_error,
+            "heat_flux_exact_decay_rate":HEAT_FLUX_DECAY_RATE_FACTOR*config.nu,
+            "heat_flux_effective_decay_rate":model_decay_rate,
+            "particle_heat_flux_effective_decay_rate":particle_decay_rate,
+            "heat_flux_effective_prandtl":model_effective_prandtl,
+            "particle_heat_flux_effective_prandtl":particle_effective_prandtl,
             "max_transverse_heat_flux_relative":transverse_heat_flux_relative,
             "reference_transverse_heat_flux_relative":reference_transverse_heat_flux_relative,
+            "heat_flux_gates":heat_flux_gates,
+            "primary_pass":bool(base_checks_passed and heat_flux_gates["primary_pass"]),
+            "publication_pass":bool(
+                base_checks_passed and heat_flux_gates["publication_pass"]
+            ),
         })
 
     np.savez_compressed(
         output/"validation.npz",time=times,model_mass=model_mass,model_mean=model_mean,
         model_dm2=model_dm2,model_pij=model_pij,model_q=model_q,reference_pij=ref_pij,
-        reference_q=ref_q,selected_time_indices=selected,histogram_centers=centers,
+        reference_q=ref_q,analytic_qx=analytic_qx,selected_time_indices=selected,
+        histogram_centers=centers,
         predicted_marginals=pred_marginals,reference_marginals=ref_marginals,
     )
     with (output/"moments_by_time.csv").open("w",newline="") as stream:
         writer=csv.writer(stream)
         writer.writerow(["time","mass","mean_x","mean_y","mean_z","dm2",
-                         "p_xx","p_xy","p_xz","p_yy","p_yz","p_zz","q_x","q_y","q_z"])
+                         "p_xx","p_xy","p_xz","p_yy","p_yz","p_zz",
+                         "q_x","q_y","q_z","reference_q_x","analytic_q_x",
+                         "q_x_error_vs_analytic"])
         for i,t in enumerate(times):
-            writer.writerow([t,model_mass[i],*model_mean[i],model_dm2[i],*model_pij[i],*model_q[i]])
+            writer.writerow([
+                t,model_mass[i],*model_mean[i],model_dm2[i],*model_pij[i],
+                *model_q[i],ref_q[i,0],analytic_qx[i],model_q[i,0]-analytic_qx[i],
+            ])
     make_validation_plot(config,output,times,centers,selected,pred_marginals,ref_marginals,
-                         model_mass,model_mean,model_dm2,model_pij,model_q,ref_pij,ref_q)
+                         model_mass,model_mean,model_dm2,model_pij,model_q,ref_pij,ref_q,
+                         analytic_qx)
     return metrics
 
 
@@ -807,6 +941,7 @@ def make_validation_plot(
     config:Config,output:Path,times:np.ndarray,centers:np.ndarray,selected:np.ndarray,
     predicted:np.ndarray,reference:np.ndarray,mass:np.ndarray,mean:np.ndarray,dm2:np.ndarray,
     pij:np.ndarray,q:np.ndarray,ref_pij:np.ndarray,ref_q:np.ndarray,
+    analytic_qx:np.ndarray,
 ) -> None:
     plt.rcParams.update({"font.size":9,"axes.grid":True,"grid.alpha":0.25})
     fig,axes=plt.subplots(2,2,figsize=(7.2,5.5),constrained_layout=True)
@@ -823,7 +958,8 @@ def make_validation_plot(
         axes[0,1].set(ylabel=r"$P_{xx}-P_{yy}$",title="Stress relaxation")
     elif config.case=="heat_flux":
         axes[0,1].plot(times,q[:,0],label="PINN")
-        axes[0,1].plot(times,ref_q[:,0],"--",label="particle")
+        axes[0,1].plot(times,analytic_qx,"--",label=r"analytic $e^{-4t/3}$")
+        axes[0,1].plot(times,ref_q[:,0],":",label="particle cross-check")
         axes[0,1].set(ylabel=r"$Q_x=2q_x/\rho$",title="Heat-flux relaxation")
     else:
         dev=np.sqrt((pij[:,0]-1)**2+(pij[:,3]-1)**2+(pij[:,5]-1)**2+2*(pij[:,1]**2+pij[:,2]**2+pij[:,4]**2))
@@ -883,6 +1019,7 @@ def main() -> None:
                      f"pde={result['pde']:.3e}",f"mass={result['mass']:.3e}",
                      f"mom={result['momentum']:.3e}",f"energy={result['energy']:.3e}",
                      f"qweak={result['heat_flux']:.3e}",
+                     f"qrate={result['heat_flux_rate']:.3e}",
                      f"grad={result['grad_norm']:.3e}",f"elapsed={time.perf_counter()-started:.1f}s"]),flush=True)
             if epoch%config.checkpoint_every==0 or epoch==config.epochs:
                 model.save_weights(checkpoints/f"epoch-{epoch:06d}.weights.h5")
@@ -896,7 +1033,9 @@ def main() -> None:
     reload_linf=float(np.max(np.abs(before-_predict_log_density(reloaded,0.731,audit_points))))
     metrics=evaluate(reloaded,config,output); metrics["portable_reload_linf"]=reload_linf
     metrics["portable_reload_passed"]=reload_linf<1.0e-7
-    metrics["gate_passed"]=bool(metrics["gate_passed"] and metrics["portable_reload_passed"])
+    for key in ("gate_passed","continuation_pass","primary_pass","publication_pass"):
+        if key in metrics:
+            metrics[key]=bool(metrics[key] and metrics["portable_reload_passed"])
     (output/"metrics.json").write_text(json.dumps(metrics,indent=2,sort_keys=True)+"\n")
     print("FINAL_METRICS "+json.dumps(metrics,sort_keys=True),flush=True)
     print(f"Artifacts: {output}",flush=True)

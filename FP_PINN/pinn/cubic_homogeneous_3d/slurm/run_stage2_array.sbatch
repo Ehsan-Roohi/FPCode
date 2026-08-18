@@ -141,7 +141,9 @@ TRAIN_ARGS=(
     --momentum-weight "${FP_MOMENTUM_WEIGHT:-20.0}"
     --energy-weight "${FP_ENERGY_WEIGHT:-20.0}"
     --heat-flux-weight "${FP_HEAT_FLUX_WEIGHT:-10.0}"
+    --heat-flux-rate-weight "${FP_HEAT_FLUX_RATE_WEIGHT:-10.0}"
     --heat-flux-scale "${FP_HEAT_FLUX_SCALE:-0.25}"
+    --heat-flux-rate-step "${FP_HEAT_FLUX_RATE_STEP:-0.01}"
     --tail-fraction "${FP_TAIL_FRACTION:-0.20}"
     --tail-variance "${FP_TAIL_VARIANCE:-4.0}"
     --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
@@ -156,7 +158,7 @@ fi
 if [[ "${FP_EVALUATE_ONLY:-0}" == "1" ]]; then
     TRAIN_ARGS+=(--evaluate-only)
 fi
-if [[ "${FP_STRICT_GATE:-0}" == "1" ]]; then
+if [[ "${FP_STRICT_GATE:-0}" == "1" && ! ( "$CASE_NAME" == "heat_flux" && "${FP_CHECKPOINT_SWEEP:-1}" == "1" ) ]]; then
     TRAIN_ARGS+=(--strict-gate)
 fi
 if [[ "${FP_FIXED_VELOCITY_QUADRATURE:-0}" == "1" ]]; then
@@ -175,9 +177,14 @@ fi
 python -u train_stage2.py "${TRAIN_ARGS[@]}"
 
 if [[ "$CASE_NAME" == "heat_flux" && "${FP_CHECKPOINT_SWEEP:-1}" == "1" ]]; then
-    python -u evaluate_stage2_checkpoints.py \
-        --case-output "$CASE_OUTPUT" \
+    SWEEP_ARGS=(
+        --case-output "$CASE_OUTPUT"
         --reference "$REFERENCE_OUTPUT/reference.npz"
+    )
+    if [[ "${FP_STRICT_GATE:-0}" == "1" ]]; then
+        SWEEP_ARGS+=(--strict-gate)
+    fi
+    python -u evaluate_stage2_checkpoints.py "${SWEEP_ARGS[@]}"
 fi
 
 echo "Stage-2 case completed: $CASE_NAME"

@@ -43,6 +43,10 @@ only in the non-equilibrium mode.
 The heat-flux initial condition has the exact moments `<cx>=0`, `<cx²>=1`, and
 `<cx³>=Qx=0.25`; it is a positive distribution, not a signed Grad correction.
 
+For the heat-flux G0 protocol, the exact relaxation target is
+`Qx(t)=0.25 exp[-(4/3) nu t]`.  See `HEAT_FLUX_G0.md` for the new 5%/2%/1%
+gates and `STAGE2_G0_SOURCE_AUDIT.md` for the recovered 30,000-epoch lineage.
+
 ## What is physics-informed here?
 
 `train_stage2.py` represents `log(f)` and uses an ansatz that enforces the
@@ -54,11 +58,13 @@ step it:
 3. solves the self-consistent 9×9 closure and computes `lambda`;
 4. differentiates the four-input network `(t,cx,cy,cz)` to form the FP PDE
    residual; and
-5. penalizes mass, momentum, and energy drift.
+5. penalizes mass, momentum, and energy drift; and
+6. for `heat_flux`, penalizes both the PDE-projected third-moment defect and
+   the particle-free analytic moment-rate defect.
 
-Particle histories are never used in the training loss.  The independent
-particle solver is used only after training for stress/heat-flux histories,
-one-dimensional marginals, and numerical gates.
+Particle histories are never used in the training loss.  For heat flux, the
+analytic history is the primary gate and the independent particle solver is a
+cross-check plus a marginal-distribution reference.
 
 ## Files
 
@@ -68,6 +74,9 @@ one-dimensional marginals, and numerical gates.
   exact discrete projection of momentum and energy.
 - `train_stage2.py`: self-consistent TensorFlow PINN and validation/figure
   generation.
+- `heat_flux_g0.py`: exact heat-flux history, decay-rate diagnostics, and the
+  frozen 5%/2%/1% gates.
+- `RUN_HEAT_FLUX_G0_UNITY.sh`: task-2-only 30,000-epoch G0 production submitter.
 - `slurm/run_stage2_array.sbatch`: Unity `gpu` partition array for all three
   cases.
 - `summarize_stage2.py`: one-line numerical summary of the triad.
@@ -180,7 +189,8 @@ The principal gates are:
 - marginal-distribution relative L2 error;
 - maximum mass, momentum, and energy error;
 - stress-history error for `stress`;
-- heat-flux-history error for `heat_flux`;
+- analytic `Qx(t)` history error for `heat_flux` (particle history retained as
+  an independent diagnostic);
 - transverse heat-flux symmetry for `heat_flux`;
 - equilibrium invariance for `equilibrium`;
 - exact initial condition, nonnegative density, and exact portable H5 reload.

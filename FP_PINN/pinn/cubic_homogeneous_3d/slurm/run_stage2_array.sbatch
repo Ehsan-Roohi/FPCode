@@ -12,7 +12,8 @@
 set -euo pipefail
 
 CASES=(equilibrium stress heat_flux)
-CASE_NAME="${CASES[$SLURM_ARRAY_TASK_ID]}"
+CASE_NAME="${FP_CASE_NAME:-${CASES[$SLURM_ARRAY_TASK_ID]}}"
+RUN_SEED="${FP_SEED:-$((20260808 + SLURM_ARRAY_TASK_ID))}"
 
 # Slurm executes a spool copy of this file, so BASH_SOURCE points into
 # /var/spool/slurm rather than the submitted repository. Resolve the checkout
@@ -46,7 +47,8 @@ package_on_exit() {
     local package_status=0
     trap - EXIT
     if [[ "${FP_PACKAGE_RESULTS:-1}" == "1" ]]; then
-        local archive="$REPO_ROOT/FP_PINN_STAGE2_JOB${SLURM_ARRAY_JOB_ID}_${CASE_NAME^^}_COMPLETE.zip"
+        local package_tag="${FP_PACKAGE_TAG:-${CASE_NAME^^}}"
+        local archive="$REPO_ROOT/FP_PINN_STAGE2_JOB${SLURM_ARRAY_JOB_ID}_${package_tag}_COMPLETE.zip"
         local job_record
         local log_key
         local log_path
@@ -137,7 +139,7 @@ python -u reference_particle.py \
     --dt "${FP_REFERENCE_DT:-0.005}" \
     --tmax "${FP_TMAX:-1.0}" \
     --save-every "${FP_REFERENCE_SAVE_EVERY:-10}" \
-    --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
+    --seed "$RUN_SEED"
 
 if [[ -n "${FP_RESUME_ARCHIVE:-}" && -n "${FP_RESUME_WEIGHTS:-}" ]]; then
     echo "ERROR: set only one of FP_RESUME_ARCHIVE or FP_RESUME_WEIGHTS" >&2
@@ -175,7 +177,7 @@ TRAIN_ARGS=(
     --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
     --checkpoint-every "${FP_CHECKPOINT_EVERY:-2500}"
     --quadrature-panels "${FP_QUADRATURE_PANELS:-1}"
-    --seed "$((20260808 + SLURM_ARRAY_TASK_ID))"
+    --seed "$RUN_SEED"
 )
 
 if [[ -n "${FP_RESUME_WEIGHTS:-}" ]]; then

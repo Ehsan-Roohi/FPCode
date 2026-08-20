@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass
 import json
 import os
 from pathlib import Path
+import shutil
 import time
 from typing import Any
 
@@ -38,6 +39,7 @@ from cubic_operator import (
 )
 from heat_flux_g0 import (
     HEAT_FLUX_DECAY_RATE_FACTOR,
+    HEAT_FLUX_INITIAL_QX,
     analytic_heat_flux_history,
     effective_prandtl_number,
     fit_decay_rate,
@@ -68,6 +70,8 @@ class Config:
     energy_weight: float = 20.0
     heat_flux_weight: float = 10.0
     heat_flux_rate_weight: float = 10.0
+    heat_flux_history_weight: float = 0.0
+    resume_anchor_weight: float = 0.0
     heat_flux_scale: float = 0.25
     heat_flux_rate_step: float = 0.01
     tail_fraction: float = 0.20
@@ -117,6 +121,14 @@ def parse_args() -> Config:
     parser.add_argument(
         "--heat-flux-rate-weight", type=float, default=10.0,
         help="Weight of dQx/dt + (4/3) nu Qx evaluated without particle data",
+    )
+    parser.add_argument(
+        "--heat-flux-history-weight", type=float, default=0.0,
+        help="Weight of the exact analytic Qx(t) history; uses no particle data",
+    )
+    parser.add_argument(
+        "--resume-anchor-weight", type=float, default=0.0,
+        help="Functional log-density anchor to the loaded resume checkpoint",
     )
     parser.add_argument(
         "--heat-flux-scale", type=float, default=0.25,
@@ -178,6 +190,12 @@ def parse_args() -> Config:
         parser.error("--heat-flux-scale must be positive")
     if config.heat_flux_rate_weight < 0.0:
         parser.error("--heat-flux-rate-weight must be nonnegative")
+    if config.heat_flux_history_weight < 0.0:
+        parser.error("--heat-flux-history-weight must be nonnegative")
+    if config.resume_anchor_weight < 0.0:
+        parser.error("--resume-anchor-weight must be nonnegative")
+    if config.resume_anchor_weight > 0.0 and not config.resume_weights:
+        parser.error("--resume-anchor-weight requires --resume-weights")
     if not 0.0 < config.heat_flux_rate_step < 0.25 * config.tmax:
         parser.error("--heat-flux-rate-step must lie in (0, 0.25*tmax)")
     if config.quadrature_panels < 1:
@@ -578,6 +596,24 @@ def analytic_heat_flux_rate_loss(
     return tf.reduce_mean(tf.square(residual_x / scale))
 
 
+def analytic_heat_flux_history_loss(
+    model: DensityModel,
+    config: Config,
+    c: tf.Tensor,
+    log_q: tf.Tensor,
+    time_grid: tf.Tensor,
+) -> tf.Tensor:
+    """Match the exact particle-free Qx(t)=Qx(0) exp[-(4/3) nu t] history."""
+    times = time_grid[:, 0, :]
+    q = _heat_flux_moment_at_times(model, c, log_q, times)
+    rate = tf.cast(HEAT_FLUX_DECAY_RATE_FACTOR * config.nu, q.dtype)
+    target = tf.cast(HEAT_FLUX_INITIAL_QX, q.dtype) * tf.exp(
+        -rate * tf.cast(times[:, 0], q.dtype)
+    )
+    scale = tf.cast(config.heat_flux_scale, q.dtype)
+    return tf.reduce_mean(tf.square((q[:, 0] - target) / scale))
+
+
 def build_fixed_quadrature_panels(
     config: Config,
 ) -> tuple[tf.Tensor, tf.Tensor]:
@@ -594,7 +630,12 @@ def build_fixed_quadrature_panels(
     )
 
 
-def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimizer, config: Config):
+def make_train_step(
+    model: DensityModel,
+    optimizer: tf.keras.optimizers.Optimizer,
+    config: Config,
+    anchor_model: DensityModel | None = None,
+):
     fixed_c: tf.Tensor | None = None
     fixed_log_q: tf.Tensor | None = None
     panel_cursor: tf.Variable | None = None
@@ -625,6 +666,13 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 with tf.GradientTape(persistent=True) as first_tape:
                     first_tape.watch([flat_t, flat_c])
                     log_f = model.log_density(flat_t, flat_c)
+                    if anchor_model is None:
+                        anchor_delta = None
+                    else:
+                        anchor_log_f = tf.stop_gradient(
+                            anchor_model.log_density(flat_t, flat_c)
+                        )
+                        anchor_delta = log_f - anchor_log_f
                 h_t = first_tape.gradient(log_f, flat_t)
                 grad_h = first_tape.gradient(log_f, flat_c)
                 del first_tape
@@ -684,6 +732,12 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
             )
             relative_residual = tf.reshape(relative_residual, tf.shape(ratio))
             importance = tf.stop_gradient(ratio / tf.maximum(tf.reduce_mean(ratio),1.0e-12))
+            if anchor_delta is None:
+                anchor_loss = tf.constant(0.0, tf.float32)
+            else:
+                anchor_loss = tf.reduce_mean(
+                    importance * tf.reshape(tf.square(anchor_delta), tf.shape(importance))
+                )
             delta = tf.constant(5.0, tf.float32)
             pde_loss = tf.reduce_mean(
                 importance * tf.square(delta) *
@@ -697,9 +751,13 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 heat_rate_loss = analytic_heat_flux_rate_loss(
                     model, config, c_grid, log_q, t_grid
                 )
+                heat_history_loss = analytic_heat_flux_history_loss(
+                    model, config, c_grid, log_q, t_grid
+                )
             else:
                 heat_loss = tf.constant(0.0, tf.float32)
                 heat_rate_loss = tf.constant(0.0, tf.float32)
+                heat_history_loss = tf.constant(0.0, tf.float32)
             mass_loss = tf.reduce_mean(tf.square(moments["mass"]-1.0))
             momentum_loss = tf.reduce_mean(tf.square(moments["mean"]))
             energy_loss = tf.reduce_mean(tf.square(moments["dm2"]-3.0))
@@ -708,6 +766,8 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
                 +config.momentum_weight*momentum_loss+config.energy_weight*energy_loss
                 +config.heat_flux_weight*heat_loss
                 +config.heat_flux_rate_weight*heat_rate_loss
+                +config.heat_flux_history_weight*heat_history_loss
+                +config.resume_anchor_weight*anchor_loss
             )
         gradients = parameter_tape.gradient(total, model.trainable_variables)
         finite_gradients = [tf.where(tf.math.is_finite(g),g,tf.zeros_like(g)) for g in gradients]
@@ -719,6 +779,7 @@ def make_train_step(model: DensityModel, optimizer: tf.keras.optimizers.Optimize
             "total": total, "pde": pde_loss, "mass": mass_loss,
             "momentum": momentum_loss, "energy": energy_loss,
             "heat_flux": heat_loss, "heat_flux_rate": heat_rate_loss,
+            "heat_flux_history": heat_history_loss, "resume_anchor": anchor_loss,
             "grad_norm": grad_norm, "max_coefficient": tf.reduce_max(tf.abs(coefficients)),
             "max_abs_lambda": tf.reduce_max(tf.abs(lam)),
         }
@@ -951,7 +1012,10 @@ def make_validation_plot(
         axes[0,0].plot(centers,predicted[row],label=fr"PINN $t={times[index]:.2f}$")
         axes[0,0].plot(centers,reference[row],"--",lw=1.0,label=fr"particle $t={times[index]:.2f}$")
     axes[0,0].set(xlabel=r"$c_x$",ylabel=r"marginal $f_x$",title="Distribution relaxation")
-    axes[0,0].legend(fontsize=6,ncol=2)
+    axes[0,0].legend(
+        fontsize=7.5, ncol=2, loc="lower center",
+        bbox_to_anchor=(0.5, 1.02), borderaxespad=0.0, frameon=True,
+    )
     if config.case=="stress":
         axes[0,1].plot(times,pij[:,0]-pij[:,3],label="PINN")
         axes[0,1].plot(times,ref_pij[:,0]-ref_pij[:,3],"--",label="particle")
@@ -1002,13 +1066,30 @@ def main() -> None:
     if config.resume_weights:
         model.load_weights(config.resume_weights)
         print(f"Loaded portable weights: {config.resume_weights}",flush=True)
+    anchor_model: DensityModel | None = None
+    if config.resume_weights and config.resume_anchor_weight > 0.0:
+        anchor_model=DensityModel(config)
+        anchor_model.log_density(tf.zeros((1,1)),tf.zeros((1,3)))
+        anchor_model.load_weights(config.resume_weights)
+        anchor_model.trainable=False
+        print(
+            f"Anchoring refinement to resume checkpoint with weight "
+            f"{config.resume_anchor_weight:g}",
+            flush=True,
+        )
     if not config.evaluate_only:
         schedule=tf.keras.optimizers.schedules.ExponentialDecay(
             config.learning_rate,config.lr_decay_steps,config.lr_decay_rate,staircase=True
         )
         optimizer=tf.keras.optimizers.Adam(schedule)
-        train_step=make_train_step(model,optimizer,config)
+        train_step=make_train_step(model,optimizer,config,anchor_model)
         checkpoints=output/"checkpoints_h5"; checkpoints.mkdir(exist_ok=True)
+        if config.resume_weights:
+            shutil.copy2(
+                config.resume_weights,
+                checkpoints/"epoch-000000.weights.h5",
+            )
+            print("Saved resume checkpoint as epoch 0 for no-regression selection",flush=True)
         history=[]; started=time.perf_counter()
         for epoch in range(1,config.epochs+1):
             result={key:float(value.numpy()) for key,value in train_step().items()}
@@ -1020,6 +1101,8 @@ def main() -> None:
                      f"mom={result['momentum']:.3e}",f"energy={result['energy']:.3e}",
                      f"qweak={result['heat_flux']:.3e}",
                      f"qrate={result['heat_flux_rate']:.3e}",
+                     f"qhist={result['heat_flux_history']:.3e}",
+                     f"anchor={result['resume_anchor']:.3e}",
                      f"grad={result['grad_norm']:.3e}",f"elapsed={time.perf_counter()-started:.1f}s"]),flush=True)
             if epoch%config.checkpoint_every==0 or epoch==config.epochs:
                 model.save_weights(checkpoints/f"epoch-{epoch:06d}.weights.h5")

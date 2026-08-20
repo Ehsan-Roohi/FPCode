@@ -193,8 +193,15 @@ class TensorFlowPathTests(unittest.TestCase):
             )
             model = DensityModel(config)
             model.log_density(tf.zeros((1, 1)), tf.zeros((1, 3)))
+            anchor = DensityModel(config)
+            anchor.log_density(tf.zeros((1, 1)), tf.zeros((1, 3)))
+            anchor.set_weights(model.get_weights())
+            anchor.trainable = False
             optimizer = tf.keras.optimizers.Adam(1.0e-4)
-            result = make_train_step(model, optimizer, config)()
+            result = make_train_step(model, optimizer, config, anchor)()
+            self.assertIn("heat_flux_history", result)
+            self.assertIn("resume_anchor", result)
+            self.assertAlmostEqual(float(result["resume_anchor"].numpy()), 0.0, places=7)
             for name, value in result.items():
                 self.assertTrue(np.isfinite(float(value.numpy())), name)
 

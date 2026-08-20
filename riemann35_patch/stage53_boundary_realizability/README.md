@@ -51,5 +51,18 @@ python -m riemann35_patch.stage53_boundary_realizability.run_boundary_realizabil
   --mode smoke --output results/riemann35_stage53_smoke
 ```
 
-The Unity submission is commit-pinned and creates a new run directory. The
-submission script prints the Slurm job ID, result directory, and ZIP path.
+## Restartable Unity array
+
+The production submission uses five independent Slurm tasks, one for each
+locked epsilon value.  Each task writes its own histories, summary, report,
+PNG, and PDF before the collector runs.  A failed or timed-out task therefore
+does not erase completed epsilon cases.  The collector uses an `afterany`
+dependency, records missing tasks as `INCOMPLETE`, produces the cross-epsilon
+overview from every valid result, and packages the directory as a ZIP.
+
+The commit-pinned submission script prints the array job ID, collector job ID,
+result directory, and ZIP path:
+
+```bash
+FP_STAGE53_COMMIT=<40-character-commit> bash riemann35_patch/stage53_boundary_realizability/submit_unity_stage53_array.sh
+```

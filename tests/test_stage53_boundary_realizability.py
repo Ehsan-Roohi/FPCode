@@ -10,6 +10,7 @@ from riemann35_patch.stage53_boundary_realizability.run_boundary_realizability i
     POSITION,
     advance_method,
     configuration,
+    configuration_for_epsilon,
     crossing_jet_components,
     esbgk_collision_step,
     field_margins,
@@ -116,3 +117,17 @@ def test_time_refinement_and_gates_are_predeclared() -> None:
     assert config.h_tolerance == 2.0e-10
     assert config.refinement_tolerance == 5.0e-2
     assert len(METHODS) == len(set(METHODS)) == 5
+
+
+def test_epsilon_array_selection_preserves_all_locked_controls() -> None:
+    base = configuration("unity")
+    for index, epsilon in enumerate(base.epsilons):
+        selected = configuration_for_epsilon("unity", index)
+        assert selected.epsilons == (epsilon,)
+        assert selected.cells == base.cells
+        assert selected.final_time == base.final_time
+        assert selected.coarse_dt == base.coarse_dt
+        assert selected.fine_dt == base.fine_dt
+        assert selected.h_tolerance == base.h_tolerance
+        assert selected.conservation_tolerance == base.conservation_tolerance
+        assert selected.refinement_tolerance == base.refinement_tolerance

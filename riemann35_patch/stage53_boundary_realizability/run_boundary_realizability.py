@@ -25,7 +25,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from itertools import product
 from math import comb
 from pathlib import Path
@@ -133,6 +133,17 @@ def configuration(mode: str) -> Configuration:
         conservation_tolerance=2.0e-9,
         refinement_tolerance=5.0e-2,
     )
+
+
+def configuration_for_epsilon(mode: str, epsilon_index: int) -> Configuration:
+    """Select one locked boundary case without changing any numerical gate."""
+
+    base = configuration(mode)
+    if epsilon_index < 0 or epsilon_index >= len(base.epsilons):
+        raise ValueError(
+            f"epsilon_index must be in [0, {len(base.epsilons) - 1}] for {mode} mode"
+        )
+    return replace(base, epsilons=(base.epsilons[epsilon_index],))
 
 
 def crossing_jet_components(
@@ -515,10 +526,13 @@ def _git_commit() -> str:
         return "unknown"
 
 
-def _manifest(config: Configuration, mode: str) -> dict[str, object]:
+def _manifest(
+    config: Configuration, mode: str, epsilon_index: int | None
+) -> dict[str, object]:
     payload = {
         "stage": 53,
         "mode": mode,
+        "epsilon_index": epsilon_index,
         "configuration": asdict(config),
         "methods": list(METHODS),
         "method_labels": METHOD_LABELS,
@@ -660,10 +674,14 @@ def _summary(
         h2, h4 = field_margins(initialize_crossing_jet_field(config, epsilon))
         boundary_initial_h2.append(h2)
         boundary_initial_h4.append(h4)
-    monotone_h2 = bool(
-        all(
-            boundary_initial_h2[offset + 1] < boundary_initial_h2[offset]
-            for offset in range(len(boundary_initial_h2) - 1)
+    monotone_h2 = (
+        None
+        if len(boundary_initial_h2) < 2
+        else bool(
+            all(
+                boundary_initial_h2[offset + 1] < boundary_initial_h2[offset]
+                for offset in range(len(boundary_initial_h2) - 1)
+            )
         )
     )
     return {
@@ -839,10 +857,16 @@ def _write_report(output: Path, summary: dict[str, object], manifest: dict[str, 
     (output / "STAGE53_RESULTS.md").write_text("\n".join(lines) + "\n")
 
 
-def run_campaign(mode: str, output: Path) -> dict[str, object]:
-    config = configuration(mode)
+def run_campaign(
+    mode: str, output: Path, epsilon_index: int | None = None
+) -> dict[str, object]:
+    config = (
+        configuration(mode)
+        if epsilon_index is None
+        else configuration_for_epsilon(mode, epsilon_index)
+    )
     output.mkdir(parents=True, exist_ok=True)
-    manifest = _manifest(config, mode)
+    manifest = _manifest(config, mode, epsilon_index)
     (output / "stage53_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     )
@@ -880,12 +904,18 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=REPOSITORY_ROOT / "results" / "riemann35_stage53",
     )
+    parser.add_argument(
+        "--epsilon-index",
+        type=int,
+        default=None,
+        help="run only the indexed locked epsilon case (Unity array tasks use 0..4)",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    run_campaign(args.mode, args.output)
+    run_campaign(args.mode, args.output, args.epsilon_index)
 
 
 if __name__ == "__main__":

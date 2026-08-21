@@ -71,3 +71,9 @@ result directory, and ZIP path:
 ```bash
 FP_STAGE53_COMMIT=<40-character-commit> bash riemann35_patch/stage53_boundary_realizability/submit_unity_stage53_array.sh
 ```
+
+If only the final `epsilon=0.003` task was run from the earlier abort-on-
+diagnostic revision, `repair_unity_stage53_epsilon4.sh` reuses the four valid
+task directories, reruns only array index 4 from a pinned repair commit, and
+then recollects the complete 25-record package.  The repair metadata records
+both commits; numerical controls and gates are unchanged.

@@ -178,6 +178,8 @@ TRAIN_ARGS=(
     --tail-fraction "${FP_TAIL_FRACTION:-0.20}"
     --tail-variance "${FP_TAIL_VARIANCE:-4.0}"
     --evaluation-samples "${FP_EVALUATION_SAMPLES:-65536}"
+    --training-gauss-hermite-order "${FP_TRAINING_GAUSS_HERMITE_ORDER:-0}"
+    --evaluation-gauss-hermite-order "${FP_EVALUATION_GAUSS_HERMITE_ORDER:-0}"
     --checkpoint-every "${FP_CHECKPOINT_EVERY:-2500}"
     --quadrature-panels "${FP_QUADRATURE_PANELS:-1}"
     --seed "$RUN_SEED"

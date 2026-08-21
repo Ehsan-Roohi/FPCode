@@ -183,6 +183,28 @@ class TensorFlowPathTests(unittest.TestCase):
         ):
             self.assertTrue(np.all(np.isfinite(value.numpy())), name)
 
+    def test_gauss_hermite_pseudo_proposal_recovers_exact_moments(self) -> None:
+        from cubic_operator import equilibrium_logpdf, initial_logpdf, moments_from_samples
+        from heat_flux_g0 import HEAT_FLUX_INITIAL_QX
+        from train_stage2 import gauss_hermite_pseudo_proposal
+
+        points, log_q = gauss_hermite_pseudo_proposal(16)
+        count = points.shape[0]
+        equilibrium_ratio = np.exp(equilibrium_logpdf(points) - log_q[:, 0])
+        self.assertAlmostEqual(float(np.mean(equilibrium_ratio)), 1.0, places=6)
+        equilibrium = moments_from_samples(
+            points, weights=equilibrium_ratio / count
+        )
+        self.assertAlmostEqual(float(equilibrium.dm2), 3.0, places=5)
+
+        heat_ratio = np.exp(initial_logpdf("heat_flux", points) - log_q[:, 0])
+        heat = moments_from_samples(points, weights=heat_ratio / count)
+        self.assertAlmostEqual(float(heat.mass), 1.0, places=6)
+        self.assertAlmostEqual(float(heat.dm2), 3.0, places=5)
+        self.assertAlmostEqual(
+            float(heat.q[0]), HEAT_FLUX_INITIAL_QX, places=5
+        )
+
     def test_one_training_step_is_finite(self) -> None:
         from train_stage2 import Config, DensityModel, make_train_step
 

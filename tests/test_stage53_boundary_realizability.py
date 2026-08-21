@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from hyqmom_fp import HYQMOM_35_INDICES, mixture_of_gaussians_moments_35
@@ -18,6 +20,7 @@ from riemann35_patch.stage53_boundary_realizability.run_boundary_realizability i
     global_invariants,
     initialize_crossing_jet_field,
     quadrature_diagnostics,
+    run_history,
 )
 
 
@@ -131,3 +134,17 @@ def test_epsilon_array_selection_preserves_all_locked_controls() -> None:
         assert selected.h_tolerance == base.h_tolerance
         assert selected.conservation_tolerance == base.conservation_tolerance
         assert selected.refinement_tolerance == base.refinement_tolerance
+
+
+def test_near_boundary_diagnostic_failure_is_recorded_without_aborting() -> None:
+    config = replace(
+        configuration("unity"),
+        final_time=0.005,
+        sample_interval=0.0025,
+        epsilons=(0.003,),
+    )
+    result = run_history("diffusion_only", 0.003, config.coarse_dt, config)
+    assert result["status"] == "REACHED_FINAL_TIME"
+    assert np.isnan(result["minimum_weight_history"][0])
+    assert "quadrature diagnostics unavailable" in result["message"]
+    assert "no positive unequal-weight location-scale fit" in result["message"]

@@ -453,6 +453,7 @@ def run_history(
     cfl_history: list[float] = []
     status = "REACHED_FINAL_TIME"
     message = ""
+    diagnostic_messages: list[str] = []
     maximum_cfl = 0.0
 
     def record(step: int) -> None:
@@ -464,7 +465,20 @@ def run_history(
             # a meaningful diagnostic for this baseline.
             minimum_weight, maximum_residual = float("nan"), float("nan")
         else:
-            minimum_weight, maximum_residual = quadrature_diagnostics(field)
+            try:
+                minimum_weight, maximum_residual = quadrature_diagnostics(field)
+            except Exception as error:
+                # Near the realizability boundary, H2/H4 can remain positive
+                # even when the particular finite HyQMOM location-scale fit is
+                # unavailable.  That is a scientific HOLD condition, not a
+                # reason to discard the other operator arms or prior cases.
+                minimum_weight, maximum_residual = float("nan"), float("nan")
+                diagnostic_message = (
+                    "quadrature diagnostics unavailable: "
+                    f"{type(error).__name__}: {error}"
+                )
+                if diagnostic_message not in diagnostic_messages:
+                    diagnostic_messages.append(diagnostic_message)
         invariants = global_invariants(field)
         drift = relative_invariant_drift(initial_invariants, invariants)
         times.append(step * dt)
@@ -492,12 +506,13 @@ def run_history(
             status = "FAILED"
             message = f"{type(error).__name__}: {error}"
             break
+    messages = ([message] if message else []) + diagnostic_messages
     return {
         "method": method,
         "epsilon": epsilon,
         "dt": dt,
         "status": status,
-        "message": message,
+        "message": " | ".join(messages),
         "steps": steps,
         "completed_steps": completed_steps,
         "times": np.asarray(times),

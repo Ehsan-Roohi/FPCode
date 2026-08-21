@@ -44,6 +44,11 @@ that an independently reconstructed moment closure or split discretization
 stays in the realizable cone. Likewise, absence of a proved H-theorem is not
 the same as nonrealizability.
 
+If H2/H4 remain positive but the finite unequal-weight location-scale
+reconstruction is unavailable, the campaign records the quadrature diagnostic
+as unavailable and holds the corresponding closure gate.  It does not relax
+the gate or abort the independent diffusion and ES-BGK controls.
+
 ## Local smoke run
 
 ```bash

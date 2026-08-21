@@ -87,6 +87,8 @@ class Config:
     print_every: int = 250
     checkpoint_every: int = 2500
     evaluation_samples: int = 65_536
+    training_gauss_hermite_order: int = 0
+    evaluation_gauss_hermite_order: int = 0
     marginal_quadrature_order: int = 18
     seed: int = 20260808
     resume_weights: str | None = None
@@ -173,6 +175,14 @@ def parse_args() -> Config:
     parser.add_argument("--print-every", type=int, default=250)
     parser.add_argument("--checkpoint-every", type=int, default=2500)
     parser.add_argument("--evaluation-samples", type=int, default=65_536)
+    parser.add_argument(
+        "--training-gauss-hermite-order", type=int, default=0,
+        help="Tensor-product Gauss-Hermite order for deterministic training moments; zero disables",
+    )
+    parser.add_argument(
+        "--evaluation-gauss-hermite-order", type=int, default=0,
+        help="Independent tensor-product Gauss-Hermite order for deterministic validation; zero disables",
+    )
     parser.add_argument("--marginal-quadrature-order", type=int, default=18)
     parser.add_argument("--seed", type=int, default=20260808)
     parser.add_argument("--resume-weights")
@@ -212,8 +222,28 @@ def parse_args() -> Config:
         config.case == "heat_flux"
         and config.antithetic_heat_flux_quadrature
         and config.evaluation_samples % 4
+        and config.evaluation_gauss_hermite_order == 0
     ):
         parser.error("--evaluation-samples must be divisible by four for antithetic heat-flux quadrature")
+    if config.training_gauss_hermite_order < 0:
+        parser.error("--training-gauss-hermite-order must be nonnegative")
+    if config.evaluation_gauss_hermite_order < 0:
+        parser.error("--evaluation-gauss-hermite-order must be nonnegative")
+    if config.training_gauss_hermite_order:
+        if config.training_gauss_hermite_order < 4:
+            parser.error("--training-gauss-hermite-order must be at least four")
+        if not config.fixed_velocity_quadrature:
+            parser.error("--training-gauss-hermite-order requires --fixed-velocity-quadrature")
+        expected = config.training_gauss_hermite_order ** 3
+        if config.n_velocity_per_time != expected:
+            parser.error(
+                f"--n-velocity-per-time must equal order^3={expected} "
+                "with deterministic training quadrature"
+            )
+        if config.quadrature_panels != 1:
+            parser.error("--quadrature-panels must equal one with Gauss-Hermite training")
+    if 0 < config.evaluation_gauss_hermite_order < 4:
+        parser.error("--evaluation-gauss-hermite-order must be zero or at least four")
     return config
 
 
@@ -277,6 +307,29 @@ def tf_training_proposal_logpdf(config: Config, c: tf.Tensor) -> tf.Tensor:
         axis=1,
     )
     return tf.reduce_logsumexp(terms, axis=1, keepdims=True)
+
+
+def gauss_hermite_pseudo_proposal(order: int) -> tuple[np.ndarray, np.ndarray]:
+    """Return deterministic 3-D nodes and log-q values for Lebesgue integration.
+
+    If W_i denotes the tensor-product Gauss-Hermite weight after converting
+    from exp(-x^2) measure to dc, q_i=1/(N W_i) makes the existing estimator
+    mean(f/q) exactly equal to sum_i W_i f(c_i).  This preserves the moment
+    code path while removing Monte-Carlo variance.
+    """
+    if order < 4:
+        raise ValueError("Gauss-Hermite order must be at least four")
+    nodes, weights = np.polynomial.hermite.hermgauss(order)
+    x, y, z = np.meshgrid(nodes, nodes, nodes, indexing="ij")
+    wx, wy, wz = np.meshgrid(weights, weights, weights, indexing="ij")
+    points = np.stack([x, y, z], axis=-1).reshape(-1, 3) * np.sqrt(2.0)
+    log_lebesgue_weight = (
+        1.5 * np.log(2.0)
+        + np.log(wx).ravel() + np.log(wy).ravel() + np.log(wz).ravel()
+        + np.square(x).ravel() + np.square(y).ravel() + np.square(z).ravel()
+    )
+    log_q = -np.log(points.shape[0]) - log_lebesgue_weight
+    return points.astype(np.float32), log_q[:, None].astype(np.float32)
 
 
 class DensityModel(tf.keras.Model):
@@ -618,6 +671,22 @@ def build_fixed_quadrature_panels(
     config: Config,
 ) -> tuple[tf.Tensor, tf.Tensor]:
     """Build independent antithetic clouds for deterministic panel cycling."""
+    if config.training_gauss_hermite_order:
+        points, point_log_q = gauss_hermite_pseudo_proposal(
+            config.training_gauss_hermite_order
+        )
+        velocity = tf.broadcast_to(
+            tf.constant(points)[None, :, :],
+            (config.n_time_batch, points.shape[0], 3),
+        )
+        log_q = tf.broadcast_to(
+            tf.constant(point_log_q)[None, :, :],
+            (config.n_time_batch, points.shape[0], 1),
+        )
+        return (
+            tf.stop_gradient(velocity[None, :, :, :]),
+            tf.stop_gradient(log_q[None, :, :, :]),
+        )
     velocity_panels = []
     log_q_panels = []
     for _ in range(config.quadrature_panels):
@@ -837,8 +906,15 @@ def evaluate(model: DensityModel, config: Config, output: Path) -> dict[str, Any
     reference = np.load(config.reference)
     times = reference["time"]
     rng = np.random.default_rng(config.seed + 9001)
-    proposal = _evaluation_proposal(config, rng)
-    log_q = proposal_logpdf(config.case, proposal)
+    if config.evaluation_gauss_hermite_order:
+        proposal, log_q_column = gauss_hermite_pseudo_proposal(
+            config.evaluation_gauss_hermite_order
+        )
+        proposal = proposal.astype(np.float64)
+        log_q = log_q_column[:, 0].astype(np.float64)
+    else:
+        proposal = _evaluation_proposal(config, rng)
+        log_q = proposal_logpdf(config.case, proposal)
     model_mass, model_mean, model_dm2, model_pij, model_q = [], [], [], [], []
     minimum_density = np.inf
     for time_value in times:

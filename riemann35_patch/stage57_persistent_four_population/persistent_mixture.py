@@ -191,7 +191,10 @@ def _heat_flux_trace_projection(
     projected = populations
     minimum_fraction = 1.0
 
-    for _ in range(4):
+    # Scaled/translated states in Stage 58 can require more Newton corrections
+    # than the unit-density Stage-57 anchor.  This is a numerical convergence
+    # safeguard only; the constraints and physical closure are unchanged.
+    for _ in range(20):
         current_moments = persistent_gaussian_mixture_moments(projected)
         current_macro = macroscopic_state(current_moments)
         current_third = _third_components(current_moments)
@@ -284,13 +287,19 @@ def _heat_flux_trace_projection(
     final_macro = macroscopic_state(final_moments)
     final_tensor = _symmetric_third_tensor(_third_components(final_moments))
     lower_scale = max(np.linalg.norm(target_covariance), 1.0e-14)
+    # Near equilibrium the target third tensor approaches zero, so dividing
+    # only by its norm turns round-off-level absolute errors into a misleading
+    # large relative residual.  rho*theta^(3/2) is the natural third-moment
+    # scale and remains finite throughout relaxation.
+    third_scale = max(
+        np.linalg.norm(target_tensor),
+        populations.rho * max(baseline_macro.theta, 1.0e-14) ** 1.5,
+        1.0e-14,
+    )
     residual = max(
         float(np.linalg.norm(final_macro.velocity - target_mean)),
         float(np.linalg.norm(final_macro.covariance - target_covariance) / lower_scale),
-        float(
-            np.linalg.norm(final_tensor - target_tensor)
-            / max(np.linalg.norm(target_tensor), 1.0e-14)
-        ),
+        float(np.linalg.norm(final_tensor - target_tensor) / third_scale),
     )
     return projected, minimum_fraction, residual
 

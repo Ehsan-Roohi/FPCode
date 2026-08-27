@@ -67,6 +67,7 @@ tree when compared by SHA-256 with the duplicate `Mahdavi` tree. The legacy
 Fortran collection was not copied here because its source headers identify
 multiple collaborators and do not provide a distribution license.
 
-The repository currently has no declared software license. Public visibility
-does not by itself grant permission to reuse this source; a project license
-should be added only after authorship and release terms are confirmed.
+Ehsan Roohi has confirmed ownership of this Python snapshot and authorized its
+release under the MIT License. See `LICENSE` in this directory. The license is
+scoped to this cylinder-solver package and does not relicense other historical
+material elsewhere in the repository.

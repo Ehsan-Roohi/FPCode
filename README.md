@@ -11,6 +11,7 @@ place while their interfaces and validation gates are still evolving.
 | Physics-informed FP solvers | [`FP_PINN/`](FP_PINN/) | 1-D Ornstein–Uhlenbeck baseline, 3-D homogeneous cubic-FP heat-flux/OOD studies, and a Mach-2 shock audit |
 | HyQMOM–cubic-FP coupling | [`hyqmom_fp/`](hyqmom_fp/), [`HYQMOM_FP_README.md`](HYQMOM_FP_README.md) | Homogeneous adaptive macro–micro gate passed; the spatial method remains research-stage |
 | Riemann35 integration record | [`riemann35_patch/`](riemann35_patch/), [`RIEMANN35_FP_INTEGRATION.md`](RIEMANN35_FP_INTEGRATION.md) | Stages 1–34, with passed, held, and exploratory cases kept explicitly distinct |
+| Legacy GPU cylinder solver | [`legacy_gpu/cylinder_fp_adaptive/`](legacy_gpu/cylinder_fp_adaptive/) | Research snapshot v163: MPI/CUDA adaptive cubic-FP cylinder-flow solver; large production defaults and no bundled reference run |
 
 The concise decision ledger is [`RESEARCH_STATUS.md`](RESEARCH_STATUS.md).
 Detailed stage-by-stage evidence is recorded in
@@ -23,7 +24,7 @@ Python 3.10 or newer is recommended.
 ```bash
 python -m pip install -r requirements-ci.txt
 python -m pytest -q
-python -m compileall -q FP_PINN/pinn hyqmom_fp examples tests
+python -m compileall -q FP_PINN/pinn hyqmom_fp examples tests legacy_gpu
 ```
 
 TensorFlow-dependent PINN tests skip automatically when TensorFlow is absent.
@@ -41,11 +42,11 @@ not be presented as a passed validation.
 
 ## Historical material
 
-The notebooks at the repository root and `FP_PINN/legacy_source/` are retained
-for provenance.  They are not part of the tested package, and some snapshots
-depend on their original HPC environment or contain incomplete historical
-edits.  Use the maintained modules and documented entry points above for new
-work.
+The notebooks at the repository root, `FP_PINN/legacy_source/`, and
+`legacy_gpu/` are retained for provenance.  They are not part of the tested
+package, and some snapshots depend on their original HPC environment, require
+large accelerator resources, or contain incomplete historical edits.  Use the
+maintained modules and documented entry points above for new work.
 
 ## Citation and license
 

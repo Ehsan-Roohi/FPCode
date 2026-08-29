@@ -163,5 +163,5 @@ python g1/evaluate_g1.py --config /tmp/g1smoke/config.json --sweep-dir /tmp/g1sm
     --reference /tmp/ref/reference.npz --output /tmp/g1smoke/checkpoint_sweep
 ```
 
-`numpy ≥ 2` is required by `axisym_fp_reference.py` (`np.trapezoid`); the
-`dsmc-gpu` environment on Unity satisfies this.
+The FV reference selects `np.trapezoid` on NumPy 2.x and falls back to
+`np.trapz` on the NumPy 1.x version paired with TensorFlow on Unity.

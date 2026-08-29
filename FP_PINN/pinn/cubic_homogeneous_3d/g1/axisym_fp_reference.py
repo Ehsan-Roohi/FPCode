@@ -40,6 +40,14 @@ for _path in (str(HERE.parent), str(HERE)):   # cubic_operator.py lives in the s
 from cubic_operator import Moments, solve_closure, initial_logpdf  # noqa: E402
 
 
+def trapezoidal_integral(values: np.ndarray, coordinates: np.ndarray) -> float:
+    """Trapezoidal integral compatible with NumPy 1.x and 2.x."""
+    method = getattr(np, "trapezoid", None)
+    if method is None:
+        method = np.trapz
+    return float(method(values, coordinates))
+
+
 def initial_axisym(cx: np.ndarray, rho: np.ndarray) -> np.ndarray:
     c = np.stack([cx, rho, np.zeros_like(cx)], axis=-1)
     return np.exp(initial_logpdf("heat_flux", c))
@@ -130,7 +138,9 @@ def marginals(grid: AxisymGrid, f: np.ndarray, centers: np.ndarray) -> tuple[np.
     marg_y = np.empty_like(centers)
     for i, cy in enumerate(centers):
         rr = np.sqrt(cy * cy + cz * cz)
-        marg_y[i] = np.trapezoid(np.interp(rr, grid.r, g_rho, left=g_rho[0], right=0.0), cz)
+        marg_y[i] = trapezoidal_integral(
+            np.interp(rr, grid.r, g_rho, left=g_rho[0], right=0.0), cz,
+        )
     return marg_x, marg_y
 
 

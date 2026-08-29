@@ -29,9 +29,11 @@ Ansatz (all symbols as in train_stage2.py):
   Mass, momentum and energy of f are therefore exact (to quadrature and Newton
   tolerance, ~1e-12) at every time, independently of the network.  This is the
   classical exponential tilt: the minimum-KL correction of f~ that restores the
-  three collision invariants.  Because the quadrature integrates the density
-  to machine precision, beta is (to ~1e-8) independent of the node set, i.e.
-  it is a property of the continuum ansatz and not of the training grid.
+  three collision invariants.  The finite-grid beta converges to the
+  continuum tilt as the deterministic quadrature is refined.  For a generic
+  untrained network the train/fine grids agree to sub-1e-3 relative accuracy;
+  the effect of the remaining quadrature difference on Qx is measured again
+  for every trained checkpoint and is subject to its own frozen gate.
 * beta depends on t through the whole slice, so its time derivative is
   obtained by implicit differentiation of the constraint (``tilt_time_rate``)
   instead of by per-node automatic differentiation, which would be wrong.

@@ -96,14 +96,17 @@ ARRAY_JOB="$(sbatch --parsable \
 ARRAY_JOB="${ARRAY_JOB%%;*}"
 echo "Submitted G1 array job $ARRAY_JOB"
 
-# Seed-agreement aggregation after every task has finished (CPU only).
+# Seed-agreement aggregation after every task has finished (CPU only).  Use a
+# real Bash batch script: Slurm's --wrap uses /bin/sh on Unity, where the
+# environment-modules `module` shell function is not defined.
 AGG_JOB="$(sbatch --parsable \
   --job-name=fp-g1-agg \
   --dependency="afterany:$ARRAY_JOB" \
   --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=4G --time=00:20:00 \
   --output="$FP_TEST/slurm_logs/fp-g1-agg-%j.out" \
   --error="$FP_TEST/slurm_logs/fp-g1-agg-%j.err" \
-  --wrap="cd '$FP_TEST/FP_PINN/pinn/cubic_homogeneous_3d' && module load conda/latest && source \"\$(conda info --base)/etc/profile.d/conda.sh\" && conda activate '${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}' && python g1/aggregate_g1_seeds.py --run-root outputs/g1-$ARRAY_JOB && cp outputs/g1-$ARRAY_JOB/G1_SEED_SUMMARY.* '$FP_TEST/'")"
+  --export="ALL,FP_TEST=$FP_TEST,FP_G1_ARRAY_JOB=$ARRAY_JOB,FP_CONDA_ENV=${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}" \
+  FP_PINN/pinn/cubic_homogeneous_3d/slurm/aggregate_heat_flux_g1.sbatch)"
 echo "Submitted aggregation job $AGG_JOB (after array $ARRAY_JOB)"
 echo "Per-task archives: $FP_TEST/FP_PINN_G1_JOB${ARRAY_JOB}_HEAT_FLUX_<VARIANT>_COMPLETE.zip (+ .sha256)"
 echo "Overall verdict:   $FP_TEST/G1_SEED_SUMMARY.md"

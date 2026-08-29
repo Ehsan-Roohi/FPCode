@@ -23,7 +23,9 @@ from axisym_fp_reference import AxisymGrid, initial_axisym, marginals  # noqa: E
 class AxisymReferenceCompatibilityTests(unittest.TestCase):
     def test_numpy_1_trapz_fallback(self):
         coordinates = np.linspace(0.0, 1.0, 101)
-        with mock.patch.object(reference.np, "trapezoid", None):
+        # NumPy 1.x does not define ``trapezoid`` at all, so the mock must be
+        # allowed to create the missing attribute before exercising fallback.
+        with mock.patch.object(reference.np, "trapezoid", None, create=True):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 integral = reference.trapezoidal_integral(coordinates, coordinates)

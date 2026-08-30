@@ -6,6 +6,9 @@ This directory hosts the next-generation physics-informed extension of the GPU-n
 
 [`pinn/ou_1d`](pinn/ou_1d) is the Stage-0 positive Fokker–Planck PINN. It solves a dimensionless Ornstein–Uhlenbeck relaxation problem with an exact solution and checks the PDE sign/factor convention, automatic second derivatives, zero-flux velocity boundaries, positivity, mass, and second-moment evolution. This small verification gate precedes the 3-D cubic drift and differentiable `9 x 9` closure.
 
+[`pinn/normal_shock_h1`](pinn/normal_shock_h1) begins the spatial H1 program
+with a positive conservative manifold between exact Rankine--Hugoniot states.
+
 ## Planned scope
 
 - Positive kinetic representation for the velocity distribution function

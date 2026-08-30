@@ -163,41 +163,72 @@ class ModelStructureTests(unittest.TestCase):
     def test_implicit_time_derivative_of_tilt(self):
         model = small_model()
         quad = quadrature_tensors(build_quadrature(8.0, 129, 8.0, 32))
-        t0, eps = 0.5, 1.0e-3
-        state = assemble_slices(model, tf.constant([t0 - eps, t0, t0 + eps], tf.float32), quad)
-        beta = state.beta.numpy()
-        finite_difference = (beta[2] - beta[0]) / (2.0 * eps)
-        implicit = state.beta_rate.numpy()[1]
-        np.testing.assert_allclose(implicit, finite_difference, rtol=2.0e-3, atol=1.0e-4)
+        # Different GPU matmul kernels round the float32 network output
+        # differently.  A small finite difference of beta therefore amplifies
+        # harmless round-off by 1/eps and made this regression test depend on
+        # the allocated GPU.  Differentiate the independently unrolled Newton
+        # solve instead.  This still tests the production implicit formula,
+        # but uses an analytic/autodiff reference rather than a subtractive
+        # float32 finite difference.
+        time = tf.Variable([0.5], dtype=tf.float32)
+        with tf.GradientTape() as tape:
+            flat_t = tf.repeat(time[:, None], quad.size, axis=0)
+            log_f_raw = tf.cast(
+                tf.reshape(model.raw_log_density(flat_t, quad.nodes32), [1, quad.size]),
+                tf.float64,
+            )
+            beta, _, _ = model.solve_tilt(log_f_raw, quad.psi64, quad.weights64)
+        autodiff = tape.jacobian(beta, time).numpy()[0, :, 0]
+        state = assemble_slices(model, tf.constant([0.5], tf.float32), quad)
+        implicit = state.beta_rate.numpy()[0]
+        np.testing.assert_allclose(implicit, autodiff, rtol=2.0e-4, atol=2.0e-5)
 
     def test_autodiff_laplacian_equals_axisymmetric_laplacian(self):
         model = small_model()
         quad = quadrature_tensors(build_quadrature(8.0, 129, 8.0, 32))
         state = assemble_slices(model, tf.constant([0.45], tf.float32), quad)
-        # Finite-difference axisymmetric Laplacian of the *raw* log density at
-        # a few interior nodes, in float64 precision of a float32 network.
+        # Independently form the cylindrical axisymmetric Laplacian of the raw
+        # log density at a few interior nodes.  Use nested autodiff rather than
+        # a second finite difference of float32 network values: the latter is
+        # dominated by GPU-dependent cancellation after division by h**2.
+        # This route differentiates with respect to the independent (cx, rho)
+        # coordinates, whereas pointwise_derivatives traces the full 3-D
+        # Cartesian Hessian.  Their equality is the identity under test.
         nodes = quad.nodes64.numpy()
         grad_h = state.grad_h.numpy()[0]
         lap_h = state.lap_h.numpy()[0, :, 0]
         beta = state.beta.numpy()[0]
         idx = np.arange(0, nodes.shape[0], 397)[1:]
-        h = 2.0e-2
+        cx = tf.Variable(nodes[idx, 0].astype(np.float32))
+        rho = tf.Variable(nodes[idx, 1].astype(np.float32))
+        with tf.GradientTape(persistent=True) as outer:
+            outer.watch([cx, rho])
+            with tf.GradientTape(persistent=True) as inner:
+                inner.watch([cx, rho])
+                c = tf.stack([cx, rho, tf.zeros_like(rho)], axis=1)
+                raw = model.raw_log_density(tf.fill([len(idx), 1], 0.45), c)[:, 0]
+            hx = inner.gradient(raw, cx)
+            hr = inner.gradient(raw, rho)
+            del inner
+        hxx = outer.gradient(hx, cx)
+        hrr = outer.gradient(hr, rho)
+        del outer
 
-        def raw(cx, rho):
-            c = np.stack([cx, rho, np.zeros_like(cx)], axis=1)
-            return model.raw_log_density(tf.fill([c.shape[0], 1], 0.45), tf.constant(c, tf.float32)).numpy().ravel().astype(np.float64)
-
-        cx, rho = nodes[idx, 0], nodes[idx, 1]
-        hxx = (raw(cx + h, rho) - 2 * raw(cx, rho) + raw(cx - h, rho)) / h**2
-        hrr = (raw(cx, rho + h) - 2 * raw(cx, rho) + raw(cx, rho - h)) / h**2
-        hr = (raw(cx, rho + h) - raw(cx, rho - h)) / (2 * h)
-        hx = (raw(cx + h, rho) - raw(cx - h, rho)) / (2 * h)
-        lap_fd = hxx + hrr + hr / rho + 6.0 * beta[2]
-        grad_fd_x = hx + beta[1] + 2.0 * beta[2] * cx
-        grad_fd_r = hr + 2.0 * beta[2] * rho
-        np.testing.assert_allclose(lap_h[idx], lap_fd, rtol=5.0e-2, atol=5.0e-2)
-        np.testing.assert_allclose(grad_h[idx, 0], grad_fd_x, rtol=5.0e-3, atol=2.0e-3)
-        np.testing.assert_allclose(grad_h[idx, 1], grad_fd_r, rtol=5.0e-3, atol=2.0e-3)
+        cx_np = cx.numpy().astype(np.float64)
+        rho_np = rho.numpy().astype(np.float64)
+        hx_np = hx.numpy().astype(np.float64)
+        hr_np = hr.numpy().astype(np.float64)
+        lap_axisym = (
+            hxx.numpy().astype(np.float64)
+            + hrr.numpy().astype(np.float64)
+            + hr_np / rho_np
+            + 6.0 * beta[2]
+        )
+        grad_axisym_x = hx_np + beta[1] + 2.0 * beta[2] * cx_np
+        grad_axisym_r = hr_np + 2.0 * beta[2] * rho_np
+        np.testing.assert_allclose(lap_h[idx], lap_axisym, rtol=2.0e-4, atol=2.0e-4)
+        np.testing.assert_allclose(grad_h[idx, 0], grad_axisym_x, rtol=1.0e-4, atol=1.0e-4)
+        np.testing.assert_allclose(grad_h[idx, 1], grad_axisym_r, rtol=1.0e-4, atol=1.0e-4)
         np.testing.assert_allclose(grad_h[idx, 2], 0.0, atol=1.0e-6)
 
     def test_portable_reload(self):

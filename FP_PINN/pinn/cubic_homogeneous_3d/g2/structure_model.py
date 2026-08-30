@@ -14,6 +14,11 @@ Ansatz (all symbols as in train_stage2.py):
   Its bounded amplitude s(t) vanishes at t=0, preserving the exact initial
   condition.  The qualification loss never sees the analytic exp(-2 nu t)
   stress history; that law is reserved for held-out evaluation.
+* The learned correction sees cx^2 rather than signed cx.  The complete raw
+  density is therefore exactly invariant under cx -> -cx, as required by the
+  even stress initial state and the homogeneous FP operator.  This makes the
+  forbidden longitudinal heat flux identically zero instead of asking a soft
+  residual loss to learn reflection parity to a 1e-6 qualification gate.
 * beta(t) in R^3 is *not* a trainable parameter.  For every time slice it is
   the unique solution of the convex moment-matching problem
 
@@ -218,14 +223,19 @@ class StressHead(tf.keras.layers.Layer):
 
 
 class AxisymStressDensityModel(DensityModel):
-    """G0-compatible network with an exact axisymmetric stress initial state."""
+    """G0-compatible network with exact axisymmetry and cx-reflection parity."""
 
     def log_density(self, t: tf.Tensor, c: tf.Tensor) -> tf.Tensor:
         t = tf.cast(t, tf.float32)
         c = tf.cast(c, tf.float32)
         r2 = tf.reduce_sum(tf.square(c), axis=1, keepdims=True)
+        # The stress initial condition and FP dynamics are even in cx.  Use a
+        # smooth even feature instead of signed cx so every network weight set
+        # satisfies f(t,cx,cy,cz) == f(t,-cx,cy,cz).  Keep the legacy
+        # five-feature shape expected by DensityModel: [t, cx^2, 0, 0, |c|^2].
+        cx2 = tf.square(c[:, 0:1])
         velocity_features = tf.concat(
-            [c[:, 0:1] / 3.0, tf.zeros_like(c[:, 1:3])], axis=1,
+            [cx2 / 9.0, tf.zeros_like(c[:, 1:3])], axis=1,
         )
         features = tf.concat([t / self.config.tmax, velocity_features, r2 / 9.0], axis=1)
         raw = self(features)

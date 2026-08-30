@@ -2,6 +2,14 @@
 from __future__ import annotations
 import argparse,json
 from pathlib import Path
+import sys
+
+# Make the repository package importable even when Slurm launches this file
+# directly from an arbitrary submission directory.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+ sys.path.insert(0, str(REPO_ROOT))
+
 import numpy as np
 from riemann35_patch.stage58_blind_generalization.blind_cases import CASE_NAMES,blind_case
 

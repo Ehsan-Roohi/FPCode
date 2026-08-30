@@ -9,13 +9,19 @@
 #   FP_GPU_CONSTRAINT    Slurm --constraint (default sm_75&vram12: no K80/P100-class GPUs)
 #   FP_EXCLUDE_NODES     nodes known to fail the TF 2.21 / CUDA build
 #   FP_ARRAY             array spec (default 0-3%4: three seeds + no-mode ablation)
+#   FP_G2_PILOT          set to 1 for task 0 only, without premature aggregation
 #   FP_G2_EPOCHS etc.    forwarded to slurm/run_stress_g2_array.sbatch
 set -euo pipefail
 
 FP_TEST="${FP_TEST:-/project/pi_roohie_umass_edu/github_sync/FPCode-pinn-g2}"
 export FP_GPU_CONSTRAINT="${FP_GPU_CONSTRAINT:-sm_75&vram12}"
 export FP_MIN_GPU_COMPUTE_CAPABILITY="${FP_MIN_GPU_COMPUTE_CAPABILITY:-7.5}"
-FP_ARRAY="${FP_ARRAY:-0-3%4}"
+FP_G2_PILOT="${FP_G2_PILOT:-0}"
+if [[ "$FP_G2_PILOT" == "1" ]]; then
+    FP_ARRAY=0
+else
+    FP_ARRAY="${FP_ARRAY:-0-3%4}"
+fi
 
 if ! git -C "$FP_TEST" rev-parse --git-dir >/dev/null 2>&1; then
     echo "ERROR: G2 checkout not found: $FP_TEST" >&2
@@ -56,17 +62,21 @@ ARRAY_JOB="$(sbatch --parsable \
 ARRAY_JOB="${ARRAY_JOB%%;*}"
 echo "Submitted G2 array job $ARRAY_JOB"
 
-# Seed-agreement aggregation after every task has finished (CPU only).  Use a
-# real Bash batch script: Slurm's --wrap uses /bin/sh on Unity, where the
-# environment-modules `module` shell function is not defined.
-AGG_JOB="$(sbatch --parsable \
-  --job-name=fp-g2-agg \
-  --dependency="afterany:$ARRAY_JOB" \
-  --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=4G --time=00:20:00 \
-  --output="$FP_TEST/slurm_logs/fp-g2-agg-%j.out" \
-  --error="$FP_TEST/slurm_logs/fp-g2-agg-%j.err" \
-  --export="ALL,FP_TEST=$FP_TEST,FP_G2_ARRAY_JOB=$ARRAY_JOB,FP_EXPECTED_COMMIT=$FP_EXPECTED_COMMIT,FP_CONDA_ENV=${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}" \
-  FP_PINN/pinn/cubic_homogeneous_3d/slurm/aggregate_stress_g2.sbatch)"
-echo "Submitted aggregation job $AGG_JOB (after array $ARRAY_JOB)"
-echo "Per-task archives: $FP_TEST/FP_PINN_G2_JOB${ARRAY_JOB}_STRESS_<VARIANT>_COMPLETE.zip (+ .sha256)"
-echo "Overall verdict:   $FP_TEST/G2_SEED_SUMMARY.md"
+if [[ "$FP_G2_PILOT" == "1" ]]; then
+    echo "G2R pilot mode: task 0 only; aggregation intentionally skipped."
+    echo "Pilot archive: $FP_TEST/FP_PINN_G2_JOB${ARRAY_JOB}_STRESS_STRESS_S1_COMPLETE.zip (+ .sha256)"
+else
+    # Seed-agreement aggregation after every task has finished (CPU only). Use
+    # a real Bash script: Slurm --wrap uses /bin/sh, where module is undefined.
+    AGG_JOB="$(sbatch --parsable \
+      --job-name=fp-g2-agg \
+      --dependency="afterany:$ARRAY_JOB" \
+      --partition=cpu --nodes=1 --ntasks=1 --cpus-per-task=1 --mem=4G --time=00:20:00 \
+      --output="$FP_TEST/slurm_logs/fp-g2-agg-%j.out" \
+      --error="$FP_TEST/slurm_logs/fp-g2-agg-%j.err" \
+      --export="ALL,FP_TEST=$FP_TEST,FP_G2_ARRAY_JOB=$ARRAY_JOB,FP_EXPECTED_COMMIT=$FP_EXPECTED_COMMIT,FP_CONDA_ENV=${FP_CONDA_ENV:-/work/pi_roohie_umass_edu/roohie_umass_edu/.conda/envs/dsmc-gpu}" \
+      FP_PINN/pinn/cubic_homogeneous_3d/slurm/aggregate_stress_g2.sbatch)"
+    echo "Submitted aggregation job $AGG_JOB (after array $ARRAY_JOB)"
+    echo "Per-task archives: $FP_TEST/FP_PINN_G2_JOB${ARRAY_JOB}_STRESS_<VARIANT>_COMPLETE.zip (+ .sha256)"
+    echo "Overall verdict:   $FP_TEST/G2_SEED_SUMMARY.md"
+fi

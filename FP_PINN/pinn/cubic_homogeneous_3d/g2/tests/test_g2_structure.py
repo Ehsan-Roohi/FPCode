@@ -25,6 +25,7 @@ from structure_model import (  # noqa: E402
     G2Config,
     StructuredDensityModel,
     assemble_slices,
+    axisym_moment_tensors_tf,
     axisym_stress_initial_logpdf_tf,
     quadrature_tensors,
     stress_mode_tf,
@@ -118,6 +119,33 @@ class StressModelTests(unittest.TestCase):
             model.raw_log_density(time, tf.constant(b, tf.float32)).numpy(),
             atol=2.0e-5,
         )
+
+    def test_exact_cx_reflection_and_zero_heat_flux(self):
+        """Every weight set must preserve the even stress-case parity."""
+        model = small_model(seed=19)
+        rng = np.random.default_rng(20)
+        c = rng.normal(size=(256, 3)).astype(np.float32)
+        reflected = c.copy()
+        reflected[:, 0] *= -1.0
+        time = tf.fill([len(c), 1], 0.61)
+        forward = model.raw_log_density(time, tf.constant(c)).numpy()
+        backward = model.raw_log_density(time, tf.constant(reflected)).numpy()
+        np.testing.assert_array_equal(forward, backward)
+
+        # The invariant tilt must retain the parity on the same symmetric
+        # quadrature used in production.  Consequently qx is round-off zero,
+        # far below the frozen relative gate of 1e-6 / STRESS_DELTA0.
+        quad = quadrature_tensors(build_quadrature(8.0, 65, 8.0, 24))
+        times = tf.constant([0.15, 0.55, 0.95], tf.float32)
+        nt = int(times.shape[0])
+        nv = quad.size
+        flat_t = tf.reshape(tf.repeat(times[:, None], nv, axis=1), [-1, 1])
+        flat_c = tf.reshape(tf.tile(quad.nodes32[None, :, :], [nt, 1, 1]), [-1, 3])
+        log_raw = tf.cast(tf.reshape(model.raw_log_density(flat_t, flat_c), [nt, nv]), tf.float64)
+        _, _, log_f = model.solve_tilt(log_raw, quad.psi64, quad.weights64)
+        wf = quad.weights64[None, :] * tf.exp(log_f)
+        moments = axisym_moment_tensors_tf(quad.cx64, quad.rho64, wf)
+        self.assertLess(float(tf.reduce_max(tf.abs(moments["q"][:, 0]))), 1.0e-12)
 
     def test_tilt_restores_collision_invariants(self):
         model = small_model()

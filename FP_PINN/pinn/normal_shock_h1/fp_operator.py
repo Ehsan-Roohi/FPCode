@@ -2,6 +2,12 @@
 import numpy as np
 from shock_physics import moments_and_fluxes
 
+def simpson_weights(n,h):
+    """Composite Simpson weights for odd uniform grids."""
+    if n < 3 or n % 2 != 1: raise ValueError("Simpson rule requires odd n >= 3")
+    c=np.ones(n); c[1:-1:2]=4; c[2:-1:2]=2
+    return c*(h/3)
+
 def divergence_axisymmetric(f,vx,vr,w,nu=1.):
     """Return Q(f)=nu div_v[(v-u)f+T grad_v f] on a uniform grid."""
     m=moments_and_fluxes(f,vx,vr,w); u=m["u"][:,None,None]; T=m["temperature"][:,None,None]

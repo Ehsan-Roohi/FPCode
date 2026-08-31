@@ -15,4 +15,7 @@ bash FP_PINN/pinn/normal_shock_h1/RUN_H1_GATE0.sh
 
 # submits one Mach-5 GPU qualification job on Unity
 bash FP_PINN/pinn/normal_shock_h1/RUN_H1_GATE1_UNITY.sh
+
+# H1R pilot: Simpson moments and a structural three-flux exponential tilt
+bash FP_PINN/pinn/normal_shock_h1/RUN_H1R_PILOT_UNITY.sh
 ```

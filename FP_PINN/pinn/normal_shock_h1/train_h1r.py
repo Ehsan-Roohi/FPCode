@@ -27,7 +27,7 @@ def main():
  fup=maxwellian(vx[None,:,None],vr[None,None,:],up); fdn=maxwellian(vx[None,:,None],vr[None,None,:],dn); f0=tf.constant(alpha.numpy()*fup+(1-alpha.numpy())*fdn)
  shape=(a.nx,a.nvx,a.nvr); yy=tf.broadcast_to(Y,shape); cx=tf.broadcast_to((X-U0)/tf.sqrt(T0),shape); cr=tf.broadcast_to(R/tf.sqrt(T0),shape); features=tf.reshape(tf.stack((yy,cx,cr),-1),(-1,3))
  model=tf.keras.Sequential([tf.keras.layers.Input((3,))]+[tf.keras.layers.Dense(a.width,activation="tanh") for _ in range(a.depth)]+[tf.keras.layers.Dense(1,kernel_initializer="zeros")]); opt=tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(a.lr,max(a.epochs//2,1),.3,staircase=True))
- wx=tf.constant(simpson_weights(a.nvx,dvx)[None,:,None]); wr=tf.constant(simpson_weights(a.nvr,dvr)[None,None,:]); measure=wx*wr*(2*np.pi*R); us=up.u; psi=tf.stack((X/us,tf.square(X)/us**2,.5*X*(tf.square(X)+tf.square(R))/us**3),-1); psif=tf.broadcast_to(psi,shape+(3,))
+ wx=tf.constant(simpson_weights(a.nvx,dvx)[None,:,None]); wr=tf.constant(simpson_weights(a.nvr,dvr)[None,None,:]); measure=wx*wr*(2*np.pi*R); us=up.u; vshape=(1,a.nvx,a.nvr); psi=tf.stack((tf.broadcast_to(X/us,vshape),tf.broadcast_to(tf.square(X)/us**2,vshape),tf.broadcast_to(.5*X*(tf.square(X)+tf.square(R))/us**3,vshape)),-1); psif=tf.broadcast_to(psi,shape+(3,))
  disc=[np.sum(fb[...,None]*measure.numpy()[...,None]*psi.numpy(),axis=(1,2))[0] for fb in (fup,fdn)]; target=tf.constant(.5*(disc[0]+disc[1])); eye=tf.eye(3,dtype=tf.float64); mask=tf.constant(np.r_[0.,np.ones(a.nx-2),0.])[:,None]
  def tilt(fraw):
   beta=tf.zeros((a.nx,3),tf.float64)

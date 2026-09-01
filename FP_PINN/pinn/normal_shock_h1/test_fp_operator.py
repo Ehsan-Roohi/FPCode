@@ -17,5 +17,7 @@ class FPOperatorTests(unittest.TestCase):
   w=simpson_weights(len(vx),vx[1]-vx[0])[:,None]*simpson_weights(len(vr),vr[1]-vr[0])[None,:]*(2*np.pi*vr[None,:])
   f=np.stack([maxwellian(vx[:,None],vr[None,:],s) for s in (up,dn)]); m=moments_and_fluxes(f,vx,vr,w)
   self.assertLess(max(abs(m["rho"]/[up.rho,dn.rho]-1)),2e-4)
-  for key,target in zip(("mass_flux","momentum_flux","energy_flux"),analytic_fluxes(up)): self.assertLess(np.ptp(m[key])/abs(target),2e-4)
+  for key,target in zip(("mass_flux","momentum_flux","energy_flux"),analytic_fluxes(up)):
+   self.assertLess(np.ptp(m[key])/abs(target),2e-4)
+   self.assertLess(np.max(abs(m[key]/target-1)),5e-4)
 if __name__=="__main__": unittest.main()

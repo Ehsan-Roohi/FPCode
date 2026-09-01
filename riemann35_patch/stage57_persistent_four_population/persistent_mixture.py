@@ -191,9 +191,10 @@ def _heat_flux_trace_projection(
     projected = populations
     minimum_fraction = 1.0
 
-    # Scaled/translated states in Stage 58 can require more Newton corrections
-    # than the unit-density Stage-57 anchor.  This is a numerical convergence
-    # safeguard only; the constraints and physical closure are unchanged.
+    # The third central moments are raw density-weighted moments, whereas the
+    # mean and covariance constraints are normalized per unit mass.  Their
+    # Newton rows therefore carry an explicit rho factor.  Omitting it leaves
+    # unit-density cases unchanged but mis-scales the projection for rho != 1.
     for _ in range(20):
         current_moments = persistent_gaussian_mixture_moments(projected)
         current_macro = macroscopic_state(current_moments)
@@ -228,7 +229,7 @@ def _heat_flux_trace_projection(
                         axis for axis, power in enumerate(powers) for _ in range(power)
                     )
                     i, j, k = directions
-                    matrix[9 + third_position, column] = probability * (
+                    matrix[9 + third_position, column] = populations.rho * probability * (
                         basis_mean[i] * (offset[j] * offset[k] + covariance[j, k])
                         + basis_mean[j] * (offset[i] * offset[k] + covariance[i, k])
                         + basis_mean[k] * (offset[i] * offset[j] + covariance[i, j])
@@ -247,7 +248,7 @@ def _heat_flux_trace_projection(
                         axis for axis, power in enumerate(powers) for _ in range(power)
                     )
                     i, j, k = directions
-                    matrix[9 + third_position, column] = probability * (
+                    matrix[9 + third_position, column] = populations.rho * probability * (
                         offset[i] * basis_covariance[j, k]
                         + offset[j] * basis_covariance[i, k]
                         + offset[k] * basis_covariance[i, j]

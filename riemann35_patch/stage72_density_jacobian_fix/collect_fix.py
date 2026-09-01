@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,json
+import argparse,json,sys
 from pathlib import Path
+ROOT=Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0,str(ROOT))
 from riemann35_patch.stage71_harder_unseen.hard_cases import CASE_NAMES
 
 def invmax(s): return max(float(s['maximum_mass_drift']),float(s['maximum_momentum_drift']),float(s['maximum_energy_trace_drift']))

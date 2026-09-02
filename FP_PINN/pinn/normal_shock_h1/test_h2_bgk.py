@@ -5,7 +5,8 @@ from pathlib import Path
 import numpy as np
 
 from h2_bgk import (H2_GATES, KNUDSEN_EFFECTIVE, PSI_MAX, hermite_modes,
-                    compact_quadrature_arrays, moments_numpy)
+                    compact_quadrature_arrays, conservative_fields_numpy,
+                    moments_numpy, raw_projection_targets)
 
 
 class H2BGKTests(unittest.TestCase):
@@ -35,7 +36,30 @@ class H2BGKTests(unittest.TestCase):
         np.testing.assert_allclose(q, -q[::-1])
         np.testing.assert_allclose(sigma, sigma[::-1])
 
+    def test_conservative_macro_fields_have_machine_precision_fluxes(self):
+        rho = np.linspace(1.0, 2.2, 19)
+        temperature = np.linspace(1.0, 2.05, 19)
+        flux = np.array([2.4, 8.7, 14.2])
+        m = conservative_fields_numpy(rho, temperature, flux)
+        mass = rho*m["u"]
+        momentum = rho*m["u"]**2 + rho*temperature + m["sigma_xx"]
+        energy = m["qx"] + m["u"]*(
+            0.5*rho*m["u"]**2 + 2.5*rho*temperature + m["sigma_xx"])
+        np.testing.assert_allclose(mass, flux[0], rtol=2e-15, atol=2e-15)
+        np.testing.assert_allclose(momentum, flux[1], rtol=2e-15, atol=2e-15)
+        np.testing.assert_allclose(energy, flux[2], rtol=2e-15, atol=2e-15)
+
+    def test_five_projection_targets_encode_conservative_fields(self):
+        rho = np.array([1.1, 1.7])
+        temperature = np.array([1.2, 1.8])
+        flux = np.array([2.4, 8.7, 14.2])
+        fields = conservative_fields_numpy(rho, temperature, flux)
+        target = raw_projection_targets(fields, flux, velocity_scale=2.0)
+        np.testing.assert_allclose(target[:, 0], rho)
+        np.testing.assert_allclose(target[:, 1]*2.0, flux[0])
+        np.testing.assert_allclose(target[:, 3]*4.0, flux[1])
+        np.testing.assert_allclose(target[:, 4]*8.0, flux[2])
+
 
 if __name__ == "__main__":
     unittest.main()
-

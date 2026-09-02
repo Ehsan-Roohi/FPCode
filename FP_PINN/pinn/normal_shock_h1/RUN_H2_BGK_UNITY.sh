@@ -47,9 +47,12 @@ python audit_h2_reference.py --reference "$REFERENCE" --mach "$MACH" --output "$
 
 OUT="$HERE/outputs/h2_bgk_m${MACH//./p}_${SLURM_JOB_ID}"
 set +e
-python train_h2_bgk.py \
+python train_h2r2_bgk.py \
     --reference "$REFERENCE" --mach "$MACH" \
-    --epochs "${FP_H2_EPOCHS:-6000}" --output "$OUT"
+    --epochs "${FP_H2_EPOCHS:-6000}" \
+    --macro-epochs "${FP_H2_MACRO_EPOCHS:-1400}" \
+    --projection-steps "${FP_H2_PROJECTION_STEPS:-10}" \
+    --output "$OUT"
 RC=$?
 set -e
 
@@ -63,4 +66,3 @@ else
     echo "H2_OUTPUT_NOT_CREATED=$OUT" >&2
 fi
 exit "$RC"
-

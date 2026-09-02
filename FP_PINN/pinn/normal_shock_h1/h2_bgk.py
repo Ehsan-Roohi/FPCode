@@ -6,6 +6,7 @@ import numpy as np
 
 PSI_MAX = 0.65
 KNUDSEN_EFFECTIVE = 1.0 / 80.0
+PROJECTION_MOMENTS = ("mass", "momentum", "energy", "normal_stress", "energy_flux")
 H2_GATES = {
     "rho_core_relative_l2": 2.0e-2,
     "u_core_relative_l2": 2.0e-2,
@@ -68,3 +69,39 @@ def hermite_modes(vx, r2, u, temperature):
     phi_q = ((0.5 * c2 - 2.5) * cx) / 8.0
     phi_sigma = (cx * cx - c2 / 3.0) / 4.0
     return phi_q, phi_sigma
+
+
+def conservative_fields_numpy(rho, temperature, invariant_fluxes):
+    """Recover u, normal stress, and heat flux from the three steady fluxes.
+
+    The construction is the macroscopic part of H2R2.  It makes the flux
+    identities algebraic rather than trainable penalties.
+    """
+    rho = np.asarray(rho, dtype=np.float64)
+    temperature = np.asarray(temperature, dtype=np.float64)
+    mass, momentum, energy = np.asarray(invariant_fluxes, dtype=np.float64)
+    u = mass / rho
+    sigma = momentum - rho * u * u - rho * temperature
+    qx = energy - u * (
+        0.5 * rho * u * u + 2.5 * rho * temperature + sigma
+    )
+    return {"rho": rho, "u": u, "temperature": temperature,
+            "qx": qx, "sigma_xx": sigma}
+
+
+def raw_projection_targets(fields, invariant_fluxes, velocity_scale):
+    """Return scaled raw moments constrained by the H2R2 exponential tilt."""
+    rho = np.asarray(fields["rho"], dtype=np.float64)
+    u = np.asarray(fields["u"], dtype=np.float64)
+    temperature = np.asarray(fields["temperature"], dtype=np.float64)
+    sigma = np.asarray(fields["sigma_xx"], dtype=np.float64)
+    energy = float(np.asarray(invariant_fluxes, dtype=np.float64)[2])
+    scale = float(velocity_scale)
+    return np.stack(
+        (rho,
+         rho * u / scale,
+         rho * (u * u + 3.0 * temperature) / scale**2,
+         (rho * u * u + rho * temperature + sigma) / scale**2,
+         np.full_like(rho, energy / scale**3)),
+        axis=-1,
+    )

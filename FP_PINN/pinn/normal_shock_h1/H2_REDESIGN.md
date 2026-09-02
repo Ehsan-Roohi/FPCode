@@ -87,3 +87,21 @@ stations. Flux locks are applied to the resampled stations, so a narrow
 between-node excursion cannot remain systematically invisible. Checkpoint
 selection still uses training objectives only; all dense DVM profiles remain
 held out until the final audit.
+
+## H2R2 structure-preserving control
+
+H2R2 ports the successful shock-local parameterization from the earlier JFM
+BGK study, but removes the failure modes visible in H2/H2R. Density and
+temperature are monotone positive mixtures of logistic CDFs with exact end
+states. Velocity, normal stress, and heat flux are recovered algebraically
+from the three steady Rankine--Hugoniot fluxes, so flux constancy is no longer
+a soft penalty. A differentiable positive five-moment exponential projection
+then makes the distribution agree with that macroscopic manifold.
+
+Seventeen anchors lie only in x/lambda in [-12,12]. PDE collocation uses 65%
+shock-local and 35% global samples. The dense reference remains held out and
+all preregistered gates remain unchanged.
+
+H2R2 is explicitly a BGK control experiment. It validates the inference and
+conservation machinery before replacing BGK with a nonlinear Fokker--Planck
+collision operator; it is not itself the paper's Fokker--Planck novelty claim.

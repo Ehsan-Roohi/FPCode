@@ -174,19 +174,22 @@ def main():
                          (rho*u*u+rho*t+sigma)/us**2,
                          tf.fill(tf.shape(rho), flux_target[2]/us**3)), 1)
 
-    def project_five(raw, target):
-        beta = tf.zeros((tf.shape(raw)[0], 5), DTYPE)
+    def project_five(log_raw, target):
+        beta = tf.zeros((tf.shape(log_raw)[0], 5), DTYPE)
         eye = tf.eye(5, dtype=DTYPE)[None, :, :]
         for _ in range(a.projection_steps):
             expo = tf.einsum("xi,vi->xv", beta, b5)
-            f = raw*tf.exp(tf.clip_by_value(expo, -12.0, 12.0))
+            # Combine both exponentials before clipping.  Multiplying an
+            # already tiny Maxwellian by the tilt can flush float32 subnormal
+            # tail values to zero on a GPU even though the ansatz is positive.
+            f = tf.exp(tf.clip_by_value(log_raw+expo, -80.0, 25.0))
             wf = f*weights[None, :]
             current = tf.einsum("xv,vi->xi", wf, b5)
             jac = tf.einsum("xv,vi,vj->xij", wf, b5, b5)
             delta = tf.linalg.solve(jac+2e-7*eye, (target-current)[..., None])[..., 0]
             beta += 0.72*tf.clip_by_value(delta, -0.7, 0.7)
         expo = tf.einsum("xi,vi->xv", beta, b5)
-        return raw*tf.exp(tf.clip_by_value(expo, -12.0, 12.0))
+        return tf.exp(tf.clip_by_value(log_raw+expo, -80.0, 25.0))
 
     def distribution(y, training):
         x = 80*y
@@ -200,8 +203,7 @@ def main():
         psi = PSI_MAX*tf.tanh((aq[:, None]*pq+ast[:, None]*ps)/PSI_MAX)
         logm = (tf.math.log(rho[:, None])-1.5*tf.math.log(2*np.pi*t[:, None])
                 -0.5*((vx[None, :]-u[:, None])**2+r2[None, :])/t[:, None])
-        raw = tf.exp(tf.clip_by_value(logm+psi, -80.0, 25.0))
-        return project_five(raw, projection_targets(fields))
+        return project_five(logm+psi, projection_targets(fields))
 
     def moments(f):
         wf = f*weights[None, :]

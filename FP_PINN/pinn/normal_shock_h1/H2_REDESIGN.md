@@ -21,17 +21,26 @@ physics-informed neural networks for BGK normal shocks* (2026):
 6. Advance from Mach 2 to Mach 5 only after both BGK reproduction and FP Mach-2
    qualification pass.
 
-The reference contract requires columns `x,rho,u,temperature,qx,sigma_xx` and
-a JSON sidecar (for example `reference.csv.json`) containing at least
-`{"solver":"conservative DVM","mach":2.0,"neural":false}`. Neural output is
-explicitly rejected as a reference.
+## Registered full-state reference
+
+The paper's Mach-2 BGK full-state archive is accepted only at SHA-256
+`8959d23bfe7643d0010bedd65516c6985103b50e3f15c1cc862893180c770a02`.
+The loader never unpickles its legacy `states` member. It maps the numerical
+arrays `x_mfp,rho,ux,T,qx,sig` and independently reintegrates `f(v)` with `v,w`.
+
+Validation partitions are preregistered before PINN training. The full held-out
+domain is reported, the shock-core metric is fixed at `|x/lambda1| <= 30`, and
+the outer tails are reported separately. Both physical endpoints remain in the
+audit. This prevents a boundary artifact from being hidden by an after-the-fact
+crop while keeping it distinct from the shock-core accuracy claim.
 
 Gate 0:
 
 ```bash
-FP_H2_REFERENCE=/absolute/path/to/reference.csv FP_H2_MACH=2 \
+FP_H2_REFERENCE=/absolute/path/to/standing_M2_fullstate.npz FP_H2_MACH=2 \
   bash FP_PINN/pinn/normal_shock_h1/RUN_H2_REFERENCE_GATE.sh
 ```
 
-This gate audits data provenance, grid size, disjoint train/validation indices,
-positivity, and equilibrium plateaus. It makes no PINN accuracy claim.
+This gate audits SHA-256 provenance, direct moment consistency, deterministic
+disjoint train/validation indices, positivity, endpoint equilibrium, and the
+outer-tail artifact. It makes no PINN accuracy claim.

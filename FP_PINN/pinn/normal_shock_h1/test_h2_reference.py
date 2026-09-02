@@ -71,6 +71,14 @@ class H2ReferenceTests(unittest.TestCase):
         finally:
             KNOWN_FULLSTATES.pop(digest)
 
+    def test_numpy_gate_values_are_normalized_for_json(self):
+        gates = {
+            "endpoint": bool(np.float64(1e-4) < 5e-3),
+            "tail": bool(np.float64(1e-3) < 5e-3),
+        }
+        self.assertEqual(json.loads(json.dumps(gates)),
+                         {"endpoint": True, "tail": True})
+
 
 if __name__ == "__main__":
     unittest.main()

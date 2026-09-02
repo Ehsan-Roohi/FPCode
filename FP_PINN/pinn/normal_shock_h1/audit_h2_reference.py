@@ -33,12 +33,14 @@ def main():
         direct = fullstate_moment_audit(a.reference)
         direct_ok = all(v["scaled_relative_rms"] < 1e-4 for v in direct.values())
 
+    # NumPy comparisons return numpy.bool_, which Python's json encoder does
+    # not accept. Keep the on-disk audit schema strictly JSON-native.
     gates = {
-        "registered_provenance": ref.metadata.get("sha256") is not None,
-        "endpoint_equilibrium": endpoint_noneq < 5e-3,
-        "tail_artifact_bounded": tail_noneq < 5e-3,
-        "direct_moment_consistency": direct_ok,
-        "heldout_core_nonempty": len(regions["held_out_core"]) >= 16,
+        "registered_provenance": bool(ref.metadata.get("sha256") is not None),
+        "endpoint_equilibrium": bool(endpoint_noneq < 5e-3),
+        "tail_artifact_bounded": bool(tail_noneq < 5e-3),
+        "direct_moment_consistency": bool(direct_ok),
+        "heldout_core_nonempty": bool(len(regions["held_out_core"]) >= 16),
     }
     metrics = {
         "stage": "H2_GATE0_INDEPENDENT_REFERENCE",

@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument("--output", required=True)
     parser.add_argument("--mach", type=float, default=2.0)
     parser.add_argument("--epochs", type=int, default=6000)
-    parser.add_argument("--nx-pde", type=int, default=161)
+    parser.add_argument("--nx-pde", type=int, default=257)
     parser.add_argument("--width", type=int, default=128)
     parser.add_argument("--depth", type=int, default=4)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
@@ -75,12 +75,10 @@ def main():
     basis = tf.stack((tf.ones_like(vx), vx, v2), axis=-1)
     invariant_flux_target = tf.constant(analytic_fluxes(upstream), DTYPE)
 
-    ypde = np.linspace(-0.5, 0.5, args.nx_pde, dtype=np.float32)
     train_indices = np.union1d(split["macro"], split["moments"])
     ytrain = (reference.x[train_indices] / 80.0).astype(np.float32)
-    yall = tf.constant(np.concatenate((ypde, ytrain)), DTYPE)
-    n_pde = len(ypde)
-    index_of = {int(j): n_pde + i for i, j in enumerate(train_indices)}
+    ytrain = tf.constant(ytrain, DTYPE)
+    index_of = {int(j): i for i, j in enumerate(train_indices)}
     macro_local = tf.constant([index_of[int(j)] for j in split["macro"]], tf.int32)
     moment_local = tf.constant([index_of[int(j)] for j in split["moments"]], tf.int32)
 
@@ -177,44 +175,53 @@ def main():
 
     velocity_weight = weights * (1.0 + 0.1 * v2 * v2)
     velocity_weight /= tf.reduce_sum(velocity_weight)
-    dy = float(ypde[1] - ypde[0])
-
-    def objective(pde_weight, training=True):
-        f_all = distribution_at(yall, training)
-        m_all = moments(f_all)
-        f = f_all[:n_pde]
-        m = {k: v[:n_pde] for k, v in m_all.items()}
+    def objective(ypde, pde_weight, training=True):
+        # A forward-mode JVP gives df/dy at every collocation station without
+        # materialising a huge batch Jacobian. The outer reverse-mode tape in
+        # train_step differentiates this physical derivative with respect to
+        # network parameters.
+        with tf.autodiff.ForwardAccumulator(ypde, tf.ones_like(ypde)) as accumulator:
+            f = distribution_at(ypde, training)
+        dfdx = accumulator.jvp(f)
+        m = moments(f)
         md = discrete_maxwellian(m)
-        dfdx = (f[2:] - f[:-2]) / (2.0 * dy)
-        residual = vx[None, :] * dfdx - (md[1:-1] - f[1:-1]) / KNUDSEN_EFFECTIVE
+        residual = vx[None, :] * dfdx - (md - f) / KNUDSEN_EFFECTIVE
         collision_scale = tf.sqrt(
-            tf.reduce_mean(tf.square((md[1:-1] - f[1:-1]) / KNUDSEN_EFFECTIVE))
+            tf.reduce_mean(tf.square((md - f) / KNUDSEN_EFFECTIVE))
         ) + 1e-8
         absolute_pde = tf.reduce_mean(
             tf.reduce_sum(tf.square(residual / collision_scale) * velocity_weight[None, :], axis=1)
         )
-        denominator = tf.abs(f[1:-1]) + tf.abs(md[1:-1]) + 1e-7
+        denominator = tf.abs(f) + tf.abs(md) + 1e-7
         relative_pde = tf.reduce_mean(
             tf.reduce_sum(tf.square(residual / denominator) * velocity_weight[None, :], axis=1)
         )
+        f_train = distribution_at(ytrain, training)
+        m_train = moments(f_train)
         macro = tf.constant(0.0, DTYPE)
         for key in ("rho", "u", "temperature"):
-            value = tf.gather(m_all[key], macro_local)
+            value = tf.gather(m_train[key], macro_local)
             factor = 12.0 if key == "u" else 1.0
             macro += factor * tf.reduce_mean(tf.square((value - macro_targets[key]) / scales[key]))
-        qloss = tf.reduce_mean(tf.square((tf.gather(m_all["qx"], moment_local) - q_target) / scales["qx"]))
-        sloss = tf.reduce_mean(tf.square((tf.gather(m_all["sigma_xx"], moment_local) - sigma_target) / scales["sigma_xx"]))
+        qloss = tf.reduce_mean(tf.square((tf.gather(m_train["qx"], moment_local) - q_target) / scales["qx"]))
+        sloss = tf.reduce_mean(tf.square((tf.gather(m_train["sigma_xx"], moment_local) - sigma_target) / scales["sigma_xx"]))
         flux_error = (m["flux"] - invariant_flux_target[None, :]) / tf.abs(invariant_flux_target[None, :])
         flux_loss = tf.reduce_mean(tf.square(flux_error))
         regularizer = tf.add_n([tf.reduce_mean(tf.square(v)) for v in model.trainable_variables])
-        total = (25.0 * macro + 12.0 * qloss + 12.0 * sloss + 20.0 * flux_loss
+        total = (50.0 * macro + 40.0 * qloss + 30.0 * sloss + 100.0 * flux_loss
                  + pde_weight * (absolute_pde + 0.02 * relative_pde) + 1e-7 * regularizer)
         return total, absolute_pde, relative_pde, macro, qloss, sloss, flux_loss, residual, m
 
     @tf.function
-    def train_step(pde_weight):
+    def train_step(epoch, pde_weight):
+        random_y = tf.random.stateless_uniform(
+            (args.nx_pde - 2,), seed=tf.stack((tf.cast(args.seed, tf.int32), epoch)),
+            minval=-0.5, maxval=0.5, dtype=DTYPE
+        )
+        ypde = tf.concat((tf.constant([-0.5], DTYPE), tf.sort(random_y),
+                          tf.constant([0.5], DTYPE)), axis=0)
         with tf.GradientTape() as tape:
-            values = objective(pde_weight, training=True)
+            values = objective(ypde, pde_weight, training=True)
         gradients = tape.gradient(values[0], model.trainable_variables)
         gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -229,7 +236,7 @@ def main():
             pde_weight = 0.0
         else:
             pde_weight = min(1.0, (epoch - args.warmup_epochs) / max(args.ramp_epochs, 1))
-        values = train_step(tf.constant(pde_weight, DTYPE))
+        values = train_step(tf.constant(epoch, tf.int32), tf.constant(pde_weight, DTYPE))
         if epoch == 1 or epoch % args.print_every == 0 or epoch == args.epochs:
             row = [epoch, pde_weight] + [float(v) for v in values[:7]]
             history.append(row)
@@ -242,7 +249,8 @@ def main():
             )
     if best_weights is not None:
         model.set_weights(best_weights)
-    final = objective(tf.constant(1.0, DTYPE), training=False)
+    audit_y = tf.linspace(tf.constant(-0.5, DTYPE), tf.constant(0.5, DTYPE), 641)
+    final = objective(audit_y, tf.constant(1.0, DTYPE), training=False)
 
     def predict_all(chunk=32):
         collected = {k: [] for k in ("rho", "u", "temperature", "qx", "sigma_xx", "flux")}
@@ -300,6 +308,9 @@ def main():
         "reference_sha256": reference.metadata["sha256"],
         "quadrature_points_full": int(reference.metadata["nv"]),
         "quadrature_points_axisymmetric": int(len(vx_np)),
+        "pde_collocation_points_per_epoch": int(args.nx_pde),
+        "pde_collocation": "stateless-uniform resampling with automatic differentiation",
+        "residual_audit_points": 641,
         "macro_lock_points": int(len(split["macro"])),
         "moment_anchor_points": int(len(split["moments"])),
         "held_out_points": int(len(regions["held_out_full"])),

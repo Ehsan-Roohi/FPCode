@@ -71,3 +71,19 @@ The archive includes the blind DVM comparison for all five fields, the exact
 train/validation indices, optimisation history, metrics, checksums, weights,
 and a six-panel physics figure. Plot legends sit above their axes and outside
 the data curves.
+
+### H2R anti-aliasing correction
+
+The first Gate-1 run exposed a decisive distinction between training-grid and
+dense-grid conservation: flux RMS at the fixed collocation stations was below
+1%, while dense held-out flux profiles varied by 37--55%. Sparse-field errors
+showed the same pattern. This is collocation aliasing, not insufficient epoch
+count, and the scientific gates are not relaxed.
+
+H2R removes the finite-difference loophole. It evaluates `df/dx` by TensorFlow
+forward-mode automatic differentiation, resamples 257 interior collocation
+stations every epoch, and audits the final residual independently on 641 fixed
+stations. Flux locks are applied to the resampled stations, so a narrow
+between-node excursion cannot remain systematically invisible. Checkpoint
+selection still uses training objectives only; all dense DVM profiles remain
+held out until the final audit.

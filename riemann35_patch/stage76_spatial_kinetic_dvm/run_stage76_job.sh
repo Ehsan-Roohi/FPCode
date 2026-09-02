@@ -4,7 +4,11 @@ ROOT=${ROOT:?ROOT required}
 OUT=${OUT:?OUT required}
 BUNDLE=${BUNDLE:?BUNDLE required}
 cd "$ROOT"
-python riemann35_patch/stage76_spatial_kinetic_dvm/run_stage76.py --output "$OUT" | tee "$OUT/stage76.stdout.log"
+python riemann35_patch/stage76_spatial_kinetic_dvm/run_stage76.py \
+  --output "$OUT" \
+  --coarse-vcells 41 \
+  --fine-vcells 49 \
+  | tee "$OUT/stage76.stdout.log"
 python - <<'PY' "$OUT" "$BUNDLE"
 import hashlib,pathlib,sys,zipfile
 out=pathlib.Path(sys.argv[1]); bundle=pathlib.Path(sys.argv[2])

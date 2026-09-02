@@ -44,3 +44,30 @@ FP_H2_REFERENCE=/absolute/path/to/standing_M2_fullstate.npz FP_H2_MACH=2 \
 This gate audits SHA-256 provenance, direct moment consistency, deterministic
 disjoint train/validation indices, positivity, endpoint equilibrium, and the
 outer-tail artifact. It makes no PINN accuracy claim.
+
+## Gate 1: stationary BGK equation
+
+`train_h2_bgk.py` is the first actual H2 solve. It maps the 80-mean-free-path
+domain to the neural coordinate and fixes `Kn_eff=1/80`. The model uses four
+128-wide SiLU layers and the positive bounded `M exp(psi)` representation with
+the heat-flux and normal-stress modes stated in the paper. The collision term
+is a local discrete Maxwellian built from the moments implied by the neural
+distribution. No full-state distribution values and no dense profiles enter
+the loss.
+
+Training uses 32 macro locks, 16 joint heat-flux/stress anchors, the steady
+velocity-weighted BGK residual, and the three collision-invariant fluxes. All
+other 1552 interior stations are held out. The preregistered shock-core gates
+are 2% for each macro field and 20% for each nonequilibrium moment; flux drift
+is limited to 1%, the normalised residual to 0.2, and boundary error to 0.5%.
+These thresholds are written in `h2_bgk.py` before the first run.
+
+```bash
+FP_H2_REFERENCE=/absolute/path/to/standing_M2_fullstate.npz FP_H2_MACH=2 \
+  bash FP_PINN/pinn/normal_shock_h1/RUN_H2_BGK_UNITY.sh
+```
+
+The archive includes the blind DVM comparison for all five fields, the exact
+train/validation indices, optimisation history, metrics, checksums, weights,
+and a six-panel physics figure. Plot legends sit above their axes and outside
+the data curves.

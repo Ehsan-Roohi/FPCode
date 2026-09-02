@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-from h2_bgk import H2_GATES, KNUDSEN_EFFECTIVE, PSI_MAX, compact_quadrature_arrays
+from h2_bgk import (H2_GATES, KNUDSEN_EFFECTIVE, LOG_CEILING, LOG_FLOOR,
+                    LOG_TILT_LIMIT, PSI_MAX, compact_quadrature_arrays)
 from h2_reference import heldout_metrics, load_reference, validation_regions
 from shock_physics import analytic_fluxes, normal_shock_states
 
@@ -177,19 +178,24 @@ def main():
     def project_five(log_raw, target):
         beta = tf.zeros((tf.shape(log_raw)[0], 5), DTYPE)
         eye = tf.eye(5, dtype=DTYPE)[None, :, :]
+        # Keep the Maxwellian and Newton factors separately bounded as in the
+        # successful H2R2 run, then add them in log space to prevent underflow.
+        bounded_base = tf.clip_by_value(
+            log_raw, LOG_FLOOR + LOG_TILT_LIMIT, LOG_CEILING)
         for _ in range(a.projection_steps):
             expo = tf.einsum("xi,vi->xv", beta, b5)
-            # Combine both exponentials before clipping.  Multiplying an
-            # already tiny Maxwellian by the tilt can flush float32 subnormal
-            # tail values to zero on a GPU even though the ansatz is positive.
-            f = tf.exp(tf.clip_by_value(log_raw+expo, -80.0, 25.0))
+            bounded_tilt = tf.clip_by_value(expo, -LOG_TILT_LIMIT, LOG_TILT_LIMIT)
+            f = tf.exp(tf.clip_by_value(
+                bounded_base + bounded_tilt, LOG_FLOOR, LOG_CEILING))
             wf = f*weights[None, :]
             current = tf.einsum("xv,vi->xi", wf, b5)
             jac = tf.einsum("xv,vi,vj->xij", wf, b5, b5)
             delta = tf.linalg.solve(jac+2e-7*eye, (target-current)[..., None])[..., 0]
             beta += 0.72*tf.clip_by_value(delta, -0.7, 0.7)
         expo = tf.einsum("xi,vi->xv", beta, b5)
-        return tf.exp(tf.clip_by_value(log_raw+expo, -80.0, 25.0))
+        bounded_tilt = tf.clip_by_value(expo, -LOG_TILT_LIMIT, LOG_TILT_LIMIT)
+        return tf.exp(tf.clip_by_value(
+            bounded_base + bounded_tilt, LOG_FLOOR, LOG_CEILING))
 
     def distribution(y, training):
         x = 80*y

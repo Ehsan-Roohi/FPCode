@@ -106,7 +106,8 @@ H2R2 is explicitly a BGK control experiment. It validates the inference and
 conservation machinery before replacing BGK with a nonlinear Fokker--Planck
 collision operator; it is not itself the paper's Fokker--Planck novelty claim.
 
-The positive projection combines the Maxwellian and Newton correction in log
-space before applying the float32 floor. This prevents GPU subnormal flushing
-from reporting an exactly zero far-tail value for a mathematically positive
+The positive projection bounds the Maxwellian base and Newton correction
+separately, then combines them in log space before applying the float32 floor.
+This preserves Newton stability while preventing GPU subnormal flushing from
+reporting an exactly zero far-tail value for a mathematically positive
 distribution.

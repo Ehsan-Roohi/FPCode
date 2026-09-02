@@ -7,6 +7,9 @@ import numpy as np
 PSI_MAX = 0.65
 KNUDSEN_EFFECTIVE = 1.0 / 80.0
 PROJECTION_MOMENTS = ("mass", "momentum", "energy", "normal_stress", "energy_flux")
+LOG_FLOOR = -80.0
+LOG_CEILING = 25.0
+LOG_TILT_LIMIT = 12.0
 H2_GATES = {
     "rho_core_relative_l2": 2.0e-2,
     "u_core_relative_l2": 2.0e-2,
@@ -105,3 +108,10 @@ def raw_projection_targets(fields, invariant_fluxes, velocity_scale):
          np.full_like(rho, energy / scale**3)),
         axis=-1,
     )
+
+
+def positive_log_tilt_numpy(log_raw, correction):
+    """Reference implementation of the bounded, non-underflowing tilt."""
+    base = np.clip(np.asarray(log_raw), LOG_FLOOR + LOG_TILT_LIMIT, LOG_CEILING)
+    tilt = np.clip(np.asarray(correction), -LOG_TILT_LIMIT, LOG_TILT_LIMIT)
+    return np.exp(np.clip(base + tilt, LOG_FLOOR, LOG_CEILING))

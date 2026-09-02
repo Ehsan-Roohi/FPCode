@@ -6,7 +6,8 @@ import numpy as np
 
 from h2_bgk import (H2_GATES, KNUDSEN_EFFECTIVE, PSI_MAX, hermite_modes,
                     compact_quadrature_arrays, conservative_fields_numpy,
-                    moments_numpy, raw_projection_targets)
+                    moments_numpy, positive_log_tilt_numpy,
+                    raw_projection_targets)
 
 
 class H2BGKTests(unittest.TestCase):
@@ -59,6 +60,14 @@ class H2BGKTests(unittest.TestCase):
         np.testing.assert_allclose(target[:, 1]*2.0, flux[0])
         np.testing.assert_allclose(target[:, 3]*4.0, flux[1])
         np.testing.assert_allclose(target[:, 4]*8.0, flux[2])
+
+    def test_bounded_log_tilt_is_positive_without_exploding(self):
+        value = positive_log_tilt_numpy(
+            np.array([-1.0e4, -75.0, -3.0]),
+            np.array([-1.0e4, -10.0, 1.0e4]))
+        self.assertTrue(np.all(value > 0.0))
+        self.assertGreaterEqual(value.min(), np.exp(-80.0))
+        self.assertLessEqual(value.max(), np.exp(9.0))
 
 
 if __name__ == "__main__":

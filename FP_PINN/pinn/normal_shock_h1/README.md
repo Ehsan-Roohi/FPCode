@@ -18,4 +18,9 @@ bash FP_PINN/pinn/normal_shock_h1/RUN_H1_GATE1_UNITY.sh
 
 # H1R pilot: Simpson moments and a structural three-flux exponential tilt
 bash FP_PINN/pinn/normal_shock_h1/RUN_H1R_PILOT_UNITY.sh
+
+# F1: continue the accepted H2R2 state with the nonlinear Dougherty--FP operator
+FP_F1_REFERENCE=/absolute/path/to/standing_M2_fullstate.npz \
+FP_F1_RESTART=/absolute/path/to/h2r2.weights.h5 \
+bash FP_PINN/pinn/normal_shock_h1/RUN_F1_FP_UNITY.sh
 ```

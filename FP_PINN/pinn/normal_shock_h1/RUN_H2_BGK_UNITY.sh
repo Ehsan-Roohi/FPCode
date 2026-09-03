@@ -57,10 +57,11 @@ RC=$?
 set -e
 
 if [[ -d "$OUT" ]] && find "$OUT" -maxdepth 1 -type f -print -quit | grep -q .; then
-    find "$OUT" -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > "$OUT/SHA256SUMS"
+    (cd "$OUT" && find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 \
+        | sort -z | xargs -0 sha256sum > SHA256SUMS)
     ARCHIVE="$ROOT/FP_PINN_H2_BGK_JOB${SLURM_JOB_ID}_M${MACH//./p}_COMPLETE.zip"
     (cd "$HERE/outputs" && zip -qr "$ARCHIVE" "$(basename "$OUT")" "$(basename "$AUDIT")")
-    sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+    (cd "$ROOT" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256")
     echo "H2_ARCHIVE=$ARCHIVE"
 else
     echo "H2_OUTPUT_NOT_CREATED=$OUT" >&2

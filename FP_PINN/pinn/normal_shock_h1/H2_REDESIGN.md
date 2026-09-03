@@ -111,3 +111,23 @@ separately, then combines them in log space before applying the float32 floor.
 This preserves Newton stability while preventing GPU subnormal flushing from
 reporting an exactly zero far-tail value for a mathematically positive
 distribution.
+
+## F1 nonlinear Fokker--Planck operator switch
+
+F1 starts from the accepted H2R2 weights but removes every BGK-DVM anchor from
+the optimization loss.  It jointly relaxes the monotone macroscopic switches
+and microscopic correction under the nonlinear local-moment
+Dougherty--Fokker--Planck residual.  The three steady fluxes remain algebraic,
+and a single midpoint-density gauge fixes the translational freedom of the
+stationary shock without prescribing its thickness or nonequilibrium moments.
+
+The velocity collision term is evaluated in axisymmetric divergence form on
+the registered tensor quadrature, using `s=r^2` to remove the coordinate
+singularity at the axis.  A three-invariant null-space projection enforces zero
+discrete production of mass, momentum, and energy.  Both the invariant defect
+and the size of this conservative correction have preregistered gates.
+
+The Mach-2 BGK DVM is loaded after F1 optimization only.  Its five profiles are
+reported as a cross-model comparison and are not acceptance gates or a claimed
+same-operator validation.  A later F2 gate must use an independent
+Fokker--Planck solution before quantitative FP accuracy is claimed.

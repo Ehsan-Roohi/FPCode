@@ -1,0 +1,76 @@
+{
+  "actual_nx": 400,
+  "actual_ny": 300,
+  "args": {
+    "compress": true,
+    "front_x_cut": "stage16A3",
+    "front_x_quantile": 0.22,
+    "grid_nx": 400,
+    "grid_ny": 300,
+    "high_quantile": 99.0,
+    "hot_T": 1000.0,
+    "hot_extreme_T": 5000.0,
+    "macro_update_freq": 10,
+    "max_cells_per_sample": 0,
+    "min_count": 50.0,
+    "near_wall_hi": 1.05,
+    "near_wall_lo": 1.0,
+    "no_patch_grid": false,
+    "outdir": "stage16G1_exact_fp_replica_entropy",
+    "particles": 8000000,
+    "resume": false,
+    "sample_every": 100,
+    "seed": 917164,
+    "source": "164CylFPAdaptive.py",
+    "strict_grid": true,
+    "total_steps": 1800,
+    "volfrac_tol": 1e-12,
+    "warmup": 400
+  },
+  "elapsed_sec": 623.5358815193176,
+  "end_time": "Tue Jun  9 20:09:48 2026",
+  "keymap": {
+    "Beta": "d_c_Beta",
+    "C": "d_c_C",
+    "Gamma": "d_c_Gamma",
+    "N": "d_N",
+    "P_tensor": "P_tensor",
+    "T": "d_T",
+    "U": "d_U",
+    "adaptation": "d_adaptation_map",
+    "alpha": "d_alpha",
+    "q": "d_q",
+    "rho": "d_rho",
+    "tau": "d_tau",
+    "vol_frac": "d_vol_frac"
+  },
+  "num_samples_written": 14,
+  "patch_changes": [
+    {
+      "lineno": 54,
+      "new": "N_CELLS_X = 400",
+      "old": "N_CELLS_X = 1500"
+    },
+    {
+      "lineno": 55,
+      "new": "N_CELLS_Y = 300",
+      "old": "N_CELLS_Y = 1000"
+    },
+    {
+      "lineno": 64,
+      "new": "GLOBAL_INIT_PARTICLES = 8000000",
+      "old": "GLOBAL_INIT_PARTICLES = 100000000"
+    },
+    {
+      "lineno": 68,
+      "new": "TOTAL_STEPS = 1800",
+      "old": "TOTAL_STEPS = 100000"
+    }
+  ],
+  "patched_source": "stage16G1_exact_fp_replica_entropy/stage16B_164_patched_rank000.py",
+  "rank": 0,
+  "size": 1,
+  "source": "164CylFPAdaptive.py",
+  "source_sha256": "13e316931d98b360a7f0f7f72ecb3c3908c1df18958ba30bf0b46b39e6259af6",
+  "start_time": "Tue Jun  9 19:59:10 2026"
+}

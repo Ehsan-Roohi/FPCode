@@ -1,0 +1,22 @@
+[
+  {
+    "lineno": 54,
+    "new": "N_CELLS_X = 400",
+    "old": "N_CELLS_X = 1500"
+  },
+  {
+    "lineno": 55,
+    "new": "N_CELLS_Y = 300",
+    "old": "N_CELLS_Y = 1000"
+  },
+  {
+    "lineno": 64,
+    "new": "GLOBAL_INIT_PARTICLES = 8000000",
+    "old": "GLOBAL_INIT_PARTICLES = 100000000"
+  },
+  {
+    "lineno": 68,
+    "new": "TOTAL_STEPS = 1800",
+    "old": "TOTAL_STEPS = 100000"
+  }
+]

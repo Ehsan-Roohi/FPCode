@@ -1,0 +1,43 @@
+Stage16G1 exact-FP replica collector summary
+==============================================================================
+rank/size              = 0/1
+source                 = 164CylFPAdaptive.py
+actual_grid            = 400x300
+requested_grid         = 400x300
+particles              = 8000000
+steps/warmup/every     = 1800/400/100
+min_count              = 50.0
+max_cells_per_sample   = 0
+samples_written        = 14
+
+Keymap
+  Beta           -> d_c_Beta
+  C              -> d_c_C
+  Gamma          -> d_c_Gamma
+  N              -> d_N
+  P_tensor       -> P_tensor
+  T              -> d_T
+  U              -> d_U
+  adaptation     -> d_adaptation_map
+  alpha          -> d_alpha
+  q              -> d_q
+  rho            -> d_rho
+  tau            -> d_tau
+  vol_frac       -> d_vol_frac
+
+Last samples
+  step=800 chosen=108389 valid=108389 T50=196.27761689559085 T99=2286.083980176144 Tmax=9532.99263556913 hot=1957 nearwall=357 safe=106430
+  step=900 chosen=107921 valid=107921 T50=196.3792600582634 T99=2506.2512418290485 Tmax=9560.241791380191 hot=2197 nearwall=360 safe=105724
+  step=1000 chosen=107437 valid=107437 T50=196.54342876285602 T99=2800.585116721177 Tmax=9780.524629256244 hot=2437 nearwall=363 safe=104998
+  step=1100 chosen=107074 valid=107074 T50=196.68014758310215 T99=3054.8014568438307 Tmax=9453.27648305397 hot=2660 nearwall=355 safe=104413
+  step=1200 chosen=106573 valid=106573 T50=196.87440878598028 T99=3288.915630346612 Tmax=9465.16699461717 hot=2904 nearwall=356 safe=103666
+  step=1300 chosen=106116 valid=106116 T50=197.0172391017282 T99=3503.2212580401715 Tmax=10195.90110102396 hot=3115 nearwall=351 safe=102998
+  step=1400 chosen=105590 valid=105590 T50=197.05793089344354 T99=3778.518819497408 Tmax=9702.569718217197 hot=3328 nearwall=353 safe=102262
+  step=1500 chosen=105101 valid=105101 T50=197.07262551889863 T99=3977.7165487039856 Tmax=9532.801931815378 hot=3586 nearwall=352 safe=101514
+  step=1600 chosen=104679 valid=104679 T50=197.2183066564675 T99=4176.9835607333125 Tmax=9742.994223208621 hot=3822 nearwall=350 safe=100855
+  step=1700 chosen=104002 valid=104002 T50=197.37359886447655 T99=4429.78518284776 Tmax=10259.378716953164 hot=4067 nearwall=347 safe=99932
+
+Files
+  stage16G1_exact_fp_replica_entropy/stage16B_schema.json
+  stage16G1_exact_fp_replica_entropy/stage16B_sample_summary_rank000.csv
+  stage16G1_exact_fp_replica_entropy/samples

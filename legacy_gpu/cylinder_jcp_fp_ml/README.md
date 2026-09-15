@@ -9,6 +9,12 @@ Unity project while auditing the JCP manuscript cases. The source directory is:
 
 ## Contents
 
+- `../../FP_PINN/legacy_source/147CylFP.py`: the canonical 5,000-step paper
+  configuration.  It runs the exact cubic-FP and the 16-to-9 GPU-native DNN
+  sequentially and writes both field files and the surface-coefficient
+  comparison.  The accidental Stage12A insertion in the Unity top-level copy
+  has been removed; the original 16-feature inference path is restored.
+
 - `exact_fp/147CylFP_ENTROPY_60371609.py`: syntax-valid pre-Stage12A snapshot
   associated with Unity job `60371609` (3,000 steps, 500 warm-up steps,
   600,000 initial particles).
@@ -41,6 +47,17 @@ The five A--E ESML scripts are retained as a sweep because they differ in
 were ultimately used as manuscript replicas; that selection should be made
 from the archived run summaries/checkpoints. Keeping every member avoids
 silently publishing the wrong neural configuration.
+
+The ESML sweep and the Cartesian `164CylFPAdaptive.py` replica are later
+validation/audit tracks.  They are not the source of the annular Physics/ML
+contours used in the cylinder section of the paper.  Those contours match the
+half-annulus quadtree geometry and paired Physics/ML exports of `147CylFP.py`.
+
+Two source/manuscript discrepancies remain visible and are intentionally not
+silently changed here: the runnable Unity source uses `U_INF = 2634.1` m/s and
+`R_DOM = 0.65` m, while the manuscript states 2624 m/s and a radial extent of
+`1.5D = 0.4572` m.  Reproducing the archived figures therefore means retaining
+the source values; changing them defines a new verification case.
 
 Large result directories, checkpoints, scheduler output, and particle fields
 are intentionally excluded. These programs require the original

@@ -3,7 +3,6 @@ import math
 import time
 import warnings
 import matplotlib.pyplot as plt
-from matplotlib.collections import PolyCollection
 import pandas as pd
 from numba import cuda, float32, float64
 import cupy as cp  # REQUIRED FOR FAST ML
@@ -771,80 +770,11 @@ class CubicFPSolver:
             
             X_cp = cp.asarray(self.ml_input)[:n_act] 
             
-            # Normalize & Forward Pass
-            # STAGE12A_AUGMENT_24_TO_34_BEGIN
-# If the loaded Stage12A model expects 34 inputs but the legacy online solver
-# builds only the 24 base inputs, append the same geometry/front/stagnation
-# feature family used in Stage12A training. This is still pure ML:
-# no physics fallback, no clipping/projection, no hybrid closure.
-try:
-    if int(self.cp_mean_in.shape[0]) == 34 and int(X_cp.shape[1]) == 24:
-        _pi = np.float32(3.141592653589793)
-        _eps = np.float32(1.0e-20)
-
-        # Base Stage12A columns from the existing 24-vector:
-        # 16 low-order features + log_rho + log_T + s_raw + stress_norm + heat_norm
-        # + r_over_R + cos(theta) + sin(theta)
-        _log_rho = X_cp[:, 16]
-        _log_T   = X_cp[:, 17]
-        _rR      = X_cp[:, 21]
-        _cth     = X_cp[:, 22]
-        _sth     = X_cp[:, 23]
-
-        _theta = cp.arctan2(_sth, _cth)
-        _theta = cp.where(_theta < np.float32(0.0), _theta + np.float32(2.0) * _pi, _theta)
-
-        # Geometric reconstruction matching the 4-column geom convention:
-        # geom0=x/R, geom1=y/R, geom2=r/R, geom3=theta.
-        _geom0 = _rR * _cth
-        _geom1 = _rR * _sth
-        _geom2 = _rR
-        _geom3 = _theta
-
-        _sin_geom_last = cp.sin(_geom3)
-        _cos_geom_last = cp.cos(_geom3)
-
-        _dtheta = cp.arctan2(cp.sin(_theta - _pi), cp.cos(_theta - _pi))
-        _abs_front_angle = cp.abs(_dtheta)
-
-        # Smooth shock/front proxy used only as a learned input feature.
-        # Centered on the bow-shock/stagnation band found in the diagnostics.
-        _front_gate = cp.exp(-np.float32(0.5) * (_abs_front_angle / np.float32(0.65)) ** 2)
-        _shock_radial = cp.exp(-np.float32(0.5) * ((_rR - np.float32(1.15)) / np.float32(0.065)) ** 2)
-        _shock_indicator_explicit = _front_gate * _shock_radial
-
-        # Front stagnation proxy: high near theta=pi and r/R around the shock/stagnation band.
-        _front_stag_proxy = cp.exp(-np.float32(0.5) * (_abs_front_angle / np.float32(0.45)) ** 2) * \
-                            cp.exp(-np.float32(0.5) * ((_rR - np.float32(1.10)) / np.float32(0.18)) ** 2)
-
-        # Entropy-proxy-like local feature from log-rho/log-T.
-        _local_sstar_like = np.float32(1.5) * _log_T - _log_rho
-
-        _extra = cp.stack([
-            _shock_indicator_explicit,
-            _geom0,
-            _geom1,
-            _geom2,
-            _geom3,
-            _sin_geom_last,
-            _cos_geom_last,
-            _abs_front_angle,
-            _front_stag_proxy,
-            _local_sstar_like,
-        ], axis=1).astype(cp.float32)
-
-        X_cp = cp.concatenate([X_cp.astype(cp.float32), _extra], axis=1)
-
-        if X_cp.shape[1] != self.cp_mean_in.shape[0]:
-            raise RuntimeError(
-                "Stage12A online feature augmentation failed: "
-                f"X_cp has {X_cp.shape[1]} columns but mean_in has {self.cp_mean_in.shape[0]}"
-            )
-except Exception as _stage12A_exc:
-    print("[Stage12A] online 24-to-34 feature augmentation failed:", repr(_stage12A_exc))
-    raise
-# STAGE12A_AUGMENT_24_TO_34_END
-        X_norm = (X_cp - self.cp_mean_in) / self.cp_scale_in
+            # Normalize & Forward Pass.  This is the original 16-input model
+            # path used by the 5,000-step paper configuration.  A later
+            # Stage12A feature-augmentation patch was accidentally inserted at
+            # the wrong indentation level and made this source unparsable.
+            X_norm = (X_cp - self.cp_mean_in) / self.cp_scale_in
             H1 = cp.maximum(0, cp.matmul(X_norm, self.cp_W1) + self.cp_b1)
             H2 = cp.maximum(0, cp.matmul(H1, self.cp_W2) + self.cp_b2)
             H3 = cp.maximum(0, cp.matmul(H2, self.cp_W3) + self.cp_b3)
@@ -956,37 +886,16 @@ except Exception as _stage12A_exc:
 def plot_mesh_png(solver, filename="mesh.png"):
     print(f"Generating Mesh PNG ({filename})...")
     try:
-        n_max = int(solver.next_free.copy_to_host()[0])
-        n_max = min(n_max, MAX_NODES)
-        h_C = solver.tree_center.copy_to_host()[:n_max]
-        h_S = solver.tree_size.copy_to_host()[:n_max]
-        h_Ch = solver.tree_children.copy_to_host()[:n_max]
-        h_rho = solver.rho.copy_to_host()[:n_max]
-        leaves = (h_Ch[:,0] == -1) & (h_rho > 0)
-        leaf_indices = np.where(leaves)[0]
-        dr = R_DOM - R_CYL
-        verts = []
-        for idx in leaf_indices:
-            if h_C[idx, 1] > 1.01: continue
-            cx = h_C[idx, 0]; cy = h_C[idx, 1]
-            hw = h_S[idx, 0]; hh = h_S[idx, 1]
-            corners_log = [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx + hw, cy + hh), (cx - hw, cy + hh)]
-            poly = []
-            for (xi, eta) in corners_log:
-                r = R_CYL + xi * dr
-                theta = eta * math.pi
-                poly.append((r * math.cos(theta), r * math.sin(theta)))
-            verts.append(poly)
-        fig, ax = plt.subplots(figsize=(10, 5))
-        coll = PolyCollection(verts, edgecolors='black', facecolors='none', linewidths=0.5)
-        ax.add_collection(coll)
-        ax.set_aspect('equal')
-        ax.set_xlim(-R_DOM, R_DOM)
-        ax.set_ylim(0, R_DOM)
-        ax.set_title(f"Mesh Visualization ({filename})", fontsize=16)
-        plt.savefig(filename)
-        print(f"Mesh saved as '{filename}'")
-        plt.close()
+        import sys
+        from pathlib import Path
+
+        case_root = Path(__file__).resolve().parents[2] / "legacy_gpu" / "cylinder_jcp_fp_ml"
+        if str(case_root) not in sys.path:
+            sys.path.insert(0, str(case_root))
+        from mesh_visualization import plot_solver_mesh
+
+        leaves = plot_solver_mesh(solver, R_CYL, R_DOM, filename)
+        print(f"Mesh saved as '{filename}' ({len(leaves)} active leaves)")
     except Exception as e:
         print(f"Mesh plotting failed: {e}")
 

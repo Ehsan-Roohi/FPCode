@@ -3,7 +3,6 @@ import math
 import time
 import warnings
 import matplotlib.pyplot as plt
-from matplotlib.collections import PolyCollection
 import pandas as pd
 from numba import cuda, float32, float64
 import cupy as cp  # REQUIRED FOR FAST ML
@@ -1170,37 +1169,15 @@ class CubicFPSolver:
 def plot_mesh_png(solver, filename="mesh.png"):
     print(f"Generating Mesh PNG ({filename})...")
     try:
-        n_max = int(solver.next_free.copy_to_host()[0])
-        n_max = min(n_max, MAX_NODES)
-        h_C = solver.tree_center.copy_to_host()[:n_max]
-        h_S = solver.tree_size.copy_to_host()[:n_max]
-        h_Ch = solver.tree_children.copy_to_host()[:n_max]
-        h_rho = solver.rho.copy_to_host()[:n_max]
-        leaves = (h_Ch[:,0] == -1) & (h_rho > 0)
-        leaf_indices = np.where(leaves)[0]
-        dr = R_DOM - R_CYL
-        verts = []
-        for idx in leaf_indices:
-            if h_C[idx, 1] > 1.01: continue
-            cx = h_C[idx, 0]; cy = h_C[idx, 1]
-            hw = h_S[idx, 0]; hh = h_S[idx, 1]
-            corners_log = [(cx - hw, cy - hh), (cx + hw, cy - hh), (cx + hw, cy + hh), (cx - hw, cy + hh)]
-            poly = []
-            for (xi, eta) in corners_log:
-                r = R_CYL + xi * dr
-                theta = eta * math.pi
-                poly.append((r * math.cos(theta), r * math.sin(theta)))
-            verts.append(poly)
-        fig, ax = plt.subplots(figsize=(10, 5))
-        coll = PolyCollection(verts, edgecolors='black', facecolors='none', linewidths=0.5)
-        ax.add_collection(coll)
-        ax.set_aspect('equal')
-        ax.set_xlim(-R_DOM, R_DOM)
-        ax.set_ylim(0, R_DOM)
-        ax.set_title(f"Mesh Visualization ({filename})", fontsize=16)
-        plt.savefig(filename)
-        print(f"Mesh saved as '{filename}'")
-        plt.close()
+        import sys
+        from pathlib import Path
+        case_root = Path(__file__).resolve().parents[1]
+        if str(case_root) not in sys.path:
+            sys.path.insert(0, str(case_root))
+        from mesh_visualization import plot_solver_mesh
+
+        leaves = plot_solver_mesh(solver, R_CYL, R_DOM, filename)
+        print(f"Mesh saved as '{filename}' ({len(leaves)} active leaves)")
     except Exception as e:
         print(f"Mesh plotting failed: {e}")
 

@@ -21,7 +21,13 @@ Unity project while auditing the JCP manuscript cases. The source directory is:
 - `final_exact_replica/stage16B_164_patched_rank000.py`: the exact-FP source
   archived by successful replica job `60686987`, together with its patch
   report, run metadata, and text summary.
-- `SOURCE_MANIFEST.csv`: file sizes, SHA-256 hashes, roles, and Unity provenance.
+- `SOURCE_MANIFEST.csv`: original Unity file sizes, SHA-256 hashes, roles, and
+  source paths. The hashes deliberately identify the archived inputs before
+  the documented mesh-plot correction below.
+- `mesh_visualization.py`: shared, CPU-side plotting utility for the adaptive
+  half-annulus mesh.
+- `quick_mesh_check.py`: CPU-only geometry smoke test; it does not require
+  CUDA, CuPy, the neural weights, or a full flow simulation.
 
 The top-level Unity copies were later modified by the Stage12A augmentation
 patch and contained an indentation error. The files published in `exact_fp/`
@@ -40,9 +46,23 @@ Large result directories, checkpoints, scheduler output, and particle fields
 are intentionally excluded. These programs require the original
 MPI/CUDA/CuPy/Numba HPC environment and `model_params.npz` for neural runs.
 
+## Mesh-plot correction
+
+The archived solver scripts originally selected plotted cells using both
+`children[:, 0] == -1` and `rho > 0`.  In a particle method, a valid active
+cell may temporarily have zero particles and therefore zero density.  Omitting
+those cells made the empty region look like a distorted cylinder.  Conversely,
+after coarsening, a flat scan of all allocated leaf nodes can include former
+children that are no longer active.
+
+The corrected plotter walks the current quadtree from its root, plots every
+reachable leaf regardless of particle occupancy, maps angular cell edges as
+arcs, and draws the cylinder wall explicitly at `R_CYL`.  This changes only
+visualization; it does not change the Fokker--Planck or ESML evolution.
+
 ## Lightweight verification
 
 ```bash
 python -m py_compile exact_fp/*.py neural_esml/*.py final_exact_replica/*.py
+python quick_mesh_check.py
 ```
-

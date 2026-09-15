@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.codex-test-deps/
 .DS_Store
 
 # Transient local smoke runs; publication audit outputs remain tracked.
